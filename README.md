@@ -117,7 +117,7 @@ The former separate SPICE backend repository has been merged into `apps/backend`
 
 ## Releases
 
-Installers and APKs are available from [GitHub Releases](https://github.com/Anti-Depressants-Dev-Team/spice/releases). AppImage builds use the in-app updater; `.deb` and `.rpm` installs are updated through the matching package format.
+Installers and APKs are available from Spice Production. AppImage builds use the in-app updater; `.deb` and `.rpm` installs are updated through the matching package format.
 
 ## License
 
