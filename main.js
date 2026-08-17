@@ -3674,6 +3674,22 @@ app.whenReady().then(async () => {
   // Load a specific URL (only exact supported service origins are allowed).
   ipcMain.handle("load-url", (event, url) => loadSupportedUrl(url));
 
+  ipcMain.handle("confirm-boost", async (event) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    const result = await dialog.showMessageBox(parentWindow, {
+      type: "warning",
+      buttons: ["Cancel", "Enable Boost"],
+      defaultId: 1,
+      cancelId: 0,
+      noLink: true,
+      title: "Volume Boost Warning",
+      message: "Enable Volume Boost?",
+      detail:
+        "Boost can push audio above normal safe levels. Start low, raise the volume slowly, and stop immediately if audio feels painful or distorted.",
+    });
+    return result.response === 1;
+  });
+
   ipcMain.on("navigate", (event, action) => {
     if (!["back", "forward", "reload", "home"].includes(action)) return;
     navigateActiveView(action).catch((error) => {

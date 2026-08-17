@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("api", {
   openSpiceSettings: () => ipcRenderer.invoke("open-spice-settings"),
   openToolbarSettings: () => ipcRenderer.send("open-toolbar-settings"),
   setVolume: (value) => ipcRenderer.send("set-volume", value),
+  confirmBoost: () => ipcRenderer.invoke("confirm-boost"),
   loadUrl: (url) => ipcRenderer.invoke("load-url", url),
   hideView: () => ipcRenderer.send("hide-view"),
   showView: () => ipcRenderer.send("show-view"),
