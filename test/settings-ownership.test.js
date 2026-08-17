@@ -119,6 +119,18 @@ test('Native shell removes the wrapper settings gear from its title bar', () => 
   assert.match(index, /\$\{!nativeMode\s*&&\s*html`<button class="nav-btn" onClick=\$\{function\(\) \{ callApi\('openSettings'\); \}\}/s);
 });
 
+test('Electron boost confirmation uses a native dialog instead of covering the BrowserView', () => {
+  const index = read('index.html');
+  const main = read('main.js');
+  const preload = read('preload.js');
+
+  assert.match(index, /typeof window\.api\.confirmBoost === ['"]function['"]/);
+  assert.match(index, /callApi\('confirmBoost'\)/);
+  assert.match(main, /ipcMain\.handle\("confirm-boost"/);
+  assert.match(main, /dialog\.showMessageBox\(parentWindow/);
+  assert.match(preload, /confirmBoost: \(\) => ipcRenderer\.invoke\("confirm-boost"\)/);
+});
+
 test('desktop updater status reaches the settings window', () => {
   const main = read('main.js');
   const viewPreload = read('preload-view.js');

@@ -915,14 +915,33 @@
             callApi('setBoostEnabled', false);
         }
 
-        function requestBoost() {
+        function enableBoost() {
+            setShowBoostWarning(false);
+            setBoostEnabled(true);
+            callApi('setBoostEnabled', true);
+        }
+
+        async function requestBoost() {
+            // BrowserViews are composited above the shell renderer. A fixed
+            // renderer overlay would therefore black out the title bar while
+            // hiding the warning dialog behind the BrowserView.
+            if (window.api) {
+                try {
+                    if (typeof window.api.confirmBoost === 'function') {
+                        if (await callApi('confirmBoost')) enableBoost();
+                    } else if (window.confirm('Boost can push audio above normal safe levels. Enable Volume Boost?')) {
+                        enableBoost();
+                    }
+                } catch (error) {
+                    console.error('Could not open the native boost warning:', error);
+                }
+                return;
+            }
             setShowBoostWarning(true);
         }
 
         function acceptBoostWarning() {
-            setShowBoostWarning(false);
-            setBoostEnabled(true);
-            callApi('setBoostEnabled', true);
+            enableBoost();
         }
 
         function handleBoostClick(e) {
@@ -1045,7 +1064,7 @@
                             title="Close">${icon(IC.close, 10)}</button>
                 </div>
 
-                ${showBoostWarning && html`
+                ${showBoostWarning && !window.api && html`
                     <div class="fixed inset-0 z-[5000] flex items-center justify-center bg-black/70 no-drag"
                          onMouseDown=${function(e) { e.stopPropagation(); }}
                          onClick=${function(e) { e.stopPropagation(); }}>
