@@ -56,10 +56,19 @@ async function requireActiveSpiceConnectAccount(userId: string) {
   }
 
   const account = await db.query.users.findFirst({
-    columns: { id: true, accountRole: true },
+    columns: {
+      id: true,
+      accountRole: true,
+      moderationStatus: true,
+      moderationExpiresAt: true,
+    },
     where: eq(users.id, userId),
   });
-  const active = Boolean(account && isSpiceConnectAccountRoleActive(account.accountRole));
+  const active = Boolean(account && isSpiceConnectAccountRoleActive(
+    account.accountRole,
+    account.moderationStatus,
+    account.moderationExpiresAt,
+  ));
   await cacheSpiceConnectAccount({ userId, active });
   if (!active) {
     throw new SpiceConnectAuthorizationError('unauthorized', 'Invalid or expired credential.', 401);
@@ -117,6 +126,8 @@ export async function authorizeSpiceConnectRequest(request: Request): Promise<Sp
       expiresAt: remoteDeviceAuthorizations.expiresAt,
       lastUsedAt: remoteDeviceAuthorizations.lastUsedAt,
       accountRole: users.accountRole,
+      moderationStatus: users.moderationStatus,
+      moderationExpiresAt: users.moderationExpiresAt,
     })
     .from(remoteDeviceAuthorizations)
     .innerJoin(users, eq(users.id, remoteDeviceAuthorizations.userId))
@@ -127,7 +138,11 @@ export async function authorizeSpiceConnectRequest(request: Request): Promise<Sp
     ))
     .limit(1);
 
-  if (!authorization || !isSpiceConnectAccountRoleActive(authorization.accountRole)) {
+  if (!authorization || !isSpiceConnectAccountRoleActive(
+    authorization.accountRole,
+    authorization.moderationStatus,
+    authorization.moderationExpiresAt,
+  )) {
     throw new SpiceConnectAuthorizationError('unauthorized', 'Invalid or expired credential.', 401);
   }
 

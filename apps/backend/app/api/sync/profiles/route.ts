@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth';
 import { db } from '@/db';
 import { profiles } from '@/db/schema';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { accountModerationErrorPayload } from '@/lib/moderation';
 import {
   profileWriteMatches,
   profileWriteValues,
@@ -40,6 +41,10 @@ export async function GET(request: Request) {
       profiles: userProfiles,
     });
   } catch (error) {
+    const moderationPayload = accountModerationErrorPayload(error);
+    if (moderationPayload) {
+      return jsonResponse(moderationPayload, { status: 403 });
+    }
     return jsonResponse(
       {
         error: 'sync_get_profiles_failed',

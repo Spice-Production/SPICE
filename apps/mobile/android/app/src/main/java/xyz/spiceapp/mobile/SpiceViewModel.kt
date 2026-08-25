@@ -49,6 +49,7 @@ import xyz.spiceapp.mobile.data.update.AppUpdateUiState
 import xyz.spiceapp.mobile.data.update.DurableAppUpdateDownload
 import xyz.spiceapp.mobile.data.update.DurableAppUpdateDownloadManager
 import xyz.spiceapp.mobile.data.update.parseStableSemanticVersion
+import xyz.spiceapp.mobile.model.AccountBlock
 import xyz.spiceapp.mobile.model.AccountSession
 import xyz.spiceapp.mobile.model.AccentTheme
 import xyz.spiceapp.mobile.model.AppScreen
@@ -112,6 +113,7 @@ data class SpiceUiState(
     val smartQueueEnabled: Boolean = true,
     val accentTheme: AccentTheme = AccentTheme.MidnightVelvet,
     val accountSession: AccountSession? = null,
+    val accountBlock: AccountBlock? = null,
     val pairedDeviceCredential: PairedDeviceCredential? = null,
     val spiceConnectEnabled: Boolean = false,
     val pairingCode: String = "",
@@ -258,13 +260,72 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
         initializeLibraryAndHome()
         observePlaybackTransitions()
         _uiState.value.accountSession?.let { session ->
-            loadProfileSummary(session)
-            loadPendingAccountInvites(session)
+            verifyRestoredAccountSession(session)
         }
         if (shouldStartSpiceConnect()) {
             startSpiceConnect()
         }
         if (!resumeDurableAppUpdateDownload()) checkForAppUpdate()
+    }
+
+    private fun verifyRestoredAccountSession(session: AccountSession) {
+        viewModelScope.launch {
+            runCatching { api.fetchAccountMe(session.token) }
+                .onSuccess { account ->
+                    if (account.moderationStatus != "active") {
+                        _uiState.value = _uiState.value.copy(
+                            accountBlock = accountBlockFromModeration(
+                                status = account.moderationStatus,
+                                reason = account.moderationReason,
+                                expiresAt = account.moderationExpiresAt,
+                            ),
+                        )
+                        return@onSuccess
+                    }
+                    loadProfileSummary(session)
+                    loadPendingAccountInvites(session)
+                }
+                .onFailure { error ->
+                    // A blocked account rejects /account/me with 403 before the
+                    // rest of the session work can start.
+                    if (!applyAccountBlockFromApiError(error)) {
+                        // Offline or transient failure: keep the existing restore
+                        // behavior so local playback still works.
+                        loadProfileSummary(session)
+                        loadPendingAccountInvites(session)
+                    }
+                }
+        }
+    }
+
+    private fun accountBlockFromModeration(
+        status: String,
+        reason: String,
+        expiresAt: String,
+    ): AccountBlock {
+        val isTimeout = status == "timeout"
+        return AccountBlock(
+            status = if (isTimeout) "timeout" else "banned",
+            reason = reason.trim(),
+            expiresAt = expiresAt.trim(),
+        )
+    }
+
+    private fun applyAccountBlockFromApiError(error: Throwable): Boolean {
+        val apiError = error as? SpiceApiException ?: return false
+        val code = apiError.code
+        if (code != "account_timed_out" && code != "account_banned") return false
+        val isTimeout = code == "account_timed_out"
+        _uiState.value = _uiState.value.copy(
+            accountBlock = AccountBlock(
+                status = if (isTimeout) "timeout" else "banned",
+                reason = apiError.moderationReason?.trim().orEmpty(),
+                expiresAt = apiError.moderationExpiresAt?.trim().orEmpty(),
+            ),
+            accountLoading = false,
+            profileLoading = false,
+        )
+        return true
     }
 
     fun checkForAppUpdate() {
@@ -1444,6 +1505,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                 runCatching { api.signIn(email, password) }
                     .onSuccess(::completeAccountSignIn)
                     .onFailure { error ->
+                        applyAccountBlockFromApiError(error)
                         _uiState.value = _uiState.value.copy(
                             accountLoading = false,
                             message = error.message ?: "Account sign-in failed.",
@@ -1580,6 +1642,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
         connectPreferences.edit().remove(KEY_SELECTED_PLAYBACK_DEVICE_ID).apply()
         _uiState.value = _uiState.value.copy(
             accountSession = null,
+            accountBlock = null,
             profileSummary = null,
             profileLoading = false,
             authPassword = "",
@@ -2981,7 +3044,8 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                         profileLoading = false,
                     )
                 }
-                .onFailure {
+                .onFailure { error ->
+                    applyAccountBlockFromApiError(error)
                     _uiState.value = _uiState.value.copy(profileLoading = false)
                 }
         }
@@ -3043,7 +3107,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                 if (error.statusCode != 401) throw error
                 clearPairedCredential("Paired-device access was revoked or expired.")
                 if (!accountToken.isNullOrBlank()) return block(accountToken)
-                throw SpiceApiException("Pairing expired or was revoked. Enter a new pairing code.", 401, error)
+                throw SpiceApiException("Pairing expired or was revoked. Enter a new pairing code.", 401, cause = error)
             }
         }
         if (!accountToken.isNullOrBlank()) return block(accountToken)

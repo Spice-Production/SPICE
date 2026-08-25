@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { isAccountModerationBlocked, resolveAccountModeration } from './moderation.ts';
 
 export const SPICE_CONNECT_PAIRING_CODE_TTL_MS = 5 * 60 * 1000;
 export const SPICE_CONNECT_DEVICE_AUTH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -35,8 +36,18 @@ export type RemoteAuthorizationRevokeResolution<T> = {
   status: 'conflict';
 };
 
-export function isSpiceConnectAccountRoleActive(accountRole: unknown) {
-  return accountRole !== 'banned';
+export function isSpiceConnectAccountRoleActive(
+  accountRole: unknown,
+  moderationStatus?: unknown,
+  moderationExpiresAt?: unknown,
+) {
+  if (accountRole === 'banned') return false;
+  if (moderationStatus === undefined || moderationStatus === null) return true;
+  const moderation = resolveAccountModeration({
+    moderationStatus: typeof moderationStatus === 'string' ? moderationStatus : null,
+    moderationExpiresAt: typeof moderationExpiresAt === 'string' ? moderationExpiresAt : null,
+  });
+  return !isAccountModerationBlocked(moderation);
 }
 
 function secretForPairing() {

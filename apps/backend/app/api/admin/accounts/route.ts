@@ -8,11 +8,12 @@ import {
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { verifySession } from '@/lib/auth';
 import { requireAdminAccount, getAccountSnapshotForUserId } from '@/lib/accounts';
-import { serializeAccount } from '@/lib/account';
+import { serializeAccount, isAdminRole } from '@/lib/account';
 import {
   invalidateSpiceConnectAccount,
   invalidateSpiceConnectPairedAuthorization,
 } from '@/lib/spice-connect-redis';
+import { resolveAccountModerationUpdate } from '@/lib/moderation';
 import { eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
@@ -96,34 +97,59 @@ export async function POST(request: Request) {
       return jsonResponse({ error: 'user_not_found', message: 'Target user does not exist.' }, { status: 404 });
     }
 
-    // 2. Update users table if accountRole is provided
+    if (isAdminRole(targetUser.accountRole)) {
+      return jsonResponse(
+        { error: 'admin_protected', message: 'Admin accounts cannot be timed out, banned, or unblocked here.' },
+        { status: 400 },
+      );
+    }
+
+    // 2. Update users table if accountRole is provided (user/admin only; the
+    // legacy 'banned' role value is mapped to the moderation system below).
     if (accountRole !== undefined) {
       if (accountRole !== 'user' && accountRole !== 'admin' && accountRole !== 'banned') {
         return jsonResponse({ error: 'bad_request', message: 'Invalid account role.' }, { status: 400 });
       }
-      await db.update(users)
-        .set({ accountRole })
-        .where(eq(users.id, userId));
-      // Account authorization is cached briefly for high-frequency Connect
-      // requests. Drop it immediately whenever an admin changes the role.
-      await invalidateSpiceConnectAccount(userId);
       if (accountRole === 'banned') {
-        const revokedAt = new Date();
-        const activeAuthorizations = await db.query.remoteDeviceAuthorizations.findMany({
-          columns: { deviceId: true, tokenHash: true },
-          where: eq(remoteDeviceAuthorizations.userId, userId),
+        const legacyReason = typeof body.moderationReason === 'string'
+          ? body.moderationReason.trim().slice(0, 500) || null
+          : null;
+        await applyModerationUpdate(db, userId, session.userId, {
+          moderationStatus: 'banned',
+          ...(legacyReason !== null ? { moderationReason: legacyReason } : {}),
         });
-        await Promise.all([
-          db.update(remoteDeviceAuthorizations)
-            .set({ revokedAt })
-            .where(eq(remoteDeviceAuthorizations.userId, userId)),
-          db.update(remotePairingCodes)
-            .set({ revokedAt })
-            .where(eq(remotePairingCodes.userId, userId)),
-          ...activeAuthorizations.map((authorization) => (
-            invalidateSpiceConnectPairedAuthorization(userId, authorization.deviceId, authorization.tokenHash)
-          )),
-        ]);
+        await revokeAccountRemoteAccess(db, userId);
+      } else {
+        await db.update(users)
+          .set({ accountRole })
+          .where(eq(users.id, userId));
+        // Account authorization is cached briefly for high-frequency Connect
+        // requests. Drop it immediately whenever an admin changes the role.
+        await invalidateSpiceConnectAccount(userId);
+      }
+    }
+
+    // 3. Apply moderation changes (temporary timeout, permanent ban, unblock).
+    const hasModerationFields = [
+      'moderationStatus',
+      'moderationDurationHours',
+      'moderationExpiresAt',
+      'moderationReason',
+    ].some((field) => field in body);
+    if (hasModerationFields) {
+      const moderationUpdate = resolveAccountModerationUpdate(body);
+      if ('error' in moderationUpdate) {
+        return jsonResponse({ error: 'bad_request', message: moderationUpdate.error }, { status: 400 });
+      }
+      await applyModerationUpdate(db, userId, session.userId, {
+        moderationStatus: moderationUpdate.status,
+        ...(moderationUpdate.expiresAt ? { moderationExpiresAt: moderationUpdate.expiresAt } : {}),
+        ...(moderationUpdate.reason !== null ? { moderationReason: moderationUpdate.reason } : {}),
+      });
+      if (moderationUpdate.status === 'banned') {
+        await revokeAccountRemoteAccess(db, userId);
+      } else {
+        await invalidateSpiceConnectAccount(userId);
       }
     }
 
@@ -167,4 +193,54 @@ export async function POST(request: Request) {
       { status: error instanceof Error && error.name === 'AccountAuthorizationError' ? 403 : 500 },
     );
   }
+}
+
+type AdminDatabase = typeof db;
+
+async function applyModerationUpdate(
+  database: AdminDatabase,
+  userId: string,
+  setBy: string,
+  fields: {
+    moderationStatus?: string;
+    moderationExpiresAt?: Date;
+    moderationReason?: string | null;
+  },
+) {
+  const set: Record<string, unknown> = {
+    moderationSetBy: setBy,
+    moderationSetAt: new Date(),
+  };
+  if (fields.moderationStatus !== undefined) set.moderationStatus = fields.moderationStatus;
+  if (fields.moderationExpiresAt !== undefined) set.moderationExpiresAt = fields.moderationExpiresAt;
+  if (fields.moderationReason !== undefined) set.moderationReason = fields.moderationReason;
+
+  if (set.moderationStatus === 'active') {
+    set.moderationExpiresAt = null;
+    set.moderationReason = null;
+    set.moderationSetBy = null;
+    set.moderationSetAt = null;
+  }
+
+  await database.update(users).set(set).where(eq(users.id, userId));
+}
+
+async function revokeAccountRemoteAccess(database: AdminDatabase, userId: string) {
+  const revokedAt = new Date();
+  const activeAuthorizations = await database.query.remoteDeviceAuthorizations.findMany({
+    columns: { deviceId: true, tokenHash: true },
+    where: eq(remoteDeviceAuthorizations.userId, userId),
+  });
+  await Promise.all([
+    database.update(remoteDeviceAuthorizations)
+      .set({ revokedAt })
+      .where(eq(remoteDeviceAuthorizations.userId, userId)),
+    database.update(remotePairingCodes)
+      .set({ revokedAt })
+      .where(eq(remotePairingCodes.userId, userId)),
+    ...activeAuthorizations.map((authorization) => (
+      invalidateSpiceConnectPairedAuthorization(userId, authorization.deviceId, authorization.tokenHash)
+    )),
+  ]);
+  await invalidateSpiceConnectAccount(userId);
 }
