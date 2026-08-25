@@ -126,6 +126,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -144,6 +145,7 @@ import xyz.spiceapp.mobile.sanitizeSpiceConnectPairingCodeEdit
 import xyz.spiceapp.mobile.spiceConnectDeviceStatus
 import xyz.spiceapp.mobile.data.update.AppUpdateUiState
 import xyz.spiceapp.mobile.model.AccentTheme
+import xyz.spiceapp.mobile.model.AccountBlock
 import xyz.spiceapp.mobile.model.AppScreen
 import xyz.spiceapp.mobile.model.AuthMode
 import xyz.spiceapp.mobile.model.DownloadedTrack
@@ -163,6 +165,11 @@ import xyz.spiceapp.mobile.model.SharedPlaylistTracks
 import xyz.spiceapp.mobile.model.StreamQuality
 import xyz.spiceapp.mobile.model.Track
 import xyz.spiceapp.mobile.playback.PlayerUiState
+import java.text.DateFormat
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -271,6 +278,15 @@ fun SpiceApp(
     val activeQueueSize = activeQueue.size
     val activeQueueIndex = if (isRemotePlayback) selectedRemoteDevice?.queueIndex ?: -1 else uiState.queueIndex
     val message = uiState.message ?: playerState.error.takeUnless { isRemotePlayback }
+
+    val accountBlock = uiState.accountBlock
+    if (accountBlock != null) {
+        AccountBlockScreen(
+            block = accountBlock,
+            onSignOut = onSignOut,
+        )
+        return
+    }
 
     LaunchedEffect(message) {
         if (!message.isNullOrBlank()) {
@@ -527,6 +543,98 @@ fun SpiceApp(
             onDismiss = onDismissAppUpdate,
         )
     }
+}
+
+@Composable
+private fun AccountBlockScreen(
+    block: AccountBlock,
+    onSignOut: () -> Unit,
+) {
+    val banned = block.isBanned
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SpiceBackground)
+            .padding(horizontal = 32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                shape = CircleShape,
+                color = if (banned) Color(0x26EF4444) else Color(0x26F59E0B),
+                modifier = Modifier.size(64.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = if (banned) "⛔" else "⏱", fontSize = 28.sp)
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = if (banned) "Account Banned" else "Account Temporarily Timed Out",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = if (banned) {
+                    "This account has been banned and can no longer sign in or use SPICE services."
+                } else {
+                    "This account is temporarily timed out. SPICE services will be restored when the timeout ends."
+                },
+                color = SpiceTextMuted,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                textAlign = TextAlign.Center,
+            )
+            if (block.reason.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Reason: ${block.reason}",
+                    color = SpiceTextMuted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            if (block.expiresAt.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Access returns ${readableBlockExpiry(block.expiresAt)}",
+                    color = SpiceTextMuted,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            OutlinedButton(onClick = onSignOut) {
+                Text("Sign Out")
+            }
+        }
+    }
+}
+
+private fun readableBlockExpiry(value: String): String {
+    val normalized = value.trim()
+    if (normalized.isEmpty()) return "later"
+    val parsed = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss",
+    ).firstNotNullOfOrNull { pattern ->
+        val position = ParsePosition(0)
+        runCatching {
+            SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+                isLenient = false
+            }.parse(normalized, position).takeIf {
+                position.index == normalized.length && position.errorIndex < 0
+            }
+        }.getOrNull()
+    }
+    if (parsed == null) return "later"
+    return DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(parsed)
 }
 
 @Composable

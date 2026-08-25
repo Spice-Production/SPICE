@@ -9,6 +9,11 @@ export const users = pgTable('users', {
   accountRole: text('account_role').notNull().default('user'),
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  moderationStatus: text('moderation_status').notNull().default('active'),
+  moderationExpiresAt: timestamp('moderation_expires_at', { withTimezone: true }),
+  moderationReason: text('moderation_reason'),
+  moderationSetBy: text('moderation_set_by'),
+  moderationSetAt: timestamp('moderation_set_at', { withTimezone: true }),
 });
 
 export const emailVerificationChallenges = pgTable(

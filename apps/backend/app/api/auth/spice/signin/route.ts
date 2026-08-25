@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { verifyPasswordAsync } from '@/lib/hash';
 import { signSession } from '@/lib/auth';
 import { getAccountSnapshotForUserId } from '@/lib/accounts';
+import { accountModerationMessage } from '@/lib/moderation';
 import { reserveDurableRateLimits } from '@/lib/durable-rate-limit';
 import {
   hashRateLimitRequestIp,
@@ -116,11 +117,16 @@ export async function POST(request: Request) {
       );
     }
 
-    if (account.accountRole === 'banned') {
+    if (account.moderation.status !== 'active') {
+      const moderation = account.moderation;
+      const error = moderation.status === 'timeout' ? 'account_timed_out' : 'account_banned';
       return jsonResponse(
         {
-          error: 'account_banned',
-          message: 'This account has been banned.',
+          error,
+          message: accountModerationMessage(moderation.status, moderation),
+          status: moderation.status,
+          reason: moderation.reason,
+          expiresAt: moderation.expiresAt,
         },
         { status: 403 },
         request,

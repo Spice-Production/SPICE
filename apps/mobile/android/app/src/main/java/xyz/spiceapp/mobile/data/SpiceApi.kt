@@ -67,6 +67,14 @@ class SpiceApi(
         )
     }
 
+    suspend fun fetchAccountMe(token: String): SpiceAccount = withContext(Dispatchers.IO) {
+        val payload = getJson("/api/account/me", token)
+        val account = payload.optJSONObject("account")
+            ?: payload.optJSONObject("user")
+            ?: JSONObject()
+        parseAccount(account)
+    }
+
     suspend fun signUp(email: String, password: String, username: String): EmailVerificationChallenge = withContext(Dispatchers.IO) {
         parseEmailVerificationChallenge(
             postJson(
@@ -847,10 +855,17 @@ class SpiceApi(
                 .orEmpty()
             val json = runCatching { JSONObject(body) }.getOrElse { JSONObject() }
             if (status !in 200..299) {
+                val errorCode = json.optString("error").ifEmpty { null }
                 val message = json.optString("message")
-                    .ifEmpty { json.optString("error") }
-                    .ifEmpty { "Spice API request failed with HTTP " + status + "." }
-                throw SpiceApiException(message, status)
+                    .ifEmpty { errorCode ?: "Spice API request failed with HTTP " + status + "." }
+                throw SpiceApiException(
+                    message = message,
+                    statusCode = status,
+                    code = errorCode,
+                    moderationStatus = json.optString("status").ifEmpty { null },
+                    moderationExpiresAt = json.optString("expiresAt").ifEmpty { null },
+                    moderationReason = json.optString("reason").ifEmpty { null },
+                )
             }
             return json
         } finally {
@@ -1163,6 +1178,10 @@ internal fun parseAccount(payload: JSONObject): SpiceAccount =
         avatarUrl = payload.optString("avatarUrl").trim(),
         accountRole = payload.optString("accountRole", "user").trim().ifEmpty { "user" },
         isAdmin = payload.optBoolean("isAdmin", false),
+        moderationStatus = payload.optJSONObject("moderation")?.optString("status", "active").orEmpty()
+            .ifEmpty { "active" },
+        moderationExpiresAt = payload.optJSONObject("moderation")?.optString("expiresAt").orEmpty(),
+        moderationReason = payload.optJSONObject("moderation")?.optString("reason").orEmpty(),
     )
 
 internal fun parseProfileSummary(payload: JSONObject): ProfileSummary {
@@ -1782,5 +1801,9 @@ private fun normalizeMatchText(value: String): String =
 class SpiceApiException(
     override val message: String,
     val statusCode: Int? = null,
+    val code: String? = null,
+    val moderationStatus: String? = null,
+    val moderationExpiresAt: String? = null,
+    val moderationReason: String? = null,
     cause: Throwable? = null,
 ) : Exception(message, cause)

@@ -1,7 +1,10 @@
 export const ACCOUNT_ROLE_USER = 'user';
 export const ACCOUNT_ROLE_ADMIN = 'admin';
+// Legacy role value from before account moderation existed. The moderation
+// columns in the users table now own permanent bans; keep the constant only
+// so older stored values and payloads can be recognized and normalized.
 export const ACCOUNT_ROLE_BANNED = 'banned';
-export const ACCOUNT_ROLES = [ACCOUNT_ROLE_USER, ACCOUNT_ROLE_ADMIN, ACCOUNT_ROLE_BANNED] as const;
+export const ACCOUNT_ROLES = [ACCOUNT_ROLE_USER, ACCOUNT_ROLE_ADMIN] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 
 export const SUBSCRIPTION_TIER_FREE = 'free';
@@ -29,6 +32,12 @@ export interface AccountSubscriptionSnapshot {
   isActive: boolean;
 }
 
+import {
+  resolveAccountModeration,
+  type AccountModerationRecord,
+  type AccountModerationSnapshot,
+} from './moderation.ts';
+
 export interface AccountSnapshot {
   id: string;
   email: string;
@@ -36,10 +45,11 @@ export interface AccountSnapshot {
   emailVerified: boolean;
   accountRole: AccountRole;
   isAdmin: boolean;
+  moderation: AccountModerationSnapshot;
   subscription: AccountSubscriptionSnapshot;
 }
 
-interface AccountRecord {
+interface AccountRecord extends AccountModerationRecord {
   id: string;
   email: string;
   username?: string | null;
@@ -125,6 +135,7 @@ export function serializeAccount(account: AccountRecord, subscription?: Subscrip
     emailVerified: Boolean(account.emailVerifiedAt),
     accountRole,
     isAdmin: isAdminRole(accountRole),
+    moderation: resolveAccountModeration(account),
     subscription: serializeSubscription(subscription),
   };
 }

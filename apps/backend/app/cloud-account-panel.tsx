@@ -510,6 +510,7 @@ function friendlyAccountError(payload: Record<string, unknown>) {
   if (code === 'weak_password') return 'Password needs at least 8 characters with uppercase, lowercase, number, and special character.';
   if (code === 'invalid_username') return 'Username must be 3-20 characters with letters, numbers, or underscores.';
   if (code === 'account_banned') return 'This account is not allowed to sign in.';
+  if (code === 'account_timed_out') return typeof payload.message === 'string' ? payload.message : 'This account is temporarily timed out.';
   if (code === 'email_not_verified') return 'Verify this email before signing in.';
   if (code === 'invalid_verification_code') return typeof payload.message === 'string' ? payload.message : 'That code is incorrect.';
   if (code === 'verification_expired') return 'That code expired. Request a new one or start again.';

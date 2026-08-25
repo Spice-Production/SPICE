@@ -104,7 +104,19 @@ data class SpiceAccount(
     val avatarUrl: String = "",
     val accountRole: String = "user",
     val isAdmin: Boolean = false,
+    val moderationStatus: String = "active",
+    val moderationExpiresAt: String = "",
+    val moderationReason: String = "",
 )
+
+data class AccountBlock(
+    val status: String = "banned",
+    val reason: String = "",
+    val expiresAt: String = "",
+) {
+    val isTimeout: Boolean get() = status == "timeout"
+    val isBanned: Boolean get() = status == "banned"
+}
 
 data class SpiceProfile(
     val id: String = "default",

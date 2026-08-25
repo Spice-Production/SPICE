@@ -28,6 +28,27 @@ if (!account || !isAdminAccount(account)) {
 
 For new admin-only endpoints, prefer `requireAdminAccount(session)` from `lib/accounts.ts`. It reloads the current database role, so authorization is not based only on a JWT claim that may be stale.
 
+## Account Moderation (timeouts and bans)
+
+Account access state lives in the moderation columns on the `users` table and is enforced server-side on every authenticated request, so blocking applies immediately even to existing 30-day JWTs.
+
+| Column | Meaning |
+| --- | --- |
+| `users.moderation_status` | `active`, `timeout`, or `banned`. Defaults to `active`. |
+| `users.moderation_expires_at` | When a temporary timeout lifts automatically. `null` for bans and active accounts. |
+| `users.moderation_reason` | Optional human-readable reason shown to the blocked account. |
+| `users.moderation_set_by` / `users.moderation_set_at` | Admin (user id) and timestamp of the last moderation change. |
+
+Behavior:
+
+- A `timeout` account is fully blocked until `moderation_expires_at` passes; access is restored automatically when the expiry is reached. A timeout does **not** revoke Spice Connect device pairings, so paired devices reconnect after it lifts.
+- A `banned` account is permanently blocked. Banning revokes remote device authorizations, pairing codes, and Spice Connect caches, matching the old role-based ban behavior.
+- Only admin accounts can change moderation state (`requireAdminAccount`), and the admin APIs refuse to block other admin accounts.
+- `verifySession` (`lib/auth.ts`) reloads the user row on every call and throws `AccountModerationError` (`account_timed_out` or `account_banned`) for blocked accounts. Sign-in returns the same codes with `status`, `reason`, and `expiresAt` fields so clients can render a full-screen blocked-account state.
+- The legacy `users.account_role = 'banned'` value no longer exists after migration `0015`; the moderation columns are the single source of truth. Admin endpoints still accept the old value and map it to `moderation_status = 'banned'`.
+
+Use the helpers in `lib/moderation.ts` (`resolveAccountModeration`, `isAccountModerationBlocked`, `accountModerationErrorPayload`) instead of reading the columns directly.
+
 ## Admin Bootstrap
 
 New signups are created only after email ownership is verified. A verified signup becomes `user` unless its normalized email appears in `SPICE_ADMIN_EMAILS`.
@@ -104,6 +125,18 @@ Submit `{ "registrationId": "uuid", "code": "123456" }` to `/api/auth/spice/veri
 
 JWTs also include `accountRole` for UI hints. Protected APIs should still reload the account snapshot from the database before enforcing admin access.
 
+Account snapshots (`/api/cloud/account/me`, sign-in, and the admin accounts list) also include a `moderation` object:
+
+```json
+{
+  "moderation": {
+    "status": "timeout",
+    "expiresAt": "2026-08-16T12:00:00.000Z",
+    "reason": "Repeated spam reports"
+  }
+}
+```
+
 ## Subscription Foundation
 
 The `account_subscriptions` table is intentionally billing-provider neutral. It is ready for Stripe, Vercel Marketplace billing, or a manual entitlement system.
@@ -130,6 +163,8 @@ Pairing codes expire after five minutes and can be consumed only once. A success
 ## Migration
 
 Migration `0010_email_verification.sql` adds pending verification challenges and `users.email_verified_at`. It marks every user that existed at migration time as verified; new users are inserted only by successful verification.
+
+Migration `0015_account_moderation.sql` adds the moderation columns and converts any legacy `account_role = 'banned'` rows to `moderation_status = 'banned'`.
 
 Production email delivery requires `RESEND_API_KEY`, a verified sending domain, and `SPICE_EMAIL_FROM`. Configure SPF and DKIM with the email provider and add DMARC at the domain host. Local development without a Resend key writes the code to the backend console and never returns it to the client.
 

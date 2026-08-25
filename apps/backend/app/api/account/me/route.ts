@@ -1,6 +1,7 @@
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { verifySession } from '@/lib/auth';
 import { getAccountSnapshotForSession } from '@/lib/accounts';
+import { accountModerationErrorPayload } from '@/lib/moderation';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +50,11 @@ export async function GET(request: Request) {
       user: account,
     });
   } catch (error) {
+    const moderationPayload = accountModerationErrorPayload(error);
+    if (moderationPayload) {
+      return jsonResponse(moderationPayload, { status: 403 });
+    }
+
     return jsonResponse(
       {
         error: 'invalid_session',

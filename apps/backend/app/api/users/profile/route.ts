@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users, profiles, playlists, likes, profileLikes } from '@/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { getPlaylistSnapshot } from '@/lib/shared-playlists';
+import { accountModerationErrorPayload } from '@/lib/moderation';
 
 export const runtime = 'nodejs';
 
@@ -125,6 +126,10 @@ export async function GET(request: Request) {
       }
     });
   } catch (error) {
+    const moderationPayload = accountModerationErrorPayload(error);
+    if (moderationPayload) {
+      return jsonResponse(moderationPayload, { status: 403 });
+    }
     return jsonResponse(
       {
         error: 'user_profile_fetch_failed',

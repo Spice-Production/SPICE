@@ -976,3 +976,134 @@
   font-weight: 500;
   color: #f8fafc;
 }
+
+/* Account moderation controls */
+.moderationControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.moderationActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.moderationActions .adminSelect {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.moderationReasonInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(15, 12, 22, 0.74);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.moderationReasonInput::placeholder {
+  color: #71717a;
+}
+
+.moderationReasonInput:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.18);
+}
+
+.moderationReasonInput:disabled {
+  opacity: 0.5;
+}
+
+.moderationTimeoutButton,
+.moderationBanButton,
+.moderationClearButton {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.moderationTimeoutButton {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.moderationTimeoutButton:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.moderationBanButton {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.moderationBanButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.moderationTimeoutButton:disabled,
+.moderationBanButton:disabled,
+.moderationClearButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.moderationBlocked {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 230px;
+}
+
+.moderationBlocked strong {
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.moderationBlocked small {
+  color: #a1a1aa;
+  font-size: 0.78rem;
+}
+
+.moderationReasonText {
+  color: #c4c4cf !important;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.moderationBannedLabel {
+  color: #ef4444;
+}
+
+.moderationTimeoutLabel {
+  color: #f59e0b;
+}
+
+.moderationClearButton {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.moderationClearButton:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}

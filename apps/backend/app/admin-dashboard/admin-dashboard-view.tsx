@@ -72,6 +72,9 @@ export default function AdminDashboardView() {
   const [successUserIds, setSuccessUserIds] = useState<Set<string>>(new Set());
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
 
+  const [moderationDurationByUser, setModerationDurationByUser] = useState<Record<string, string>>({});
+  const [moderationReasonByUser, setModerationReasonByUser] = useState<Record<string, string>>({});
+
   const [systemSettings, setSystemSettings] = useState<any>({
     emergencyAusterity: false,
     austerityThrottleRate: 50,
@@ -188,6 +191,9 @@ export default function AdminDashboardView() {
       accountRole?: string;
       subscriptionTier?: string;
       subscriptionStatus?: string;
+      moderationStatus?: string;
+      moderationDurationHours?: number;
+      moderationReason?: string;
     }
   ) => {
     if (!token) return;
@@ -663,6 +669,7 @@ export default function AdminDashboardView() {
               <tr>
                 <th>User ID / Email</th>
                 <th>Account Role</th>
+                <th>Moderation</th>
                 <th>Subscription Tier</th>
                 <th>Subscription Status</th>
                 <th style={{ width: '120px', textAlign: 'center' }}>Sync Status</th>
@@ -673,6 +680,10 @@ export default function AdminDashboardView() {
                 const isSaving = savingUserIds.has(acc.id);
                 const isSuccess = successUserIds.has(acc.id);
                 const errorMsg = saveErrors[acc.id];
+                const moderation = acc.moderation || { status: 'active', expiresAt: null, reason: null };
+                const isBlocked = moderation.status === 'banned' || moderation.status === 'timeout';
+                const duration = moderationDurationByUser[acc.id] || '24';
+                const reason = moderationReasonByUser[acc.id] || '';
 
                 return (
                   <tr key={acc.id} className={styles.adminTableRow}>
@@ -691,8 +702,76 @@ export default function AdminDashboardView() {
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
-                        <option value="banned">Banned</option>
                       </select>
+                    </td>
+                    <td>
+                      {isBlocked ? (
+                        <div className={styles.moderationBlocked}>
+                          <strong className={moderation.status === 'banned' ? styles.moderationBannedLabel : styles.moderationTimeoutLabel}>
+                            {moderation.status === 'banned' ? 'Banned' : 'Timed out'}
+                          </strong>
+                          {moderation.expiresAt && (
+                            <small>until {formatModerationDate(moderation.expiresAt)}</small>
+                          )}
+                          {moderation.reason && <small className={styles.moderationReasonText}>{moderation.reason}</small>}
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => handleUpdate(acc.id, { moderationStatus: 'active' })}
+                            className={styles.moderationClearButton}
+                          >
+                            Unblock
+                          </button>
+                        </div>
+                      ) : (
+                        <div className={styles.moderationControls}>
+                          <input
+                            type="text"
+                            placeholder="Reason (optional)"
+                            value={reason}
+                            maxLength={500}
+                            disabled={isSaving}
+                            onChange={(e) => setModerationReasonByUser((prev) => ({ ...prev, [acc.id]: e.target.value }))}
+                            className={styles.moderationReasonInput}
+                          />
+                          <div className={styles.moderationActions}>
+                            <select
+                              value={duration}
+                              disabled={isSaving}
+                              onChange={(e) => setModerationDurationByUser((prev) => ({ ...prev, [acc.id]: e.target.value }))}
+                              className={styles.adminSelect}
+                            >
+                              <option value="1">1 hour</option>
+                              <option value="24">24 hours</option>
+                              <option value="72">3 days</option>
+                              <option value="168">7 days</option>
+                            </select>
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              onClick={() => handleUpdate(acc.id, {
+                                moderationStatus: 'timeout',
+                                moderationDurationHours: Number(duration),
+                                moderationReason: reason || undefined,
+                              })}
+                              className={styles.moderationTimeoutButton}
+                            >
+                              Timeout
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              onClick={() => handleUpdate(acc.id, {
+                                moderationStatus: 'banned',
+                                moderationReason: reason || undefined,
+                              })}
+                              className={styles.moderationBanButton}
+                            >
+                              Ban
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </td>
                     <td>
                       <select
@@ -734,7 +813,7 @@ export default function AdminDashboardView() {
               })}
               {accounts.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: '#a1a1aa' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#a1a1aa' }}>
                     No registered user accounts found in the database.
                   </td>
                 </tr>
@@ -758,6 +837,12 @@ function formatFeedbackCategory(category: string) {
 }
 
 function formatFeedbackDate(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'Unknown time';
+  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatModerationDate(value: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'Unknown time';
   return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });

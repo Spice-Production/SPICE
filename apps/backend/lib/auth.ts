@@ -1,5 +1,9 @@
 import { SignJWT, jwtVerify } from 'jose';
+import { eq } from 'drizzle-orm';
+import { db } from '../db/index.ts';
+import { users } from '../db/schema.ts';
 import { normalizeAccountRole, type AccountRole } from './account';
+import { assertAccountModerationAllowed, resolveAccountModeration } from './moderation';
 
 let jwtSecret: Uint8Array | null = null;
 
@@ -64,10 +68,31 @@ export async function verifySession(token: string): Promise<SpiceSession> {
     throw new Error('Invalid session token.');
   }
 
+  // Reload the account from the database so role and moderation changes apply
+  // immediately instead of waiting for the 30-day JWT to expire. Blocked
+  // accounts (temporarily timed out or permanently banned) are rejected on
+  // every authenticated call, which kills existing sessions instantly.
+  const user = await db.query.users.findFirst({
+    columns: {
+      id: true,
+      email: true,
+      accountRole: true,
+      moderationStatus: true,
+      moderationExpiresAt: true,
+      moderationReason: true,
+    },
+    where: eq(users.id, payload.userId),
+  });
+  if (!user) {
+    throw new Error('Invalid session token.');
+  }
+
+  assertAccountModerationAllowed(resolveAccountModeration(user));
+
   return {
-    userId: payload.userId,
-    email: payload.email,
-    accountRole: normalizeAccountRole(payload.accountRole),
+    userId: user.id,
+    email: user.email,
+    accountRole: normalizeAccountRole(user.accountRole),
   };
 }
 
