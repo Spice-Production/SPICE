@@ -168,6 +168,37 @@ function resolveWrapperVolumeStages(value) {
   };
 }
 
+function normalizeAudioOutputDevices(devices) {
+  const list = Array.isArray(devices) ? devices : [];
+  const seen = new Set();
+  const defaults = [];
+  const rest = [];
+  for (const device of list) {
+    if (!device || device.kind !== "audiooutput") continue;
+    const deviceId = typeof device.deviceId === "string" ? device.deviceId.trim() : "";
+    if (!deviceId || seen.has(deviceId)) continue;
+    seen.add(deviceId);
+    const label = typeof device.label === "string" && device.label.trim()
+      ? device.label.trim()
+      : "";
+    const entry = { deviceId, label };
+    if (deviceId === "default") defaults.push(entry);
+    else rest.push(entry);
+  }
+  const ordered = [...defaults, ...rest];
+  return ordered.map((entry, index) => ({
+    deviceId: entry.deviceId,
+    label: entry.label
+      || (entry.deviceId === "default" ? "System default output" : `Output device ${index + 1}`),
+  }));
+}
+
+function normalizeAudioOutputDeviceSelection(value) {
+  if (typeof value !== "string") return "default";
+  const trimmed = value.trim();
+  return trimmed || "default";
+}
+
 function resolveLocalRuntimePlatform(platform = process.platform) {
   if (platform === "win32") return "windows";
   if (platform === "linux") return "linux";
@@ -244,6 +275,8 @@ module.exports = {
   navigateHistory,
   shouldBlockNativeStartupPlayback,
   resolveWrapperVolumeStages,
+  normalizeAudioOutputDevices,
+  normalizeAudioOutputDeviceSelection,
   resolveLocalRuntimePlatform,
   shouldQuitWhenLastWindowCloses,
   supportsStartOnBoot,
