@@ -28,6 +28,27 @@ import {
 } from './playlist-performance';
 import { mergePlaylistOccurrences } from './playlist-merge';
 import { playlistArtworkCandidates } from './playlist-artwork';
+import {
+  fallbackSearchQuery,
+  fallbackSoundCloudTrackId,
+  isFallbackSoundCloudTrack,
+  rankFallbackCandidates,
+} from './playback-fallback';
+import {
+  filterTracksForYou,
+  reorderTracksByTaste,
+  smartQueueBaseScore,
+  trackAffinityScore,
+  type TasteAffinityContext,
+} from './taste-affinity';
+import {
+  buildListeningTimeProfile,
+  buildOnRepeatTracks,
+  LISTENING_TIME_BUCKET_LABELS,
+  LISTENING_TIME_BUCKET_QUERIES,
+  LISTENING_TIME_MIN_BUCKET_EVENTS,
+  pickFreshFindTracks,
+} from './listening-context';
 import CommandPalette, { type CommandPaletteCommand } from './command-palette';
 import { isCommandPaletteShortcut } from './command-palette-core';
 import ThemeEditor from './theme-editor';
@@ -44,7 +65,7 @@ import {
   type PlaybackProfileState,
 } from './playback-profiles';
 import { createCrossfadePlan, crossfadeGains, crossfadeStateAt } from './crossfade';
-import { buildSmartQueue, smartQueueArtistKeys, smartQueueTrackKey } from './smart-queue';
+import { buildSmartQueue, sequenceTracksByMoodFlow, smartQueueArtistKeys, smartQueueTrackKey } from './smart-queue';
 import {
   adaptiveTrackWeights,
   classifyAdaptiveListen,
@@ -80,13 +101,16 @@ import {
   resetRecommendationListenObservation,
   shouldAwaitPersonalizedContinuation,
   shouldRepeatPlaylistAtQueueTail,
+  trackTopicKeys,
   type RecommendationListenProgress,
   type RecommendationShelf,
 } from './recommendations';
 import {
   DEFAULT_RECOMMENDATION_PREFERENCES,
+  dislikeRecommendedTrack,
   hideRecommendedTrack,
   normalizeRecommendationPreferences,
+  recordDiscoveryWin,
   snoozeRecommendedArtist,
   type RecommendationPreferences,
 } from './recommendation-preferences';
@@ -1227,6 +1251,28 @@ interface CloudAccount {
   };
 }
 
+interface AccountBlockState {
+  status: 'timeout' | 'banned';
+  reason: string | null;
+  expiresAt: string | null;
+}
+
+const ACCOUNT_BLOCK_ERROR_CODES = new Set(['account_timed_out', 'account_banned']);
+
+function parseAccountBlockPayload(payload: unknown): AccountBlockState | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const body = payload as Record<string, unknown>;
+  const code = typeof body.error === 'string' ? body.error : '';
+  if (!ACCOUNT_BLOCK_ERROR_CODES.has(code)) return null;
+
+  const status = body.status === 'timeout' ? 'timeout' : 'banned';
+  return {
+    status,
+    reason: typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null,
+    expiresAt: typeof body.expiresAt === 'string' && body.expiresAt ? body.expiresAt : null,
+  };
+}
+
 type RemoteCommandType =
   | 'play'
   | 'pause'
@@ -1521,6 +1567,15 @@ const dedupeTracks = (tracks: Track[]) => {
 
 const playbackTrackKey = (track: Track) =>
   `${track.sourceId ?? 'youtube_music'}:${track.id}`;
+
+const adaptiveTasteSkipScores = (state: AdaptiveTrackPriorityState): Record<string, number> => {
+  const scores: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(state?.tracks ?? {})) {
+    if (!key || !entry || typeof entry.score !== 'number' || !Number.isFinite(entry.score)) continue;
+    scores[key] = entry.score;
+  }
+  return scores;
+};
 
 const shuffleQueueKeys = (tracks: Track[]) => tracks.map(playbackTrackKey);
 
@@ -2427,6 +2482,13 @@ export default function SpiceApp() {
   const adaptiveTrackPriorityRef = useRef<AdaptiveTrackPriorityState>(
     normalizeAdaptiveTrackPriorityState(readStoredJson(adaptiveTrackPriorityStorageKey('default'))),
   );
+  const [adaptiveTasteScores, setAdaptiveTasteScores] = useState<Record<string, number>>(
+    () => adaptiveTasteSkipScores(
+      normalizeAdaptiveTrackPriorityState(readStoredJson(adaptiveTrackPriorityStorageKey('default'))),
+    ),
+  );
+  const [listenersLikeYou, setListenersLikeYou] = useState<{ tracks: Track[]; neighborCount: number } | null>(null);
+  const [collaborativeTasteScores, setCollaborativeTasteScores] = useState<Record<string, number>>({});
   const adaptiveListenCycleRef = useRef<{
     trackKey: string;
     completionDisqualified: boolean;
@@ -2446,9 +2508,11 @@ export default function SpiceApp() {
     setListeningEvents(normalizeListeningEvents(
       readStoredJson(listeningEventsStorageKey(activeProfileId)),
     ));
-    adaptiveTrackPriorityRef.current = normalizeAdaptiveTrackPriorityState(
+    const nextAdaptiveState = normalizeAdaptiveTrackPriorityState(
       readStoredJson(adaptiveTrackPriorityStorageKey(activeProfileId)),
     );
+    adaptiveTrackPriorityRef.current = nextAdaptiveState;
+    setAdaptiveTasteScores(adaptiveTasteSkipScores(nextAdaptiveState));
     adaptiveListenCycleRef.current = null;
   }, [activeProfileId]);
 
@@ -2517,7 +2581,20 @@ export default function SpiceApp() {
     history,
     likedTracks: Object.values(likedTrackDetails),
     playlists: customPlaylists,
-  }), [history, likedTrackDetails, customPlaylists]);
+    skipSignal: { trackScores: adaptiveTasteScores },
+    listeningEvents,
+  }), [history, likedTrackDetails, customPlaylists, listeningEvents, adaptiveTasteScores]);
+
+  // The shared affinity context every taste-aware surface consumes: home
+  // shelves, search ordering, the For You filter, Smart Mix, and radio.
+  const tasteAffinityContext = useMemo(() => ({
+    profile: privateTasteProfile,
+    preferences: recommendationPreferences,
+    adaptiveScores: adaptiveTasteScores,
+    likedTrackKeys: likedTracks,
+    recentTrackKeys: new Set(history.slice(0, 6).map(playbackTrackKey)),
+    collaborativeScores: collaborativeTasteScores,
+  }), [privateTasteProfile, recommendationPreferences, adaptiveTasteScores, likedTracks, history, collaborativeTasteScores]);
 
   const [libraryView, setLibraryView] = useState<'list' | 'grid'>('list');
   const [libraryFilter, setLibraryFilter] = useState<'playlists' | 'shared' | 'liked' | 'history' | 'downloads'>('playlists');
@@ -2574,6 +2651,13 @@ export default function SpiceApp() {
   const [newPlIsPublic, setNewPlIsPublic] = useState(true);
   const [editPlIsPublic, setEditPlIsPublic] = useState(true);
   const [searchTab, setSearchTab] = useState<'tracks' | 'users'>('tracks');
+  const [searchForYouOnly, setSearchForYouOnly] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('spice_search_for_you') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -2709,6 +2793,7 @@ export default function SpiceApp() {
   });
   const [syncingStatus, setSyncingStatus] = useState<'idle' | 'syncing' | 'success' | 'partial' | 'error' | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [accountBlock, setAccountBlock] = useState<AccountBlockState | null>(null);
   const [isLocalDbFallback, setIsLocalDbFallback] = useState<boolean>(false);
   const [remoteControlEnabled, setRemoteControlEnabled] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -2823,6 +2908,34 @@ export default function SpiceApp() {
   const [homeTrending, setHomeTrending] = useState<Track[]>([]);
   const [homeRecommended, setHomeRecommended] = useState<Track[]>([]);
   const [homeRecommendationShelves, setHomeRecommendationShelves] = useState<RecommendationShelf<Track>[]>([]);
+  const [homeBecauseShelf, setHomeBecauseShelf] = useState<{ label: string; reason: string; tracks: Track[] } | null>(null);
+  const [homeFreshFinds, setHomeFreshFinds] = useState<Track[]>([]);
+  const [homeTimeMix, setHomeTimeMix] = useState<{ label: string; reason: string; tracks: Track[] } | null>(null);
+
+  const listeningTimeProfile = useMemo(
+    () => buildListeningTimeProfile(listeningEvents),
+    [listeningEvents],
+  );
+
+  // "On repeat": the week's most-replayed tracks, straight from the on-device
+  // listening log — no network needed.
+  const onRepeatShelf = useMemo(() => {
+    const entries = buildOnRepeatTracks(listeningEvents);
+    if (entries.length < 3) return null;
+    const tracks = enrichTrackSnapshots(entries.map((entry) => ({
+      id: entry.trackId,
+      sourceId: entry.sourceId,
+      title: entry.title,
+      artists: entry.artists.map((name) => ({ id: name, name })),
+      msListened: Math.min(600_000, entry.listenedMs),
+    }))) as Track[];
+    if (tracks.length < 3) return null;
+    return {
+      label: 'On repeat',
+      reason: 'The songs you kept coming back to this week.',
+      tracks,
+    };
+  }, [listeningEvents]);
   const [homeRecommendationSeed, setHomeRecommendationSeed] = useState<import('./recommendations').RecommendationSeed | null>(null);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isLoadingHome, setIsLoadingHome] = useState(true);
@@ -3087,6 +3200,8 @@ export default function SpiceApp() {
   const suppressRemotePlaybackUntilRef = useRef(0);
   const directEmbedRetryRef = useRef<Set<string>>(new Set());
   const embedProxyRetryRef = useRef<Set<string>>(new Set());
+  const playbackFallbackAttemptedRef = useRef<Set<string>>(new Set());
+  const boostProtocolHandoffRef = useRef(false);
   const syncLockRef = useRef<boolean>(false);
   const scrobbleStateRef = useRef<ProfileListenDeliveryState | null>(null);
   const profileListenRetryTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -3138,6 +3253,7 @@ export default function SpiceApp() {
   ) => Promise<void>>(async () => { });
   const handleNextRef = useRef<(overrideIndex?: any) => void>(() => { });
   const ensurePersonalizedUpNextRef = useRef<(track: Track) => Promise<Track[]>>(async () => []);
+  const recordTrackDiscoveryWinRef = useRef<(track: Track) => void>(() => undefined);
 
   useEffect(() => {
     const resolveProfileToken = (profileId: string) => {
@@ -3199,6 +3315,176 @@ export default function SpiceApp() {
       if (syncOutboxRef.current === outbox) syncOutboxRef.current = null;
     };
   }, [logDebug]);
+
+  // ---------------------------------------------------------------------------
+  // Taste cloud sync: the adaptive skip/completion learning, recommendation
+  // preferences, and the listening-event log follow the profile across
+  // devices. Each kind syncs last-writer-wins using per-kind local change
+  // stamps; listening events additionally merge by id so nothing is lost.
+  // ---------------------------------------------------------------------------
+  const tasteSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const tasteSyncMetaKey = (profileId: string) => `spice_taste_sync_meta:${profileId}`;
+  const tasteSyncDirtyKey = (profileId: string) => `spice_taste_dirty:${profileId}`;
+
+  const readTasteSyncJson = (key: string): Record<string, number> => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const markTasteDirty = useCallback((kind: 'adaptive' | 'preferences' | 'events') => {
+    const profileId = activeProfileIdRef.current;
+    const dirty = readTasteSyncJson(tasteSyncDirtyKey(profileId));
+    dirty[kind] = Date.now();
+    try {
+      localStorage.setItem(tasteSyncDirtyKey(profileId), JSON.stringify(dirty));
+    } catch {
+      // Best-effort stamp; the next change retries.
+    }
+  }, []);
+
+  const resolveTasteSyncToken = (profileId: string) => {
+    if (profileId === activeProfileIdRef.current && cloudTokenRef.current) {
+      return cloudTokenRef.current;
+    }
+    try {
+      const storedProfiles = JSON.parse(localStorage.getItem('spice_profiles_list') || '[]') as UserProfile[];
+      return storedProfiles.find((profile) => profile.id === profileId)?.cloudToken || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const scheduleTasteCloudSync = useCallback((immediate = false) => {
+    if (tasteSyncTimerRef.current) clearTimeout(tasteSyncTimerRef.current);
+    const run = async () => {
+      tasteSyncTimerRef.current = null;
+      const profileId = activeProfileIdRef.current;
+      const token = resolveTasteSyncToken(profileId);
+      if (!token) return;
+      const readLocal = (key: string, fallback: string) => {
+        try {
+          return localStorage.getItem(key) ?? fallback;
+        } catch {
+          return fallback;
+        }
+      };
+      const dirty = readTasteSyncJson(tasteSyncDirtyKey(profileId));
+      const stamp = (kind: string) => dirty[kind] ?? 0;
+      const states = (['adaptive', 'preferences', 'events'] as const).map((kind) => ({
+        kind,
+        payload: readLocal(
+          kind === 'adaptive'
+            ? adaptiveTrackPriorityStorageKey(profileId)
+            : kind === 'preferences'
+              ? recommendationPreferencesStorageKey(profileId)
+              : listeningEventsStorageKey(profileId),
+          kind === 'events' ? '[]' : '{}',
+        ),
+        updatedAt: stamp(kind),
+      })).filter((state) => state.updatedAt > 0);
+      if (states.length === 0) return;
+      try {
+        const res = await spiceFetch('cloud', '/sync/taste', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ states, profileId }),
+        });
+        if (res.ok) {
+          const meta = readTasteSyncJson(tasteSyncMetaKey(profileId));
+          for (const state of states) meta[state.kind] = Math.max(meta[state.kind] ?? 0, state.updatedAt);
+          try {
+            localStorage.setItem(tasteSyncMetaKey(profileId), JSON.stringify(meta));
+          } catch {
+            // Meta is an optimization; losing it only causes extra merging.
+          }
+          logDebug('database', `Taste learning synced to SPICE Cloud (${states.map((state) => state.kind).join(', ')}).`);
+        }
+      } catch {
+        // Taste sync retries on the next change; playback is unaffected.
+      }
+    };
+    if (immediate) {
+      void run();
+      return;
+    }
+    tasteSyncTimerRef.current = setTimeout(run, 8000);
+  }, [logDebug]);
+
+  // Pull cloud taste learning on boot, sign-in, and profile switch. Adaptive
+  // priorities and preferences adopt the cloud copy when it is newer;
+  // listening events merge by id so both devices keep their entries.
+  useEffect(() => {
+    if (!cloudToken) return;
+    const profileId = activeProfileIdRef.current;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await spiceFetch('cloud', '/sync/taste', {
+          headers: { 'Authorization': `Bearer ${cloudToken}` },
+        }, { profileId });
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => ({}));
+        const states = data?.states ?? {};
+        const meta = readTasteSyncJson(tasteSyncMetaKey(profileId));
+
+        if (states.adaptive?.payload && (states.adaptive.updatedAt ?? 0) > (meta.adaptive ?? 0)) {
+          const nextState = normalizeAdaptiveTrackPriorityState(JSON.parse(states.adaptive.payload));
+          adaptiveTrackPriorityRef.current = nextState;
+          setAdaptiveTasteScores(adaptiveTasteSkipScores(nextState));
+          try {
+            localStorage.setItem(adaptiveTrackPriorityStorageKey(profileId), JSON.stringify(nextState));
+          } catch {
+            // Keep the in-memory adoption even if storage fails.
+          }
+          meta.adaptive = states.adaptive.updatedAt;
+        }
+
+        if (states.preferences?.payload && (states.preferences.updatedAt ?? 0) > (meta.preferences ?? 0)) {
+          const parsed = normalizeRecommendationPreferences(JSON.parse(states.preferences.payload));
+          setRecommendationPreferences(parsed);
+          try {
+            localStorage.setItem(recommendationPreferencesStorageKey(profileId), JSON.stringify(parsed));
+          } catch {
+            // Keep the in-memory adoption even if storage fails.
+          }
+          meta.preferences = states.preferences.updatedAt;
+        }
+
+        if (states.events?.payload && (states.events.updatedAt ?? 0) > (meta.events ?? 0)) {
+          const serverEvents = normalizeListeningEvents(JSON.parse(states.events.payload));
+          setListeningEvents((previousEvents) => {
+            const byId = new Map<string, ListeningEvent>();
+            for (const eventItem of [...serverEvents, ...previousEvents]) {
+              const existing = byId.get(eventItem.id);
+              if (!existing || eventItem.listenedMs > existing.listenedMs) byId.set(eventItem.id, eventItem);
+            }
+            return normalizeListeningEvents(Array.from(byId.values()));
+          });
+          meta.events = states.events.updatedAt;
+        }
+
+        try {
+          localStorage.setItem(tasteSyncMetaKey(profileId), JSON.stringify(meta));
+        } catch {
+          // Meta is an optimization; losing it only causes extra merging.
+        }
+      } catch {
+        // Cloud taste is an enhancement; local learning keeps working offline.
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudToken, activeProfileId]);
 
   const applyAudioElementVolume = useCallback((
     audio: HTMLAudioElement | null,
@@ -4362,7 +4648,7 @@ export default function SpiceApp() {
   // Sync volume with Embed Player
   useEffect(() => {
     if (streamProtocol === 'embed' && isYouTubeTrack(currentTrack) && ytPlayerRef.current && typeof ytPlayerRef.current.setVolume === 'function') {
-      ytPlayerRef.current.setVolume(volume);
+      ytPlayerRef.current.setVolume(Math.max(0, Math.min(100, volume)));
     }
   }, [currentTrack.id, volume, streamProtocol]);
 
@@ -4376,12 +4662,19 @@ export default function SpiceApp() {
     async function loadHomeContent() {
       setIsLoadingHome(true);
       try {
-        const trendRes = await spiceFetch('local', '/yt/search', undefined, { q: 'Top Hits 2026', limit: 8 });
+        // Seed the chart shelf from this profile's taste when it is ready so
+        // Quick Picks stop being the same hardcoded query for every listener.
+        const topTopic = privateTasteProfile.topics[0];
+        const topArtist = privateTasteProfile.artists[0];
+        const quickPicksQuery = privateTasteProfile.isReady
+          ? (topTopic?.label ? `${topTopic.label} hits` : (topArtist?.label ? `${topArtist.label} hits` : 'Top Hits 2026'))
+          : 'Top Hits 2026';
+        const trendRes = await spiceFetch('local', '/yt/search', undefined, { q: quickPicksQuery, limit: 8 });
         const trendData = trendRes.ok ? await trendRes.json() : { tracks: [] };
         rememberTrackSnapshots(trendData.tracks || []);
 
         if (trendData.tracks?.length > 0) {
-          setHomeTrending(trendData.tracks);
+          setHomeTrending(reorderTracksByTaste(playableSearchTracks(trendData.tracks) as Track[], tasteAffinityContext));
         }
 
       } catch (err) {
@@ -4491,6 +4784,8 @@ export default function SpiceApp() {
 
     const outcome = classifyAdaptiveListen({
       completedNaturally: completedNaturally && !cycle.completionDisqualified,
+      positionMs: Math.max(0, progressRef.current) * 1000,
+      durationMs: Math.max(0, durationRef.current) * 1000,
     });
     const nextState = recordAdaptiveListenOutcome(
       adaptiveTrackPriorityRef.current,
@@ -4499,6 +4794,9 @@ export default function SpiceApp() {
       currentTimestampMs(),
     );
     adaptiveTrackPriorityRef.current = nextState;
+    setAdaptiveTasteScores(adaptiveTasteSkipScores(nextState));
+    markTasteDirty('adaptive');
+    scheduleTasteCloudSync();
     try {
       localStorage.setItem(
         adaptiveTrackPriorityStorageKey(activeProfileIdRef.current),
@@ -4925,6 +5223,8 @@ export default function SpiceApp() {
       }, 'Profiles pull');
       if (!profRes.ok) {
         const errJson = await profRes.json().catch(() => ({}));
+        const block = parseAccountBlockPayload(errJson);
+        if (block) setAccountBlock(block);
         throw new Error(errJson.message || `Failed to retrieve profiles (Status ${profRes.status})`);
       }
       const profData = await profRes.json();
@@ -5330,7 +5630,11 @@ export default function SpiceApp() {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Authentication failed.');
+      if (!res.ok) {
+        const block = parseAccountBlockPayload(data);
+        if (block) setAccountBlock(block);
+        throw new Error(data.message || 'Authentication failed.');
+      }
       if (activeProfileIdRef.current !== authProfileId) {
         throw new Error('The active profile changed while signing in. Please try again on the intended profile.');
       }
@@ -5387,6 +5691,7 @@ export default function SpiceApp() {
     setCloudToken(null);
     setCloudUser(null);
     setCloudUsername(null);
+    setAccountBlock(null);
     setPairedRemoteCredential(null);
     setRemoteDevices([]);
     setSelectedRemoteDeviceId('');
@@ -6188,6 +6493,8 @@ export default function SpiceApp() {
         localStorage.setItem(listeningEventsStorageKey(profile.id), JSON.stringify(nextEvents));
         return nextEvents;
       });
+      markTasteDirty('events');
+      scheduleTasteCloudSync();
 
       activeProfileRef.current = {
         ...profile,
@@ -6325,6 +6632,70 @@ export default function SpiceApp() {
   }, [playedTracksCount]);
 
   // Play a track
+  const fetchFallbackSourceResults = async (
+    query: string,
+    source: 'youtube_music' | 'soundcloud',
+  ): Promise<Track[]> => {
+    const params = new URLSearchParams({ q: query, limit: '8' });
+    if (source === 'youtube_music') params.set('kind', 'tracks');
+    const res = await spiceFetch('local', source === 'soundcloud' ? '/sc/search' : '/yt/search', undefined, params);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return playableSearchTracks(enrichTrackSnapshots(data.tracks ?? []) as Track[]);
+  };
+
+  const tryResolveFallbackSource = async (
+    requested: Track,
+    requestId: number,
+  ): Promise<{ track: Track; streamUrl: string } | null> => {
+    const query = fallbackSearchQuery(requested);
+    if (!query) return null;
+
+    logDebug(
+      'player',
+      `Primary source unavailable for "${requested.title}". Searching alternate sources (title/artist match)...`,
+    );
+
+    const searchBatches = await Promise.allSettled([
+      fetchFallbackSourceResults(query, 'youtube_music'),
+      fetchFallbackSourceResults(query, 'soundcloud'),
+    ]);
+    if (requestId !== playbackRequestRef.current) return null;
+
+    const youTubeResults = searchBatches[0].status === 'fulfilled'
+      ? searchBatches[0].value
+      : [];
+    const soundCloudResults = searchBatches[1].status === 'fulfilled'
+      ? searchBatches[1].value
+      : [];
+    const candidates = rankFallbackCandidates(requested, youTubeResults, soundCloudResults);
+
+    for (const candidate of candidates) {
+      if (requestId !== playbackRequestRef.current) return null;
+      try {
+        const candidateEndpoint = isFallbackSoundCloudTrack(candidate)
+          ? spiceApiUrl('local', `/sc/track/${encodeURIComponent(fallbackSoundCloudTrackId(candidate))}`, { quality: audioQuality })
+          : spiceApiUrl('local', `/yt/track/${encodeURIComponent(candidate.id)}`);
+        const res = await fetch(candidateEndpoint);
+        if (!res.ok) continue;
+        const payload = await res.json();
+        const streams = payload.streams ?? [];
+        if (streams.length === 0) continue;
+        const resolvedStreamUrl = spiceApiResponseUrl('local', streams[0].url);
+        logDebug(
+          'player',
+          `Recovered playback via ${trackSourceLabel(candidate)} fallback: "${candidate.title}"`,
+        );
+        return { track: candidate, streamUrl: resolvedStreamUrl };
+      } catch {
+        // Probe the next alternate candidate.
+      }
+    }
+
+    logDebug('player', `No alternate source found for "${requested.title}".`);
+    return null;
+  };
+
   const playTrack = async (
     track: Track,
     newQueue?: Track[],
@@ -6375,6 +6746,7 @@ export default function SpiceApp() {
       playbackRetryCountsRef.current.delete(trackKey);
       directEmbedRetryRef.current.delete(trackKey);
       embedProxyRetryRef.current.delete(trackKey);
+      playbackFallbackAttemptedRef.current.delete(trackKey);
       playbackTelemetryRecordedRef.current.delete(trackKey);
     }
     if (beginsNewListenCycle) {
@@ -6454,6 +6826,18 @@ export default function SpiceApp() {
     setQueueIndex(updatedIndex);
 
     try {
+      if (boostProtocolHandoffRef.current) {
+        boostProtocolHandoffRef.current = false;
+        streamProtocolRef.current = 'proxy';
+        setStreamProtocol('proxy');
+        setShowVideoPlayer(false);
+        try {
+          localStorage.setItem('spice_stream_protocol', 'proxy');
+        } catch {
+          // Storage may be unavailable; the in-memory protocol switch still applies.
+        }
+        logDebug('player', 'Applying the deferred Volume Boost switch to the gain-capable proxy path.');
+      }
       const isSoundCloud = isSoundCloudTrack(track);
       const isYouTube = isYouTubeTrack(track);
       const activeStreamProtocol = streamProtocolRef.current;
@@ -6505,7 +6889,9 @@ export default function SpiceApp() {
         return;
       }
 
-      if (isSoundCloud && ytPlayerRef.current && typeof ytPlayerRef.current.stopVideo === 'function') {
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.stopVideo === 'function') {
+        // Silence any lingering embed player (e.g. after a deferred Volume
+        // Boost protocol handoff) so the iframe cannot overlap direct audio.
         ytPlayerRef.current.stopVideo();
       }
 
@@ -6542,6 +6928,42 @@ export default function SpiceApp() {
       if (requestId !== playbackRequestRef.current) return;
       console.error(err);
       logDebug('error', `Track streaming failed: ${err.message || err}`);
+
+      if (!isRetryCall && !playbackFallbackAttemptedRef.current.has(trackKey)) {
+        playbackFallbackAttemptedRef.current.add(trackKey);
+        const fallback = await tryResolveFallbackSource(track, requestId);
+        if (requestId !== playbackRequestRef.current) return;
+        if (fallback) {
+          const fallbackTrack = fallback.track;
+          const fallbackKey = playbackTrackKey(fallbackTrack);
+          currentTrackRef.current = fallbackTrack;
+          setCurrentTrack(fallbackTrack);
+          rememberTrackSnapshots([fallbackTrack]);
+          const activeQueue = queueRef.current;
+          const activeIndex = queueIndexRef.current;
+          if (activeQueue[activeIndex] && playbackTrackKey(activeQueue[activeIndex]) === trackKey) {
+            const nextQueue = [...activeQueue];
+            nextQueue[activeIndex] = fallbackTrack;
+            queueRef.current = nextQueue;
+            setQueue(nextQueue);
+          }
+          const directAudio = audioSlotRefs.current[activeAudioSlotRef.current];
+          if (directAudio) {
+            directAudio.dataset.spiceTrackKey = fallbackKey;
+            directAudio.src = fallback.streamUrl;
+            directAudio.load();
+          }
+          setStreamUrl(fallback.streamUrl);
+          streamUrlRef.current = fallback.streamUrl;
+          setPlaybackPlaying(shouldAutoPlayRef.current);
+          recordPlaybackTelemetry(fallbackTrack);
+          showSpiceNotice(
+            `"${track.title}" was unavailable — playing a ${trackSourceLabel(fallbackTrack)} match instead.`,
+            'info',
+          );
+          return;
+        }
+      }
 
       if (
         isYouTubeTrack(track)
@@ -6895,6 +7317,10 @@ export default function SpiceApp() {
       likedTrackDetails: savedLikedDetails
     });
     if (syncToCloud) autoSyncLikes(Array.from(updated), savedLikedDetails);
+
+    // Discovery-success feedback: liking a track by an artist this profile
+    // has not established yet is a win for that artist's future finds.
+    if (isLiked) recordTrackDiscoveryWinRef.current(track);
   };
 
   const setTrackLiked = (track: Track, isLiked: boolean) => {
@@ -8459,7 +8885,12 @@ export default function SpiceApp() {
   }, [isMounted, remoteAuthToken, remoteControlEnabled, remoteDeviceId]);
 
   const fetchSearchProviderResults = async (query: string, provider: SearchProvider) => {
-    const fetchProvider = async (targetProvider: Exclude<SearchProvider, 'hybrid'>, limit: number) => {
+    type ProviderBatchKey = Exclude<SearchProvider, 'hybrid'> | 'youtube_web';
+    const PROVIDER_BATCH_LABELS: Record<ProviderBatchKey, string> = {
+      ...SEARCH_PROVIDER_LABELS,
+      youtube_web: 'YouTube Video',
+    };
+    const fetchProvider = async (targetProvider: ProviderBatchKey, limit: number) => {
       const params = new URLSearchParams({
         q: query,
         limit: String(limit),
@@ -8467,15 +8898,18 @@ export default function SpiceApp() {
       const endpoint = {
         youtube_music: '/yt/search',
         youtube_videos: '/yt/search',
+        youtube_web: '/yt/search',
         soundcloud: '/sc/search',
       }[targetProvider];
 
       if (targetProvider === 'youtube_music' || targetProvider === 'youtube_videos') {
         params.set('kind', targetProvider === 'youtube_videos' ? 'videos' : 'tracks');
+      } else if (targetProvider === 'youtube_web') {
+        params.set('kind', 'web_videos');
       }
 
       const res = await spiceFetch('local', endpoint, undefined, params);
-      if (!res.ok) throw new Error(`${SEARCH_PROVIDER_LABELS[targetProvider]} search failed`);
+      if (!res.ok) throw new Error(`${PROVIDER_BATCH_LABELS[targetProvider]} search failed`);
       const data = await res.json();
       return playableSearchTracks(enrichTrackSnapshots(data.tracks ?? []) as Track[]);
     };
@@ -8483,8 +8917,9 @@ export default function SpiceApp() {
     if (provider === 'hybrid') {
       const batches = await Promise.allSettled([
         fetchProvider('youtube_music', 8),
-        fetchProvider('youtube_videos', 8),
-        fetchProvider('soundcloud', 8),
+        fetchProvider('youtube_videos', 6),
+        fetchProvider('youtube_web', 6),
+        fetchProvider('soundcloud', 6),
       ]);
       return dedupeTracks(
         batches.flatMap((batch) => batch.status === 'fulfilled' ? batch.value : []),
@@ -8565,15 +9000,24 @@ export default function SpiceApp() {
         playlists: profile.customPlaylists || [],
       });
       const queueSnapshot = queueRef.current;
+      const affinityContext: TasteAffinityContext = {
+        ...tasteAffinityContext,
+        recentTrackKeys: new Set([
+          playbackTrackKey(track),
+          ...queueSnapshot.slice(-4).map(playbackTrackKey),
+        ]),
+      };
       let ranked = rankRecommendedTracks([{ seed, tracks: relatedTracks }], taste, {
         exclude: queueSnapshot,
         limit: 16,
+        affinity: (candidate) => trackAffinityScore(candidate, affinityContext),
       });
       if (ranked.length === 0) {
         ranked = rankRecommendedTracks([{ seed, tracks: relatedTracks }], taste, {
           exclude: queueSnapshot,
           includeKnown: true,
           limit: 16,
+          affinity: (candidate) => trackAffinityScore(candidate, affinityContext),
         });
       }
       if (ranked.length === 0) return [];
@@ -8654,7 +9098,7 @@ export default function SpiceApp() {
 
     const cachedSearch = getCachedSearch(query, provider);
     if (cachedSearch) {
-      setSearchResults(playableSearchTracks(cachedSearch.tracks as Track[]));
+      setSearchResults(reorderTracksByTaste(playableSearchTracks(cachedSearch.tracks as Track[]), tasteAffinityContext));
       setSearchResultsSource('cache');
       setRecentSearchEntries(getRecentCachedSearches());
     }
@@ -8673,7 +9117,7 @@ export default function SpiceApp() {
         if (requestId !== searchRequestRef.current) return;
 
         if (tracksRes.status === 'fulfilled') {
-          const tracks = tracksRes.value;
+          const tracks = reorderTracksByTaste(tracksRes.value, tasteAffinityContext);
           rememberSearchResults(query, tracks, provider);
           setSearchResults(tracks);
           setSearchResultsSource('network');
@@ -8857,6 +9301,10 @@ export default function SpiceApp() {
       setNotificationTrayOpen(false);
       setProfileMenuOpen(false);
     }
+    // Live results: reuse the debounced, request-sequenced search queue so
+    // typing updates the tray without pressing Enter. Pasted links are still
+    // resolved with priority on explicit submit.
+    queueSearch(e.target.value);
   };
 
   const runRecentTopbarSearch = (entry: ReturnType<typeof getRecentCachedSearches>[number]) => {
@@ -8995,7 +9443,29 @@ export default function SpiceApp() {
       recommendationPreferencesStorageKey(activeProfileIdRef.current),
       JSON.stringify(normalized),
     );
+    markTasteDirty('preferences');
+    scheduleTasteCloudSync();
   };
+
+  // Discovery-success feedback: liking a track by an artist this profile has
+  // not established yet is a win for that artist's future finds.
+  const recordTrackDiscoveryWin = (track: Track) => {
+    const established = new Set(
+      privateTasteProfile.artists.slice(0, 10).map((signal) => signal.id),
+    );
+    const discoveryArtist = (track.artists || []).find((artist) => {
+      const key = (artist.id || artist.name || '').trim().toLowerCase();
+      return key.length > 0 && !established.has(key);
+    });
+    if (!discoveryArtist) return;
+    persistRecommendationPreferences(
+      recordDiscoveryWin(recommendationPreferences, discoveryArtist),
+    );
+  };
+
+  useEffect(() => {
+    recordTrackDiscoveryWinRef.current = recordTrackDiscoveryWin;
+  });
 
   const hideRecommendation = (track: Track) => {
     persistRecommendationPreferences(hideRecommendedTrack(recommendationPreferences, track));
@@ -9009,8 +9479,21 @@ export default function SpiceApp() {
     showSpiceNotice(`${artist.name} is snoozed from recommendations for 7 days.`, 'success');
   };
 
+  const dislikeRecommendation = (track: Track) => {
+    persistRecommendationPreferences(dislikeRecommendedTrack(recommendationPreferences, track));
+    showSpiceNotice(`Disliked “${track.title}” — it will not be recommended to this profile again.`, 'success');
+  };
+
   const recommendationFeedbackControls = (track: Track) => (
     <div style={{ display: 'flex', gap: '6px', marginTop: '7px' }}>
+      <button
+        type="button"
+        className="recommendation-feedback-button"
+        onClick={(event) => { event.stopPropagation(); dislikeRecommendation(track); }}
+        title="Tell SPICE this track is not for you"
+      >
+        Dislike
+      </button>
       <button
         type="button"
         className="recommendation-feedback-button"
@@ -9046,6 +9529,7 @@ export default function SpiceApp() {
     if (!primarySeed) {
       setHomeRecommended([]);
       setHomeRecommendationShelves([]);
+      setHomeFreshFinds([]);
       setIsLoadingRecommendations(false);
       return;
     }
@@ -9070,6 +9554,7 @@ export default function SpiceApp() {
         exclude,
         limit: 12,
         preferences: recommendationPreferences,
+        affinity: (candidate) => trackAffinityScore(candidate, tasteAffinityContext),
       });
       const shelves = buildRecommendationShelves(batches, profile, {
         exclude: [...exclude, ...ranked],
@@ -9083,6 +9568,17 @@ export default function SpiceApp() {
       ]);
       setHomeRecommended(ranked);
       setHomeRecommendationShelves(shelves);
+      setHomeFreshFinds(
+        pickFreshFindTracks(
+          batches.flatMap((batch) => batch.tracks),
+          profile,
+          {
+            winningArtistKeys: new Set(
+              recommendationPreferences.discoveryWins.map((win) => win.key),
+            ),
+          },
+        ).filter((candidate) => !ranked.some((picked) => playbackTrackKey(picked) === playbackTrackKey(candidate))),
+      );
     };
 
     commitRecommendations(cachedBatches);
@@ -9132,6 +9628,164 @@ export default function SpiceApp() {
       clearTimeout(timeout);
     };
   }, [currentPage, privateTasteProfile, currentTrackKey, recommendationPreferences]);
+
+  // "Because you listened to X": a radio shelf grown from the most-played
+  // track of this profile's strongest artist, ranked by the shared affinity
+  // core so it respects likes, skips, and the discovery slider.
+  useEffect(() => {
+    if (currentPage !== 'home' || !privateTasteProfile.isReady) {
+      return;
+    }
+
+    const topArtist = privateTasteProfile.artists[0];
+    if (!topArtist) return;
+
+    const seedTrack = history
+      .slice(0, 50)
+      .filter((item) => item.artists?.some((artist) => (
+        (artist.id || artist.name || '').trim().toLowerCase() === topArtist.id
+        || (artist.name || '').trim().toLowerCase() === topArtist.label.toLowerCase()
+      )) && item.msListened && item.msListened > 0)
+      .sort((a, b) => (b.msListened ?? 0) - (a.msListened ?? 0))[0];
+    if (!seedTrack) return;
+
+    const requestId = ++recommendationRequestRef.current;
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await spiceFetch(
+          'local',
+          `/yt/related/${encodeURIComponent(seedTrack.id)}`,
+          undefined,
+          { limit: 24 },
+        );
+        if (cancelled || requestId !== recommendationRequestRef.current || !response.ok) return;
+        const data = await response.json();
+        const related = playableSearchTracks(enrichTrackSnapshots(data.tracks || []) as Track[]);
+        if (related.length === 0) return;
+
+        const includeKnown = recommendationPreferences.discoveryLevel <= 25;
+        const candidates = related.filter((item) => (
+          includeKnown || !privateTasteProfile.trackIds.has(playbackTrackKey(item))
+        ));
+        const pool = candidates.length >= 4 ? candidates : related;
+        const ranked = reorderTracksByTaste(pool, tasteAffinityContext).slice(0, 10);
+        if (cancelled || ranked.length === 0) return;
+        rememberTrackSnapshots(ranked);
+        setHomeBecauseShelf({
+          label: `Because you listened to ${topArtist.label}`,
+          reason: `Radio grown from "${seedTrack.title}", balanced by this profile's likes and skips.`,
+          tracks: ranked,
+        });
+      } catch {
+        // The shelf is optional; silently keep the previous state.
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [currentPage, privateTasteProfile, history, recommendationPreferences]);
+
+  // Time-aware mix: when this hour of the day is one of the profile's
+  // established listening windows, shape a shelf around what that window
+  // usually sounds like.
+  useEffect(() => {
+    if (currentPage !== 'home' || !privateTasteProfile.isReady) return;
+    const bucket = listeningTimeProfile.buckets[listeningTimeProfile.current];
+    if (!bucket || bucket.eventCount < LISTENING_TIME_MIN_BUCKET_EVENTS) {
+      setHomeTimeMix(null);
+      return;
+    }
+
+    const bucketLabel = LISTENING_TIME_BUCKET_LABELS[listeningTimeProfile.current].toLowerCase();
+    const query = bucket.topArtist
+      ? `${bucket.topArtist} songs`
+      : LISTENING_TIME_BUCKET_QUERIES[listeningTimeProfile.current];
+    const requestId = ++recommendationRequestRef.current;
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const cached = getCachedSearch(query, 'hybrid');
+        let tracks = cached
+          ? playableSearchTracks(cached.tracks as Track[])
+          : [];
+        if (tracks.length < 6) {
+          const fetched = await fetchSearchProviderResults(query, 'hybrid');
+          if (!cancelled && fetched.length > 0) {
+            rememberSearchResults(query, fetched, 'hybrid');
+            tracks = fetched;
+          }
+        }
+        if (cancelled || requestId !== recommendationRequestRef.current || tracks.length === 0) return;
+        const ranked = reorderTracksByTaste(tracks, tasteAffinityContext).slice(0, 10);
+        if (ranked.length === 0) return;
+        rememberTrackSnapshots(ranked);
+        setHomeTimeMix({
+          label: `Your ${bucketLabel} mix`,
+          reason: bucket.topArtist
+            ? `Built around ${bucket.topArtist} from your ${bucketLabel} listening.`
+            : `Shaped by what you usually play in the ${bucketLabel}.`,
+          tracks: ranked,
+        });
+      } catch {
+        // The shelf is optional; silently keep the previous state.
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [currentPage, privateTasteProfile, listeningTimeProfile, recommendationPreferences]);
+
+  // "Listeners like you": privacy-safe collaborative favorites aggregated
+  // from taste-neighbors on SPICE Cloud (counts + track identities only).
+  useEffect(() => {
+    if (currentPage !== 'home' || !cloudToken) {
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await spiceFetch('cloud', '/listeners/like-you', {
+          headers: { 'Authorization': `Bearer ${cloudToken}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => ({}));
+        const favorites = Array.isArray(data?.tracks) ? data.tracks : [];
+        if (cancelled) return;
+        if (favorites.length === 0) {
+          setListenersLikeYou(null);
+          return;
+        }
+        const tracks = favorites.map((favorite: any) => ({
+          id: String(favorite.trackId),
+          sourceId: favorite.sourceId || 'youtube_music',
+          title: favorite.title,
+          artists: Array.isArray(favorite.artists)
+            ? favorite.artists.map((artist: any) => ({ id: artist?.id, name: artist?.name || '' })).filter((artist: any) => artist.name)
+            : [],
+          artworkUrl: favorite.artworkUrl || undefined,
+          durationMs: favorite.durationMs || undefined,
+        })) as Track[];
+        const scores: Record<string, number> = {};
+        for (const favorite of favorites) {
+          scores[`${favorite.sourceId || 'youtube_music'}:${favorite.trackId}`.toLocaleLowerCase()] = Number(favorite.listenerCount) || 0;
+        }
+        rememberTrackSnapshots(tracks);
+        setListenersLikeYou({ tracks, neighborCount: Number(data.neighborCount) || 0 });
+        setCollaborativeTasteScores((previous) => ({ ...previous, ...scores }));
+      } catch {
+        // Collaborative shelf is optional; local taste keeps working.
+      }
+    }, 1200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [currentPage, cloudToken]);
 
   // Playlists Operations
   const persistCustomPlaylists = (updated: Playlist[], syncOwnedPlaylists = true) => {
@@ -10815,20 +11469,29 @@ export default function SpiceApp() {
     volumeRef.current = safeVolume;
     setVolume(safeVolume);
 
-    if (shouldUseProxyForBoost(safeVolume, streamProtocolRef.current)) {
-      streamProtocolRef.current = 'proxy';
-      setStreamProtocol('proxy');
-      setShowVideoPlayer(false);
-      localStorage.setItem('spice_stream_protocol', 'proxy');
-      logDebug('player', 'Volume Boost switched playback from YouTube embed to the gain-capable proxy path.');
+    if (safeVolume <= 100) {
+      boostProtocolHandoffRef.current = false;
+    }
 
+    if (shouldUseProxyForBoost(safeVolume, streamProtocolRef.current)) {
       const activeTrack = currentTrackRef.current;
-      if (activeTrack && activeTrack.id !== 'placeholder') {
-        if (isPlayingRef.current) {
-          setTimeout(() => {
-            void playTrackRef.current(activeTrack, queueRef.current, queueIndexRef.current, false, false, true);
-          }, 0);
-        } else {
+      const embedIsActive = streamUrlRef.current === 'youtube-embed-active';
+      if (isPlayingRef.current && embedIsActive && activeTrack && activeTrack.id !== 'placeholder') {
+        // Keep the current embed playing (iframe audio caps at 100%) instead of
+        // restarting the track mid-song. The gain-capable proxy path takes over
+        // at the next track boundary.
+        boostProtocolHandoffRef.current = true;
+        logDebug('player', 'Volume Boost requested while the YouTube embed is playing. Deferring the proxy switch to the next track.');
+        showSpiceNotice('Volume boost applies from the next track.', 'info');
+      } else {
+        boostProtocolHandoffRef.current = false;
+        streamProtocolRef.current = 'proxy';
+        setStreamProtocol('proxy');
+        setShowVideoPlayer(false);
+        localStorage.setItem('spice_stream_protocol', 'proxy');
+        logDebug('player', 'Volume Boost switched playback from YouTube embed to the gain-capable proxy path.');
+
+        if (activeTrack && activeTrack.id !== 'placeholder') {
           if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === 'function') {
             ytPlayerRef.current.pauseVideo();
           }
@@ -12043,16 +12706,20 @@ const getMaskedEmail = (email: string) => {
         .slice(0, profile.smartQueue.recentArtistWindow)
         .flatMap(smartQueueArtistKeys),
     );
-    const smartTracks = buildSmartQueue(candidates, {
-      limit: Math.min(200, candidates.length),
-      recentTrackKeys,
-      recentArtistKeys,
-      likedTrackIds: likedTracks,
-      likedBoost: profile.smartQueue.likedBoost,
-      recentArtistPenalty: profile.smartQueue.recentArtistPenalty,
-      sourceDiversityPenalty: profile.smartQueue.sourceDiversityPenalty,
-      artistDiversityPenalty: profile.smartQueue.artistDiversityPenalty,
-    });
+    const smartTracks = sequenceTracksByMoodFlow(
+      buildSmartQueue(candidates, {
+        limit: Math.min(200, candidates.length),
+        recentTrackKeys,
+        recentArtistKeys,
+        likedTrackIds: likedTracks,
+        likedBoost: profile.smartQueue.likedBoost,
+        recentArtistPenalty: profile.smartQueue.recentArtistPenalty,
+        sourceDiversityPenalty: profile.smartQueue.sourceDiversityPenalty,
+        artistDiversityPenalty: profile.smartQueue.artistDiversityPenalty,
+        getBaseScore: (candidate) => smartQueueBaseScore(candidate as Track, tasteAffinityContext),
+      }),
+      (candidate) => trackTopicKeys(candidate as Track),
+    );
     if (smartTracks.length === 0) {
       showSpiceNotice('No eligible tracks were available for the smart queue.', 'info');
       return;
@@ -12148,6 +12815,92 @@ const getMaskedEmail = (email: string) => {
         onClose={() => setCommandPaletteOpen(false)}
         onQuickSearch={runCommandQuickSearch}
       />
+
+      {accountBlock && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2147483646,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            background: 'var(--bg-base, rgba(5, 5, 8, 0.98))',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            fontFamily: 'Outfit, sans-serif',
+          }}
+        >
+          <div style={{
+            width: 'min(460px, 100%)',
+            padding: '32px',
+            borderRadius: '20px',
+            border: `1px solid ${accountBlock.status === 'banned' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+            background: 'var(--card-bg, rgba(20, 18, 26, 0.95))',
+            boxShadow: '0 24px 64px rgba(0, 0, 0, 0.55)',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              margin: '0 auto 18px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.6rem',
+              color: accountBlock.status === 'banned' ? '#ef4444' : '#f59e0b',
+              background: accountBlock.status === 'banned'
+                ? 'rgba(239, 68, 68, 0.12)'
+                : 'rgba(245, 158, 11, 0.12)',
+            }}>
+              {accountBlock.status === 'banned' ? '⛔' : '⏱'}
+            </div>
+            <h1 style={{ margin: '0 0 10px', fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary, #fff)' }}>
+              {accountBlock.status === 'banned' ? 'Account Banned' : 'Account Temporarily Timed Out'}
+            </h1>
+            <p style={{ margin: '0 0 8px', fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text-secondary, rgba(255,255,255,0.65))' }}>
+              {accountBlock.status === 'banned'
+                ? 'This account has been banned and can no longer sign in or use SPICE services.'
+                : 'This account is temporarily timed out. SPICE services will be restored when the timeout ends.'}
+            </p>
+            {accountBlock.reason && (
+              <p style={{ margin: '0 0 8px', fontSize: '0.9rem', lineHeight: 1.55, color: 'var(--text-secondary, rgba(255,255,255,0.65))', wordBreak: 'break-word' }}>
+                <strong style={{ color: 'var(--text-primary, #fff)' }}>Reason:</strong> {accountBlock.reason}
+              </p>
+            )}
+            {accountBlock.expiresAt && (
+              <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: 'var(--text-secondary, rgba(255,255,255,0.65))' }}>
+                Access returns <strong style={{ color: 'var(--text-primary, #fff)' }}>{new Date(accountBlock.expiresAt).toLocaleString()}</strong>
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={{
+                marginTop: '18px',
+                padding: '10px 22px',
+                borderRadius: '999px',
+                border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
+                background: 'transparent',
+                color: 'var(--text-primary, #fff)',
+                fontFamily: 'inherit',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
 
       {(listenTogetherSession || listenTogetherHostSessionId) && (
         <div style={{
@@ -14088,6 +14841,159 @@ const getMaskedEmail = (email: string) => {
                     </section>
                   )}
 
+                  {privateTasteProfile.isReady && homeBecauseShelf && homeBecauseShelf.tracks.length > 0 && (
+                    <section className="section animate-in">
+                      <div className="section__header">
+                        <div>
+                          <h2 className="section__title">{homeBecauseShelf.label}</h2>
+                          <p className="taste-section-reason">{homeBecauseShelf.reason}</p>
+                        </div>
+                      </div>
+                      <div className="carousel-wrapper">
+                        <div className="carousel">
+                          {homeBecauseShelf.tracks.map((song) => (
+                            <div
+                              key={`because:${song.sourceId || 'youtube_music'}:${song.id}`}
+                              className="card animate-in"
+                              onClick={() => startTrackOnActiveReceiver(song, homeBecauseShelf.tracks)}
+                            >
+                              <div className="card__art-wrapper">
+                                <img className="card__art" src={song.artworkUrl || '/icon.svg'} alt={song.title} />
+                                <div className="card__play-overlay">{Icons.play}</div>
+                              </div>
+                              <div className="card__title truncate">{song.title}</div>
+                              <div className="card__subtitle truncate">{song.artists.map(a => a.name).join(', ')}</div>
+                              {recommendationFeedbackControls(song)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {listenersLikeYou && listenersLikeYou.tracks.length > 0 && (
+                    <section className="section animate-in">
+                      <div className="section__header">
+                        <div>
+                          <h2 className="section__title">Listeners like you</h2>
+                          <p className="taste-section-reason">
+                            {listenersLikeYou.neighborCount > 0
+                              ? `Community favorites from ${listenersLikeYou.neighborCount} listener${listenersLikeYou.neighborCount === 1 ? '' : 's'} whose taste overlaps yours. Counts only — no one's library is exposed.`
+                              : 'Community favorites from listeners whose taste overlaps yours.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="carousel-wrapper">
+                        <div className="carousel">
+                          {listenersLikeYou.tracks.map((song) => (
+                            <div
+                              key={`listeners:${song.sourceId || 'youtube_music'}:${song.id}`}
+                              className="card animate-in"
+                              onClick={() => startTrackOnActiveReceiver(song, listenersLikeYou.tracks)}
+                            >
+                              <div className="card__art-wrapper">
+                                <img className="card__art" src={song.artworkUrl || '/icon.svg'} alt={song.title} />
+                                <div className="card__play-overlay">{Icons.play}</div>
+                              </div>
+                              <div className="card__title truncate">{song.title}</div>
+                              <div className="card__subtitle truncate">{song.artists.map(a => a.name).join(', ')}</div>
+                              {recommendationFeedbackControls(song)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {privateTasteProfile.isReady && homeTimeMix && homeTimeMix.tracks.length > 0 && (
+                    <section className="section animate-in">
+                      <div className="section__header">
+                        <div>
+                          <h2 className="section__title">{homeTimeMix.label}</h2>
+                          <p className="taste-section-reason">{homeTimeMix.reason}</p>
+                        </div>
+                      </div>
+                      <div className="carousel-wrapper">
+                        <div className="carousel">
+                          {homeTimeMix.tracks.map((song) => (
+                            <div
+                              key={`timemix:${song.sourceId || 'youtube_music'}:${song.id}`}
+                              className="card animate-in"
+                              onClick={() => startTrackOnActiveReceiver(song, homeTimeMix.tracks)}
+                            >
+                              <div className="card__art-wrapper">
+                                <img className="card__art" src={song.artworkUrl || '/icon.svg'} alt={song.title} />
+                                <div className="card__play-overlay">{Icons.play}</div>
+                              </div>
+                              <div className="card__title truncate">{song.title}</div>
+                              <div className="card__subtitle truncate">{song.artists.map(a => a.name).join(', ')}</div>
+                              {recommendationFeedbackControls(song)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {privateTasteProfile.isReady && homeFreshFinds.length >= 3 && (
+                    <section className="section animate-in">
+                      <div className="section__header">
+                        <div>
+                          <h2 className="section__title">Fresh finds</h2>
+                          <p className="taste-section-reason">Artists you have not played yet, picked near this profile&apos;s taste and rotated daily.</p>
+                        </div>
+                      </div>
+                      <div className="carousel-wrapper">
+                        <div className="carousel">
+                          {homeFreshFinds.map((song) => (
+                            <div
+                              key={`fresh:${song.sourceId || 'youtube_music'}:${song.id}`}
+                              className="card animate-in"
+                              onClick={() => startTrackOnActiveReceiver(song, homeFreshFinds)}
+                            >
+                              <div className="card__art-wrapper">
+                                <img className="card__art" src={song.artworkUrl || '/icon.svg'} alt={song.title} />
+                                <div className="card__play-overlay">{Icons.play}</div>
+                              </div>
+                              <div className="card__title truncate">{song.title}</div>
+                              <div className="card__subtitle truncate">{song.artists.map(a => a.name).join(', ')}</div>
+                              {recommendationFeedbackControls(song)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {onRepeatShelf && onRepeatShelf.tracks.length > 0 && (
+                    <section className="section animate-in">
+                      <div className="section__header">
+                        <div>
+                          <h2 className="section__title">{onRepeatShelf.label}</h2>
+                          <p className="taste-section-reason">{onRepeatShelf.reason}</p>
+                        </div>
+                      </div>
+                      <div className="carousel-wrapper">
+                        <div className="carousel">
+                          {onRepeatShelf.tracks.map((song) => (
+                            <div
+                              key={`onrepeat:${song.sourceId || 'youtube_music'}:${song.id}`}
+                              className="card animate-in"
+                              onClick={() => startTrackOnActiveReceiver(song, onRepeatShelf.tracks)}
+                            >
+                              <div className="card__art-wrapper">
+                                <img className="card__art" src={song.artworkUrl || '/icon.svg'} alt={song.title} />
+                                <div className="card__play-overlay">{Icons.play}</div>
+                              </div>
+                              <div className="card__title truncate">{song.title}</div>
+                              <div className="card__subtitle truncate">{song.artists.map(a => a.name).join(', ')}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
                   {privateTasteProfile.isReady && homeRecommendationShelves.map((shelf) => (
                     <section key={shelf.seed.id} className="section animate-in">
                       <div className="section__header">
@@ -14199,18 +15105,43 @@ const getMaskedEmail = (email: string) => {
                             <option value="youtube_videos">YouTube Videos</option>
                             <option value="soundcloud">SoundCloud</option>
                           </select>
+                          {privateTasteProfile.isReady && (
+                            <button
+                              type="button"
+                              className="recommendation-feedback-button"
+                              style={searchForYouOnly ? { color: 'var(--accent-pink)', borderColor: 'var(--accent-pink)' } : undefined}
+                              onClick={() => {
+                                const next = !searchForYouOnly;
+                                setSearchForYouOnly(next);
+                                try {
+                                  localStorage.setItem('spice_search_for_you', String(next));
+                                } catch {
+                                  // Persistence is best-effort; the toggle still applies for this session.
+                                }
+                              }}
+                              aria-pressed={searchForYouOnly}
+                              title="Show only results that match this profile's taste"
+                            >
+                              For you
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {searchResults.length > 0 ? (
+                      {(() => {
+                        const visibleSearchResults = searchForYouOnly
+                          ? filterTracksForYou(searchResults, tasteAffinityContext)
+                          : searchResults;
+                        return visibleSearchResults.length > 0 ? (
                         <section className="section animate-in">
                           <div className="section__header">
                             <h2 className="section__title">
-                              Search Results{searchResultsSource === 'cache' ? ' (saved locally)' : ''}
+                              {searchForYouOnly ? 'Results For You' : 'Search Results'}
+                              {searchResultsSource === 'cache' ? ' (saved locally)' : ''}
                             </h2>
                           </div>
                           <div className="library-list">
-                            {searchResults.map((song) => {
+                            {visibleSearchResults.map((song) => {
                               const isLiked = likedTracks.has(song.id);
                               const isPlayingCurrent = playerTrack.id === song.id;
                               return (
@@ -14261,7 +15192,16 @@ const getMaskedEmail = (email: string) => {
                             })}
                           </div>
                         </section>
-                      ) : (
+                        ) : searchForYouOnly ? (
+                          <section className="section animate-in">
+                            <div className="section__header">
+                              <h2 className="section__title">Results For You</h2>
+                            </div>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                              Nothing in these results strongly matches this profile yet. Turn off the For you filter to see everything.
+                            </p>
+                          </section>
+                        ) : (
                         <>
                           {!searchQuery.trim() && (isLoadingRecommendations || homeRecommended.length > 0) && (
                             <section className="section animate-in">
@@ -14334,7 +15274,8 @@ const getMaskedEmail = (email: string) => {
                             </div>
                           </section>
                         </>
-                      )}
+                        );
+                      })()}
                     </>
                   ) : (
                     <>

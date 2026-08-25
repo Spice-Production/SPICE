@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { requireLocalMediaNamespace } from '@/lib/runtime-target';
-import { searchTracks } from '@/lib/youtube';
+import { searchTracks, searchWebVideos } from '@/lib/youtube';
 
 /**
  * Browser proof: search YouTube Music via `youtubei.js` and return Spice tracks.
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
   const kind = request.nextUrl.searchParams.get('kind') ?? 'tracks';
 
   try {
-    const tracks = await searchTracks(q, limit, kind);
+    const tracks = kind === 'web_videos'
+      ? await searchWebVideos(q, limit)
+      : await searchTracks(q, limit, kind);
     return jsonResponse({ tracks }, {}, request);
   } catch (error) {
     return jsonResponse(

@@ -381,3 +381,17 @@ export const feedbackSubmissions = pgTable(
     index('feedback_submissions_created_at_idx').on(t.createdAt),
   ],
 );
+
+export const tasteState = pgTable(
+  'taste_state',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: text('profile_id').notNull().default('default'),
+    kind: text('kind').notNull(),
+    payload: text('payload').notNull().default('{}'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.profileId, t.kind] })],
+);

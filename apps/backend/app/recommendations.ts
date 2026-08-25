@@ -399,7 +399,7 @@ const normalizeText = (value: string) =>
 const normalizeKey = (value: string) =>
   normalizeText(value).replace(/[^a-z0-9]+/g, ' ').trim();
 
-const trackKey = (track: RecommendationTrack) =>
+export const trackKey = (track: RecommendationTrack) =>
   `${track.sourceId ?? 'youtube_music'}:${track.id}`.toLocaleLowerCase();
 
 const trackTitleArtistKey = (track: RecommendationTrack) =>
@@ -512,14 +512,57 @@ export function incrementRecommendationListenMs(currentValue: unknown) {
   return Math.min(MAX_RECOMMENDATION_LISTEN_MS, current + RECOMMENDATION_LISTEN_CREDIT_MS);
 }
 
+export interface TasteListeningEventInput {
+  trackId: string;
+  sourceId?: string;
+  title?: string;
+  artistNames?: string[];
+  listenedMs?: number;
+}
+
+const readSkipScore = (
+  skipSignal: { trackScores?: Record<string, number> | ReadonlyMap<string, number> } | null | undefined,
+  key: string,
+) => {
+  const scores = skipSignal?.trackScores;
+  if (!scores) return 0;
+  const value = typeof (scores as ReadonlyMap<string, number>).get === 'function'
+    ? (scores as ReadonlyMap<string, number>).get(key)
+    : (scores as Record<string, number>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? clamp(value, -8, 8) : 0;
+};
+
+/**
+ * Translates the adaptive skip/completion learning into a play-weight
+ * multiplier: repeatedly skipped tracks contribute far less to taste (and
+ * heavily skipped ones contribute explicit negative evidence), while tracks
+ * that reliably get played through count slightly more.
+ */
+export function tasteSkipFactor(
+  skipSignal: { trackScores?: Record<string, number> | ReadonlyMap<string, number> } | null | undefined,
+  key: string,
+) {
+  const score = readSkipScore(skipSignal, key);
+  if (score <= -4) return 0;
+  if (score <= -2) return 0.35;
+  if (score < 2) return 1;
+  return 1.15;
+}
+
 export function buildPrivateTasteProfile<TTrack extends RecommendationTrack>({
   history,
   likedTracks,
   playlists,
+  skipSignal,
+  listeningEvents,
 }: {
   history: TTrack[];
   likedTracks: TTrack[];
   playlists: RecommendationPlaylist<TTrack>[];
+  /** Learned skip/completion scores that shape how strongly plays count. */
+  skipSignal?: { trackScores?: Record<string, number> | ReadonlyMap<string, number> } | null;
+  /** Longer-lived listening events (90-day retention) deepening artist signals. */
+  listeningEvents?: TasteListeningEventInput[] | null;
 }): TasteProfile {
   const artists = new Map<string, ScoreBucket>();
   const producers = new Map<string, ScoreBucket>();
@@ -530,6 +573,7 @@ export function buildPrivateTasteProfile<TTrack extends RecommendationTrack>({
   const evidenceTracks = new Set<string>();
   let totalSignals = 0;
   let evidenceUnits = 0;
+  let evidenceEventCredits = 0;
 
   const collectTextSignals = (text: string, weight: number) => {
     const normalized = normalizeText(text);
@@ -548,7 +592,7 @@ export function buildPrivateTasteProfile<TTrack extends RecommendationTrack>({
     }
   };
 
-  const collect = (track: TTrack, weight: number) => {
+  const collect = (track: RecommendationTrack, weight: number) => {
     if (!track?.id || track.id === 'placeholder') return;
     const tKey = trackKey(track);
     trackIds.add(tKey);
@@ -590,10 +634,32 @@ export function buildPrivateTasteProfile<TTrack extends RecommendationTrack>({
       Math.log2(1 + listenMs / RECOMMENDATION_LISTEN_CREDIT_MS) * 0.72,
     );
     const recencyBonus = Math.max(0, 0.6 - index * 0.015);
-    collect(track, 1 + repeatedListenStrength + recencyBonus);
+    const skipFactor = tasteSkipFactor(skipSignal, trackKey(track));
+    collect(track, (1 + repeatedListenStrength + recencyBonus) * skipFactor);
     evidenceTracks.add(trackKey(track));
     evidenceUnits += Math.min(2.5, 1 + repeatedListenStrength * 0.45);
   });
+
+  listeningEvents?.slice(0, 400).forEach((event) => {
+    if (!event?.trackId) return;
+    const listenedMs = Number.isFinite(event.listenedMs) ? Math.max(0, Number(event.listenedMs)) : 0;
+    if (listenedMs < RECOMMENDATION_LISTEN_CREDIT_MS) return;
+    const artists = (event.artistNames ?? [])
+      .map((name) => name?.trim())
+      .filter(Boolean)
+      .map((name) => ({ name }));
+    collect(
+      {
+        id: event.trackId,
+        sourceId: event.sourceId,
+        title: event.title || '',
+        artists,
+      },
+      Math.min(1.6, 0.55 + listenedMs / 240_000),
+    );
+    evidenceEventCredits = Math.min(4, evidenceEventCredits + 0.35);
+  });
+  evidenceUnits += evidenceEventCredits;
 
   likedTracks.forEach((track) => {
     if (!track?.id || track.id === 'placeholder') return;
@@ -768,6 +834,19 @@ export function createRelatedRecommendationSeed(track: RecommendationTrack): Rec
 const signalMap = (signals: TasteSignal[]) =>
   new Map(signals.map((signal) => [signal.id, signal.score]));
 
+/** Topic ids matched by a track's text — the mood-flow sequencing signal. */
+export function trackTopicKeys(track: RecommendationTrack): string[] {
+  const text = evidenceText({
+    id: track?.id ?? '',
+    title: track?.title ?? '',
+    artists: track?.artists ?? [],
+  });
+  const tokens = tokensForText(text);
+  return TOPIC_HINTS
+    .filter((topic) => hintScore(text, tokens, topic) > 0)
+    .map((topic) => topic.id);
+}
+
 export function personalizationTrackScore(
   track: RecommendationTrack,
   profile: TasteProfile,
@@ -829,6 +908,8 @@ export function rankRecommendedTracks<TTrack extends RecommendationTrack>(
     includeKnown?: boolean;
     preferences?: RecommendationPreferences;
     now?: number;
+    /** Optional shared affinity scorer (0..1) from the taste-affinity core. */
+    affinity?: (track: TTrack) => number;
   } = {},
 ): TTrack[] {
   const preferences = options.preferences
@@ -869,6 +950,7 @@ export function rankRecommendedTracks<TTrack extends RecommendationTrack>(
         + providerOrderBonus
         + personalizationTrackScore(track, profile)
         + exploration
+        + (options.affinity ? options.affinity(track) * 1.2 : 0)
         + (preferences ? recommendationPreferenceScoreAdjustment({
           knownTrack: profile.trackIds.has(idKey),
           discoveryLevel: preferences.discoveryLevel,

@@ -189,3 +189,98 @@ test('profile recommendation controls can restore familiar tracks and hide exact
   assert.equal(ranked.some((item) => item.id === establishedTracks[0].id), true);
   assert.equal(ranked.some((item) => item.id === hidden.id), false);
 });
+
+test('listening events shorter than a credit never feed the profile', () => {
+  const withShortEvents = buildPrivateTasteProfile({
+    history: [
+      { id: 'a', title: 'Anchor One', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'b', title: 'Anchor Two', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'c', title: 'Anchor Three', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+    ],
+    likedTracks: [],
+    playlists: [],
+    listeningEvents: [{
+      trackId: 'short',
+      sourceId: 'youtube_music',
+      title: 'Too Short',
+      artistNames: ['Ghost Artist'],
+      listenedMs: 10_000,
+    }],
+  });
+  assert.ok(!withShortEvents.artists.some((signal) => signal.label === 'Ghost Artist'));
+});
+
+test('listening event evidence is capped', () => {
+  const base = buildPrivateTasteProfile({
+    history: [
+      { id: 'a', title: 'Anchor One', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'b', title: 'Anchor Two', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'c', title: 'Anchor Three', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+    ],
+    likedTracks: [],
+    playlists: [],
+  });
+  const events = Array.from({ length: 400 }, (_, index) => ({
+    trackId: `e${index}`,
+    sourceId: 'youtube_music',
+    title: `Event Song ${index}`,
+    artistNames: ['Event Flood Artist'],
+    listenedMs: 600_000,
+  }));
+  const flooded = buildPrivateTasteProfile({
+    history: [
+      { id: 'a', title: 'Anchor One', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'b', title: 'Anchor Two', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'c', title: 'Anchor Three', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+    ],
+    likedTracks: [],
+    playlists: [],
+    listeningEvents: events,
+  });
+  assert.ok(flooded.evidenceUnits - base.evidenceUnits <= 4.1, 'event evidence is capped at +4');
+});
+
+test('affinity hook combines with discovery preferences without breaking ranking', () => {
+  const profile = buildPrivateTasteProfile({
+    history: [
+      { id: 'a', title: 'Anchor One', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'b', title: 'Anchor Two', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+      { id: 'c', title: 'Anchor Three', artists: [{ name: 'Anchor Artist' }], msListened: 120_000 },
+    ],
+    likedTracks: [],
+    playlists: [],
+  });
+  const seed = { id: 'seed', label: 'Seed', query: 'seed', reason: 'test', weight: 5, kind: 'artist' };
+  const ranked = rankRecommendedTracks(
+    [{ seed, tracks: [
+      { id: 'n1', title: 'Neutral', artists: [{ name: 'Strangers' }] },
+      { id: 'f1', title: 'Anchor Fresh', artists: [{ name: 'Anchor Artist' }] },
+    ] }],
+    profile,
+    {
+      limit: 2,
+      includeKnown: true,
+      preferences: { discoveryLevel: 0, hiddenTrackKeys: [], dislikedTrackKeys: [], snoozedArtists: [], discoveryWins: [] },
+      affinity: (track) => (track.id === 'f1' ? 1 : 0),
+    },
+  );
+  assert.equal(ranked[0].id, 'f1');
+});
+
+test('seeds stay stable when a skip signal is supplied', () => {
+  const history = [
+    { id: 'a', title: 'Moon Halo', artists: [{ name: 'Aurora' }], msListened: 180_000 },
+    { id: 'b', title: 'Moon Halo II', artists: [{ name: 'Aurora' }], msListened: 180_000 },
+    { id: 'c', title: 'Other Song', artists: [{ name: 'Nova' }], msListened: 180_000 },
+  ];
+  const plain = buildPrivateTasteProfile({ history, likedTracks: [], playlists: [] });
+  const shaped = buildPrivateTasteProfile({
+    history,
+    likedTracks: [],
+    playlists: [],
+    skipSignal: { trackScores: { 'youtube_music:c': -8 } },
+  });
+  const plainSeeds = buildRecommendationSeeds(plain).map((seed) => seed.label);
+  const shapedSeeds = buildRecommendationSeeds(shaped).map((seed) => seed.label);
+  assert.deepEqual(plainSeeds, shapedSeeds, 'seed kinds stay stable; only weights shift');
+});

@@ -1,4 +1,4 @@
-export type AdaptiveListenOutcome = 'completed' | 'skipped';
+export type AdaptiveListenOutcome = 'completed' | 'early_skip' | 'late_skip';
 
 export interface AdaptiveTrackPriorityEntry {
   score: number;
@@ -14,6 +14,10 @@ export interface AdaptiveTrackPriorityState {
 
 export interface AdaptiveListenObservation {
   completedNaturally: boolean;
+  /** Playback position when the track was left, in milliseconds. */
+  positionMs?: number;
+  /** Full track duration in milliseconds, when known. */
+  durationMs?: number;
 }
 
 export interface AdaptiveSeekObservation {
@@ -23,14 +27,21 @@ export interface AdaptiveSeekObservation {
 }
 
 const STATE_VERSION = 1 as const;
-const MIN_SCORE = -8;
-const MAX_SCORE = 8;
-const MIN_WEIGHT = 0.25;
-const MAX_WEIGHT = 4;
+const MIN_SCORE = -12;
+const MAX_SCORE = 12;
+const MIN_WEIGHT = 0.125;
+const MAX_WEIGHT = 8;
 const MAX_TRACKS = 2_000;
 const MAX_COUNTER = 1_000_000;
 const COMPLETION_SEEK_WINDOW_MS = 3_000;
 const MIN_FORWARD_SEEK_MS = 1_000;
+// Parity with the Android client: abandoning a track before 30 seconds or
+// before half of it has played is an early skip and counts double.
+const EARLY_SKIP_POSITION_MS = 30_000;
+const EARLY_SKIP_FRACTION = 0.5;
+const COMPLETION_DELTA = 2;
+const EARLY_SKIP_DELTA = -2;
+const LATE_SKIP_DELTA = -1;
 
 export const EMPTY_ADAPTIVE_TRACK_PRIORITY_STATE: AdaptiveTrackPriorityState = Object.freeze({
   version: STATE_VERSION,
@@ -84,7 +95,20 @@ export function normalizeAdaptiveTrackPriorityState(value: unknown): AdaptiveTra
 }
 
 export function classifyAdaptiveListen(observation: AdaptiveListenObservation): AdaptiveListenOutcome {
-  return observation.completedNaturally ? 'completed' : 'skipped';
+  if (observation.completedNaturally) return 'completed';
+  const positionMs = finiteNumber(observation.positionMs);
+  const durationMs = finiteNumber(observation.durationMs);
+  const early = positionMs > 0 && (
+    positionMs < EARLY_SKIP_POSITION_MS
+    || (durationMs > 0 && positionMs / durationMs < EARLY_SKIP_FRACTION)
+  );
+  return early ? 'early_skip' : 'late_skip';
+}
+
+export function adaptiveOutcomeDelta(outcome: AdaptiveListenOutcome) {
+  if (outcome === 'completed') return COMPLETION_DELTA;
+  if (outcome === 'early_skip') return EARLY_SKIP_DELTA;
+  return LATE_SKIP_DELTA;
 }
 
 export function shouldTreatAdaptiveSeekAsSkip(observation: AdaptiveSeekObservation) {
@@ -104,7 +128,7 @@ export function recordAdaptiveListenOutcome(
 ): AdaptiveTrackPriorityState {
   const state = normalizeAdaptiveTrackPriorityState(value);
   const trackKey = safeTrackKey(rawTrackKey);
-  if (!trackKey || (outcome !== 'completed' && outcome !== 'skipped')) return state;
+  if (!trackKey || (outcome !== 'completed' && outcome !== 'early_skip' && outcome !== 'late_skip')) return state;
 
   const previous = state.tracks[trackKey] || {
     score: 0,
@@ -114,7 +138,7 @@ export function recordAdaptiveListenOutcome(
   };
   const completed = outcome === 'completed';
   const nextEntry: AdaptiveTrackPriorityEntry = {
-    score: Math.max(MIN_SCORE, Math.min(MAX_SCORE, previous.score + (completed ? 1 : -1))),
+    score: Math.max(MIN_SCORE, Math.min(MAX_SCORE, previous.score + adaptiveOutcomeDelta(outcome))),
     completed: Math.min(MAX_COUNTER, previous.completed + (completed ? 1 : 0)),
     skipped: Math.min(MAX_COUNTER, previous.skipped + (completed ? 0 : 1)),
     updatedAt: Math.max(0, Math.trunc(finiteNumber(now, Date.now()))),
@@ -133,7 +157,7 @@ export function adaptiveTrackWeight(value: unknown, rawTrackKey: string) {
   const state = normalizeAdaptiveTrackPriorityState(value);
   const trackKey = safeTrackKey(rawTrackKey);
   const score = trackKey ? state.tracks[trackKey]?.score ?? 0 : 0;
-  return Math.max(MIN_WEIGHT, Math.min(MAX_WEIGHT, 2 ** (score / 3)));
+  return Math.max(MIN_WEIGHT, Math.min(MAX_WEIGHT, 2 ** (score / 4)));
 }
 
 export function adaptiveTrackWeights(value: unknown, trackKeys: string[]) {
@@ -141,6 +165,6 @@ export function adaptiveTrackWeights(value: unknown, trackKeys: string[]) {
   return trackKeys.map((trackKey) => {
     const key = safeTrackKey(trackKey);
     const score = key ? state.tracks[key]?.score ?? 0 : 0;
-    return Math.max(MIN_WEIGHT, Math.min(MAX_WEIGHT, 2 ** (score / 3)));
+    return Math.max(MIN_WEIGHT, Math.min(MAX_WEIGHT, 2 ** (score / 4)));
   });
 }

@@ -49,6 +49,7 @@ internal fun rankMobileRecommendations(
     history: List<Track>,
     liked: List<Track>,
     limit: Int = 18,
+    trackPriorityFor: ((String) -> Int)? = null,
 ): List<Track> {
     val excludedTracks = history.mapTo(mutableSetOf()) { it.recommendationKey() }
     val likedArtists = liked.mapTo(mutableSetOf()) { it.artist.tasteKey() }
@@ -67,10 +68,12 @@ internal fun rankMobileRecommendations(
             val artistKey = track.artist.tasteKey()
             val titleArtistKey = "${track.title.tasteKey()}|$artistKey"
             if (scored.containsKey(titleArtistKey)) return@forEach
-            val score = 1_000 - ordinal++ - (batchIndex * 8) +
+            val score = 1_000 - ordinal - (batchIndex * 8) +
                 (historyArtistWeights[artistKey] ?: 0) * 18 +
                 (if (artistKey in likedArtists) 42 else 0) +
-                (if (track.sourceId == batch.seed.track.sourceId) 4 else 0)
+                (if (track.sourceId == batch.seed.track.sourceId) 4 else 0) +
+                (trackPriorityFor?.invoke(key) ?: 0) * 4
+            ordinal += 1
             scored[titleArtistKey] = track to score
         }
     }
@@ -99,9 +102,10 @@ internal fun mobileRecommendationSections(
     batches: List<MobileRecommendationBatch>,
     history: List<Track>,
     liked: List<Track>,
+    trackPriorityFor: ((String) -> Int)? = null,
 ): List<FeedSection> {
     if (batches.isEmpty()) return emptyList()
-    val recommended = rankMobileRecommendations(batches, history, liked)
+    val recommended = rankMobileRecommendations(batches, history, liked, trackPriorityFor = trackPriorityFor)
     val excluded = history.mapTo(mutableSetOf()) { it.recommendationKey() }
     return buildList {
         if (recommended.isNotEmpty()) add(FeedSection("Recommended Next", recommended))
@@ -113,6 +117,83 @@ internal fun mobileRecommendationSections(
             if (tracks.isNotEmpty()) add(FeedSection(batch.seed.label, tracks))
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Mobile taste affinity — mirrors the web app's shared affinity core so both
+// platforms rank with the same signals: artist familiarity, likes, and the
+// adaptive skip/completion learning.
+// ---------------------------------------------------------------------------
+
+internal const val MOBILE_AFFINITY_RECENT_DAMP = 0.25
+internal const val MOBILE_AFFINITY_SEARCH_POSITION_DECAY = 0.06
+internal const val MOBILE_AFFINITY_SEARCH_BOOST = 0.35
+
+internal data class MobileTasteContext(
+    val historyArtistWeights: Map<String, Int>,
+    val likedArtistKeys: Set<String>,
+    val likedTrackKeys: Set<String>,
+    val recentTrackKeys: Set<String>,
+    val trackPriorityFor: (String) -> Int,
+)
+
+internal fun mobileTasteContext(
+    history: List<Track>,
+    liked: List<Track>,
+    trackPriorityFor: (String) -> Int,
+): MobileTasteContext = MobileTasteContext(
+    historyArtistWeights = history
+        .map { it.artist.tasteKey() }
+        .filter(String::isNotBlank)
+        .groupingBy { it }
+        .eachCount(),
+    likedArtistKeys = liked.mapTo(mutableSetOf()) { it.artist.tasteKey() },
+    likedTrackKeys = liked.mapTo(mutableSetOf()) { it.recommendationKey() },
+    recentTrackKeys = history.take(6).mapTo(mutableSetOf()) { it.recommendationKey() },
+    trackPriorityFor = trackPriorityFor,
+)
+
+internal fun mobileTasteAffinity(
+    track: Track,
+    context: MobileTasteContext,
+): Double {
+    val artistKey = track.artist.tasteKey()
+    val key = track.recommendationKey()
+    var personalization = ((context.historyArtistWeights[artistKey] ?: 0).coerceAtMost(8) / 8.0) * 0.6
+    if (artistKey in context.likedArtistKeys) personalization += 0.25
+    personalization = personalization.coerceIn(0.0, 1.0)
+
+    val adaptive = (context.trackPriorityFor(key).coerceIn(-12, 12) / 12.0)
+        .coerceIn(-1.0, 1.0)
+    // A track this profile keeps skipping is direct evidence against it: the
+    // negative adaptive score scales down artist-level generalization for that
+    // specific track instead of merely subtracting a little.
+    val shapedPersonalization = if (adaptive < 0.0) personalization * (1.0 + adaptive) else personalization
+    val liked = if (key in context.likedTrackKeys) 0.35 else 0.0
+    val recentDamp = if (key in context.recentTrackKeys) -MOBILE_AFFINITY_RECENT_DAMP else 0.0
+    return (shapedPersonalization + liked + adaptive * 0.3 + recentDamp).coerceIn(-1.0, 1.0)
+}
+
+/**
+ * Subtle search re-ranking: provider order stays the relevance signal, but
+ * tracks with real affinity may rise a few positions. No-ops when there is no
+ * taste evidence yet.
+ */
+internal fun reorderMobileTracksByTaste(
+    tracks: List<Track>,
+    context: MobileTasteContext,
+): List<Track> {
+    if (tracks.size < 2) return tracks
+    if (context.historyArtistWeights.isEmpty() && context.likedTrackKeys.isEmpty()) return tracks
+
+    val scored = tracks.mapIndexed { index, track ->
+        val affinity = mobileTasteAffinity(track, context)
+        maxOf(0.0, 1.0 - index * MOBILE_AFFINITY_SEARCH_POSITION_DECAY) +
+            affinity * MOBILE_AFFINITY_SEARCH_BOOST to index
+    }
+    return scored
+        .sortedWith(compareByDescending<Pair<Double, Int>> { it.first }.thenBy { it.second })
+        .map { tracks[it.second] }
 }
 
 internal fun mobileSmartQueueCandidates(

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -38,6 +39,7 @@ import xyz.spiceapp.mobile.data.SPICE_CONNECT_LAN_SIGNAL_COMMAND
 import xyz.spiceapp.mobile.data.SpiceConnectLanTransport
 import xyz.spiceapp.mobile.data.ResolvedPlayback
 import xyz.spiceapp.mobile.data.parseSpiceConnectLanTimestamp
+import xyz.spiceapp.mobile.data.parseListenerFavorites
 import xyz.spiceapp.mobile.data.spiceConnectLanTimestamp
 import xyz.spiceapp.mobile.data.toRemoteTrackJson
 import xyz.spiceapp.mobile.data.download.MediaDownloadClient
@@ -202,6 +204,9 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
     private var connectJob: Job? = null
     private var connectRealtimeJob: Job? = null
     private var connectRefreshJob: Job? = null
+    private var searchDebounceJob: Job? = null
+    private var searchJob: Job? = null
+    private var adaptiveTasteSyncJob: Job? = null
     private var spiceConnectLanTransport: SpiceConnectLanTransport? = null
     private var lastSpiceConnectLanFingerprint: String? = null
     private var handoffAcceptTimeoutJob: Job? = null
@@ -524,6 +529,16 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSearchQuery(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
+        searchDebounceJob?.cancel()
+        val normalized = query.trim()
+        if (normalized.isEmpty()) {
+            _uiState.value = _uiState.value.copy(searchResults = emptyList(), searchLoading = false)
+            return
+        }
+        searchDebounceJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            runSearch(normalized)
+        }
     }
 
     fun setSearchProvider(provider: SearchProvider) {
@@ -532,26 +547,55 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun search(query: String = _uiState.value.searchQuery) {
+        searchDebounceJob?.cancel()
         val normalized = query.trim()
         if (normalized.isEmpty()) return
         _uiState.value = _uiState.value.copy(searchQuery = normalized, searchLoading = true, message = null)
-        viewModelScope.launch {
+        runSearch(normalized)
+    }
+
+    private fun runSearch(normalized: String) {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(searchLoading = true, message = null)
             runCatching { api.search(normalized, 20, _uiState.value.searchProvider) }
                 .onSuccess { tracks ->
+                    if (!isActive) return@launch
+                    val reordered = reorderSearchResultsForTaste(tracks)
                     _uiState.value = _uiState.value.copy(
                         screen = AppScreen.Search,
-                        searchResults = tracks,
+                        searchResults = reordered,
                         searchLoading = false,
-                        message = if (tracks.isEmpty()) "No tracks found." else null,
+                        message = if (reordered.isEmpty()) "No tracks found." else null,
                     )
                 }
                 .onFailure { error ->
+                    if (error is CancellationException) return@onFailure
+                    if (!isActive) return@onFailure
                     _uiState.value = _uiState.value.copy(
                         searchLoading = false,
                         message = error.message ?: "Search failed.",
                     )
                 }
         }
+    }
+
+    /**
+     * Subtle taste re-ranking of search results using the same affinity
+     * signals as the home feed: artist familiarity, likes, and the adaptive
+     * skip/completion learning. Provider relevance order is preserved for
+     * everything without strong affinity.
+     */
+    private suspend fun reorderSearchResultsForTaste(tracks: List<Track>): List<Track> {
+        if (tracks.size < 2) return tracks
+        val history = libraryRepository.historySnapshot()
+        if (history.isEmpty()) return tracks
+        val context = mobileTasteContext(
+            history = history,
+            liked = libraryRepository.likedSnapshot(),
+            trackPriorityFor = { key -> libraryRepository.trackPriority(key) },
+        )
+        return reorderMobileTracksByTaste(tracks, context)
     }
 
     fun play(track: Track, queue: List<Track> = listOf(track), queueIndexHint: Int? = null) {
@@ -2302,6 +2346,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
         if (departure == null || feedbackRecordedForCurrentPlayback) return
         libraryRepository.recordTrackFeedback(departure.trackKey, departure.feedback)
         feedbackRecordedForCurrentPlayback = true
+        scheduleAdaptiveTasteSync()
     }
 
     private fun recordCompletedPlayback(trackKeyOverride: String? = null) {
@@ -2309,6 +2354,39 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
         if (feedbackRecordedForCurrentPlayback) return
         libraryRepository.recordTrackFeedback(trackKey, MobileTrackFeedback.Completed)
         feedbackRecordedForCurrentPlayback = true
+        scheduleAdaptiveTasteSync()
+    }
+
+    // Adaptive priority cloud sync: pushes the local skip/completion learning
+    // (debounced) and adopts newer cloud copies during account sync so taste
+    // follows the listener across desktop and phone.
+    private fun scheduleAdaptiveTasteSync() {
+        val session = _uiState.value.accountSession ?: return
+        adaptiveTasteSyncJob?.cancel()
+        adaptiveTasteSyncJob = viewModelScope.launch {
+            delay(AUTO_TASTE_SYNC_DEBOUNCE_MS)
+            runCatching {
+                val states = JSONArray().put(
+                    JSONObject()
+                        .put("kind", "adaptive")
+                        .put("payload", libraryRepository.trackPriorityPayload())
+                        .put("updatedAt", System.currentTimeMillis()),
+                )
+                api.pushTasteStates(session.token, states)
+                libraryRepository.markTasteSyncedAt(System.currentTimeMillis())
+            }
+        }
+    }
+
+    private suspend fun pullAdaptiveTaste(session: AccountSession) {
+        runCatching {
+            val payload = api.fetchTasteStates(session.token)
+            val adaptive = payload.optJSONObject("states")?.optJSONObject("adaptive") ?: return
+            val updatedAt = adaptive.optLong("updatedAt", 0L)
+            if (updatedAt <= libraryRepository.tasteSyncedAt()) return
+            libraryRepository.replaceTrackPriorities(adaptive.optString("payload", "[]"))
+            libraryRepository.markTasteSyncedAt(updatedAt)
+        }
     }
 
     private fun recordPlaybackStarted(
@@ -2990,6 +3068,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                     lastSync = summary,
                     message = "Synced ${summary.likedCount} liked tracks, ${summary.historyCount} history items, and ${summary.playlistCount} playlists.",
                 )
+                pullAdaptiveTaste(session)
                 loadHome()
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
@@ -4034,7 +4113,12 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }.awaitAll().filterNotNull()
                 }
-                val personalized = mobileRecommendationSections(recommendationBatches, history, liked)
+                val personalized = mobileRecommendationSections(
+                    recommendationBatches,
+                    history,
+                    liked,
+                    trackPriorityFor = { key -> libraryRepository.trackPriority(key) },
+                )
                 val fallbackQueries = buildList {
                     add("Quick Picks" to "Top Hits 2026")
                     if (personalized.isEmpty()) {
@@ -4051,10 +4135,23 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 (personalized + fallback).filter { it.tracks.isNotEmpty() }
             }.onSuccess { sections ->
+                val listenerFavorites = _uiState.value.accountSession?.let { session ->
+                    runCatching {
+                        api.fetchListenersLikeYou(session.token)
+                            .let { parsed -> parseListenerFavorites(parsed) }
+                            .take(10)
+                            .let { tracks -> if (tracks.isEmpty()) null else FeedSection("Listeners like you", tracks) }
+                    }.getOrNull()
+                }
+                val finalSections = if (listenerFavorites != null) {
+                    listOf(listenerFavorites) + sections.filter { section -> section.title != listenerFavorites.title }
+                } else {
+                    sections
+                }
                 _uiState.value = _uiState.value.copy(
-                    homeSections = sections,
+                    homeSections = finalSections,
                     homeLoading = false,
-                    message = if (sections.isEmpty()) "Home feed is unavailable right now." else _uiState.value.message,
+                    message = if (finalSections.isEmpty()) "Home feed is unavailable right now." else _uiState.value.message,
                 )
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
@@ -4288,6 +4385,7 @@ class SpiceViewModel(application: Application) : AndroidViewModel(application) {
         const val MAX_MISSING_APP_UPDATE_DOWNLOAD_CHECKS = 3
         const val AUTO_HISTORY_SYNC_DEBOUNCE_MS = 90_000L
         const val AUTO_TASTE_SYNC_DEBOUNCE_MS = 30_000L
+        const val SEARCH_DEBOUNCE_MS = 400L
     }
 }
 

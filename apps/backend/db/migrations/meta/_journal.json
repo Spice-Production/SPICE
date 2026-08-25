@@ -113,6 +113,13 @@
       "when": 1786599999000,
       "tag": "0015_account_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786600000000,
+      "tag": "0016_taste_state_sync",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-package xyz.spiceapp.mobile.data
+﻿package xyz.spiceapp.mobile.data
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -638,5 +638,39 @@ class SpiceApiParserTest {
         assertEquals("Road trip", commands[8].playlistTitle)
         assertEquals("one", RepeatMode.One.toRemoteValue())
         assertEquals(RepeatMode.Off, parseRemoteRepeatMode("invalid"))
+    }
+    @Test
+    fun parsesListenerFavoritesFromCollaborativePayload() {
+        val favorites = parseListenerFavorites(
+            JSONObject(
+                """
+                {
+                  "tracks": [
+                    {
+                      "trackId": "hit1",
+                      "sourceId": "youtube_music",
+                      "title": "Community Hit",
+                      "artists": [{"name": "Shared Artist"}],
+                      "artworkUrl": "https://example.test/hit.jpg",
+                      "durationMs": 210000,
+                      "listenerCount": 7
+                    },
+                    {"trackId": "", "sourceId": "youtube_music", "title": "No Id"},
+                    {"trackId": "placeholder", "sourceId": "youtube_music", "title": "Track"}
+                  ],
+                  "neighborCount": 4
+                }
+                """.trimIndent(),
+            ),
+        )
+        assertEquals(1, favorites.size)
+        assertEquals("hit1", favorites.single().id)
+        assertEquals("Community Hit", favorites.single().title)
+        assertEquals("Shared Artist", favorites.single().artist)
+        assertEquals(210000, favorites.single().durationMs)
+    }
+    @Test
+    fun listenerFavoritesWithEmptyPayloadYieldNothing() {
+        assertEquals(0, parseListenerFavorites(JSONObject()).size)
     }
 }

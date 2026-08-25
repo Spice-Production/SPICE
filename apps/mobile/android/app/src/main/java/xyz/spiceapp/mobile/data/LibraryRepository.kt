@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import xyz.spiceapp.mobile.MobileTrackFeedback
+import xyz.spiceapp.mobile.encodeMobileTrackPriorities
 import xyz.spiceapp.mobile.parseMobileTrackPriorities
 import xyz.spiceapp.mobile.updateMobileTrackPriorityPayload
 import xyz.spiceapp.mobile.data.local.DownloadEntity
@@ -359,6 +360,29 @@ class LibraryRepository(context: Context) {
         }
     }
 
+    /** Raw adaptive priority payload for cloud taste sync. */
+    fun trackPriorityPayload(): String = synchronized(TRACK_PRIORITY_LOCK) {
+        refreshTrackPrioritiesLocked()
+        trackPriorityPayload
+    }
+
+    /** Replaces the adaptive priority payload with a cloud copy. */
+    fun replaceTrackPriorities(payload: String) {
+        val parsed = parseMobileTrackPriorities(payload)
+        synchronized(TRACK_PRIORITY_LOCK) {
+            trackPriorityPayload = encodeMobileTrackPriorities(parsed)
+            preferences.edit().putString(KEY_TRACK_PRIORITIES, trackPriorityPayload).apply()
+            trackPriorities.clear()
+            trackPriorities.putAll(parsed)
+        }
+    }
+
+    fun tasteSyncedAt(): Long = preferences.getLong(KEY_TASTE_ADAPTIVE_SYNCED_AT, 0L)
+
+    fun markTasteSyncedAt(timestampMs: Long) {
+        preferences.edit().putLong(KEY_TASTE_ADAPTIVE_SYNCED_AT, timestampMs.coerceAtLeast(0L)).apply()
+    }
+
     private fun refreshTrackPrioritiesLocked() {
         val latestPayload = preferences.getString(KEY_TRACK_PRIORITIES, "[]").orEmpty()
         if (latestPayload == trackPriorityPayload) return
@@ -539,6 +563,7 @@ class LibraryRepository(context: Context) {
         const val KEY_CROSSFADE_DURATION_MS = "crossfade_duration_ms"
         const val KEY_SMART_QUEUE_ENABLED = "smart_queue_enabled"
         const val KEY_TRACK_PRIORITIES = "track_priorities_v1"
+        const val KEY_TASTE_ADAPTIVE_SYNCED_AT = "taste_adaptive_synced_at"
         const val KEY_PENDING_LIKED_IDS = "pending_liked_ids"
         const val KEY_LIKES_SYNC_INITIALIZED = "likes_sync_initialized"
         const val KEY_LIKES_SYNC_REVISION = "likes_sync_revision"
