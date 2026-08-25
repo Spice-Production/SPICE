@@ -49,6 +49,15 @@ contextBridge.exposeInMainWorld("api", {
   setToolbarButtons: (buttons) => ipcRenderer.send("set-toolbar-buttons", buttons),
   setCustomCss: (css) => ipcRenderer.send("set-custom-css", css),
   getVolume: () => ipcRenderer.invoke("get-volume"),
+  getAudioOutputDevice: () => ipcRenderer.invoke("get-audio-output-device"),
+  setAudioOutputDevice: (deviceId) =>
+    ipcRenderer.send("set-audio-output-device", deviceId),
+  onAudioOutputDeviceChanged: (callback) =>
+    ipcRenderer.on("audio-output-device-changed", (event, deviceId) =>
+      callback(deviceId),
+    ),
+  normalizeAudioOutputDevices: (devices) =>
+    ipcRenderer.invoke("normalize-audio-output-devices", devices),
   setDiscordRpc: (enabled) => ipcRenderer.send("set-discord-rpc", enabled),
   openLyrics: () => ipcRenderer.send("open-lyrics"),
   openMiniPlayer: () => ipcRenderer.send("open-mini-player"),

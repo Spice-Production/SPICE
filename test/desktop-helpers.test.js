@@ -9,6 +9,8 @@ const {
   navigateHistory,
   shouldBlockNativeStartupPlayback,
   resolveWrapperVolumeStages,
+  normalizeAudioOutputDevices,
+  normalizeAudioOutputDeviceSelection,
   resolveLocalRuntimePlatform,
   shouldQuitWhenLastWindowCloses,
   supportsStartOnBoot,
@@ -209,6 +211,35 @@ test("wrapper volume reserves Web Audio gain for boosted output", () => {
   });
 });
 
+test("audio output device list keeps only unique outputs with default first", () => {
+  const devices = normalizeAudioOutputDevices([
+    { kind: "audioinput", deviceId: "mic-1", label: "Mic" },
+    { kind: "audiooutput", deviceId: "default", label: "System default" },
+    { kind: "audiooutput", deviceId: "speakers", label: "Speakers (Realtek)" },
+    { kind: "audiooutput", deviceId: "speakers", label: "Duplicate entry" },
+    { kind: "audiooutput", deviceId: "", label: "No id" },
+    { kind: "audiooutput", deviceId: "hdmi" },
+    null,
+  ]);
+
+  assert.deepEqual(devices, [
+    { deviceId: "default", label: "System default" },
+    { deviceId: "speakers", label: "Speakers (Realtek)" },
+    { deviceId: "hdmi", label: "Output device 3" },
+  ]);
+  assert.deepEqual(normalizeAudioOutputDevices(undefined), []);
+  assert.deepEqual(normalizeAudioOutputDevices("nope"), []);
+});
+
+test("audio output selection falls back to the system default", () => {
+  assert.equal(normalizeAudioOutputDeviceSelection("speakers-1"), "speakers-1");
+  assert.equal(normalizeAudioOutputDeviceSelection("  default  "), "default");
+  assert.equal(normalizeAudioOutputDeviceSelection(""), "default");
+  assert.equal(normalizeAudioOutputDeviceSelection("   "), "default");
+  assert.equal(normalizeAudioOutputDeviceSelection(null), "default");
+  assert.equal(normalizeAudioOutputDeviceSelection(42), "default");
+});
+
 test("maps supported desktop platforms to managed local runtimes", () => {
   assert.equal(resolveLocalRuntimePlatform("win32"), "windows");
   assert.equal(resolveLocalRuntimePlatform("linux"), "linux");
@@ -266,4 +297,40 @@ test("offline library scans keep healthy files when another file disappears mid-
   });
   assert.equal(snapshot.metadataChanged, true);
   assert.deepEqual(snapshot.missingFileNames, ["moved.mp3"]);
+});
+
+test("audio output device list tolerates hostile and malformed entries", () => {
+  const devices = normalizeAudioOutputDevices([
+    { kind: "audiooutput", deviceId: "  spaced  ", label: "   " },
+    { kind: "audiooutput", deviceId: "default" },
+    { kind: "audiooutput", deviceId: "default", label: "Second default entry" },
+    { kind: "audiooutput" },
+    "not-an-object",
+    42,
+    null,
+    { kind: "audiooutput", deviceId: 12, label: "Numeric id" },
+  ]);
+
+  assert.deepEqual(devices, [
+    { deviceId: "default", label: "System default output" },
+    { deviceId: "spaced", label: "Output device 2" },
+  ]);
+});
+
+test("wrapper volume stages reject non-finite gains", () => {
+  assert.deepEqual(resolveWrapperVolumeStages(Number.NaN), {
+    totalGain: 1,
+    mediaVolume: 1,
+    boostGain: 1,
+  });
+  assert.deepEqual(resolveWrapperVolumeStages(-5), {
+    totalGain: 0,
+    mediaVolume: 0,
+    boostGain: 1,
+  });
+  assert.deepEqual(resolveWrapperVolumeStages(Number.POSITIVE_INFINITY), {
+    totalGain: 1,
+    mediaVolume: 1,
+    boostGain: 1,
+  }, "non-finite input falls back to the unity default");
 });

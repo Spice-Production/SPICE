@@ -41,6 +41,8 @@ const {
   shouldOpenNativePlayerOnLaunch,
   collectOfflineLibraryFiles,
   resolveWrapperVolumeStages,
+  normalizeAudioOutputDevices,
+  normalizeAudioOutputDeviceSelection,
 } = require("./desktop-helpers");
 
 // Simple File Logger for Production Debugging - INITIALIZE FIRST
@@ -111,6 +113,7 @@ let currentBoostEnabled = false;
 let spiceAudioControlRevision = 0;
 let spiceRuntimeManager = null;
 let applyVolumeToActiveView = () => {};
+let applyAudioOutputToView = () => {};
 let updateInstallInProgress = false;
 let updateInstallCleanupPromise = null;
 let updateInstallCleanupCompleted = false;
@@ -1884,6 +1887,7 @@ async function loadService(serviceKey) {
     }
 
     applyVolumeToActiveView();
+    applyAudioOutputToView(view);
     return true;
   } catch (error) {
     console.error(`Failed to load ${serviceKey}: `, error);
@@ -1961,6 +1965,7 @@ async function loadSupportedUrl(rawUrl) {
     }
 
     applyVolumeToActiveView();
+    applyAudioOutputToView(view);
     return { success: true, serviceKey: target.serviceKey, url: target.url };
   } catch (error) {
     console.error("Failed to load supported URL:", error);
@@ -3481,6 +3486,30 @@ app.whenReady().then(async () => {
     }
   }
 
+  // Grant the media permission to our own shell windows only, so
+  // navigator.mediaDevices.enumerateDevices() in Settings can show real
+  // audio output device names. Embedded service views never receive it.
+  if (session.defaultSession) {
+    const isSpiceShellWindow = (webContents) => {
+      try {
+        const url = webContents.getURL();
+        return typeof url === "string" && url.startsWith("file://");
+      } catch (e) {
+        return false;
+      }
+    };
+    try {
+      session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        callback(permission === "media" && isSpiceShellWindow(webContents));
+      });
+      session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+        return permission === "media" && !!webContents && isSpiceShellWindow(webContents);
+      });
+    } catch (e) {
+      console.error("Failed to install permission handlers:", e);
+    }
+  }
+
   // Determine AdBlocker Type
   // Migration: If adBlockerType is missing, use adBlockerEnabled (bool) -> 'spice' or 'none'
   let adBlockerType = store ? store.get("adBlockerType") : undefined;
@@ -4339,11 +4368,56 @@ app.whenReady().then(async () => {
   }
   applyVolumeToActiveView = applyVolume;
 
+  // Audio output device routing for the embedded service view.
+  function getPreferredAudioOutputDeviceId() {
+    return normalizeAudioOutputDeviceSelection(
+      store ? store.get("audioOutputDeviceId", "default") : "default",
+    );
+  }
+
+  function applyAudioOutputToActiveView(targetView) {
+    if (!targetView || targetView.webContents.isDestroyed()) return;
+    const deviceId = getPreferredAudioOutputDeviceId();
+    if (deviceId === "default") return;
+    try {
+      targetView.webContents.setAudioOutputDevice(deviceId);
+      console.log(`[AudioOutput] Routed embedded view audio to device ${deviceId}`);
+    } catch (err) {
+      console.error("[AudioOutput] Failed to set output device:", err);
+    }
+  }
+  applyAudioOutputToView = applyAudioOutputToActiveView;
+
   // Set Volume IPC
   ipcMain.on("set-volume", async (event, gainValue) => {
     applyVolume(gainValue);
     if (store) store.set("volume", currentVolume);
     sendAudioControlState();
+  });
+
+  ipcMain.handle("get-audio-output-device", () => getPreferredAudioOutputDeviceId());
+
+  ipcMain.handle("normalize-audio-output-devices", (event, devices) =>
+    normalizeAudioOutputDevices(devices),
+  );
+
+  ipcMain.on("set-audio-output-device", (event, deviceId) => {
+    const safeDeviceId = normalizeAudioOutputDeviceSelection(deviceId);
+    if (store) store.set("audioOutputDeviceId", safeDeviceId);
+    try {
+      if (view && !view.webContents.isDestroyed()) {
+        // "default" is Chromium's reserved id for the OS default output.
+        view.webContents.setAudioOutputDevice(safeDeviceId);
+      }
+    } catch (err) {
+      console.error("[AudioOutput] Failed to switch output device:", err);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("audio-output-device-changed", safeDeviceId);
+    }
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send("audio-output-device-changed", safeDeviceId);
+    }
   });
 
   ipcMain.on("set-boost-enabled", async (event, enabled) => {

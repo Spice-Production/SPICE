@@ -427,6 +427,7 @@
                 <a href="#desktop-settings" class="settings-sidebar-link active">Desktop Settings</a>
                 <a href="#adblock-section" class="settings-sidebar-link">Ad Blocker</a>
                 <a href="#default-service-section" class="settings-sidebar-link">Startup Service</a>
+                <a href="#audio-output-section" class="settings-sidebar-link">Audio Output</a>
                 <a href="#updates-section" class="settings-sidebar-link">Updates</a>
                 <a href="#scrobbling-section" class="settings-sidebar-link">Scrobbling</a>
                 <a href="#mini-player-section" class="settings-sidebar-link">Mini Player</a>
@@ -492,6 +493,24 @@
                     <option value="sc">SoundCloud (experimental)</option>
                     <option value="spice_crazy" selected>Spice Music</option>
                 </select>
+            </div>
+
+            <div class="settings-section" id="audio-output-section">
+                <label for="audio-output-select" style="font-size: 16px"
+                    >Audio Output Device</label
+                >
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px">
+                    Routes audio from the embedded player (Spice Music, YouTube
+                    Music, SoundCloud) to a specific output device. Applies
+                    immediately and is remembered across restarts.
+                </p>
+                <select id="audio-output-select">
+                    <option value="default">System default (recommended)</option>
+                </select>
+                <p
+                    id="audio-output-status"
+                    style="color: #666; font-size: 12px; margin: 8px 0 0"
+                ></p>
             </div>
 
             <div class="settings-section">
@@ -1146,6 +1165,104 @@
                     });
                 }
             });
+
+            // Audio Output Device
+            const audioOutputSelect = document.getElementById(
+                "audio-output-select",
+            );
+            const audioOutputStatus = document.getElementById(
+                "audio-output-status",
+            );
+            let audioOutputCurrent = "default";
+
+            function renderAudioOutputOptions(devices) {
+                const rememberedValue = audioOutputCurrent;
+                audioOutputSelect.innerHTML = "";
+                const defaultOption = document.createElement("option");
+                defaultOption.value = "default";
+                defaultOption.textContent = "System default (recommended)";
+                audioOutputSelect.appendChild(defaultOption);
+                for (const device of devices || []) {
+                    if (device.deviceId === "default") continue;
+                    const option = document.createElement("option");
+                    option.value = device.deviceId;
+                    option.textContent = device.label;
+                    audioOutputSelect.appendChild(option);
+                }
+                audioOutputSelect.value = rememberedValue;
+                if (audioOutputSelect.value !== rememberedValue) {
+                    // The remembered device is no longer present.
+                    audioOutputSelect.value = "default";
+                }
+            }
+
+            function setAudioOutputStatus(message) {
+                if (audioOutputStatus) audioOutputStatus.textContent = message || "";
+            }
+
+            async function refreshAudioOutputDevices() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                    audioOutputSelect.disabled = true;
+                    setAudioOutputStatus("Audio device enumeration is unavailable in this environment.");
+                    return;
+                }
+                try {
+                    const rawDevices = await navigator.mediaDevices.enumerateDevices();
+                    const outputs = await window.api.normalizeAudioOutputDevices(rawDevices);
+                    renderAudioOutputOptions(outputs);
+                    const named = outputs.filter(
+                        (device) => device.deviceId !== "default" && !/^Output device \d+$/.test(device.label),
+                    );
+                    setAudioOutputStatus(
+                        named.length > 0
+                            ? ""
+                            : "No named output devices found yet. Play something once, then reopen Settings to refresh this list.",
+                    );
+                } catch (error) {
+                    console.error("Could not enumerate audio output devices:", error);
+                    setAudioOutputStatus("Could not list audio devices.");
+                }
+            }
+
+            audioOutputSelect.addEventListener("change", (e) => {
+                const requested = e.target.value;
+                audioOutputCurrent = requested;
+                window.api.setAudioOutputDevice(requested);
+                setAudioOutputStatus(
+                    requested === "default"
+                        ? "Audio plays through the system default output."
+                        : "Audio output updated.",
+                );
+            });
+
+            if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+                try {
+                    navigator.mediaDevices.addEventListener(
+                        "devicechange",
+                        () => {
+                            void refreshAudioOutputDevices();
+                        },
+                    );
+                } catch (error) {
+                    // Some builds throw when adding the listener twice; refresh still works on reopen.
+                }
+            }
+
+            window.api.getAudioOutputDevice().then((deviceId) => {
+                audioOutputCurrent = deviceId || "default";
+                renderAudioOutputOptions([]);
+                void refreshAudioOutputDevices();
+            }).catch((error) => {
+                console.error("Could not load the audio output device setting:", error);
+                audioOutputSelect.disabled = true;
+            });
+
+            if (window.api.onAudioOutputDeviceChanged) {
+                window.api.onAudioOutputDeviceChanged((deviceId) => {
+                    audioOutputCurrent = deviceId || "default";
+                    void refreshAudioOutputDevices();
+                });
+            }
 
             document
                 .getElementById("btn-close")
