@@ -150,3 +150,46 @@ export function buildSmartQueue<TTrack extends SmartQueueTrack>(
 
   return selected;
 }
+
+/**
+ * Re-orders a selected queue so consecutive tracks stay in a related mood:
+ * each step picks the remaining track sharing the most topic keys with the
+ * current one. The track set is unchanged — only the flow is smoothed.
+ */
+export function sequenceTracksByMoodFlow<TTrack>(
+  tracks: readonly TTrack[],
+  topicKeysFor: (track: TTrack) => readonly string[],
+): TTrack[] {
+  if (tracks.length < 3) return [...tracks];
+
+  const topics = tracks.map((track) => topicKeysFor(track).filter(Boolean));
+  const used = new Set<number>();
+  const ordered: TTrack[] = [];
+  let currentTopics = new Set<string>();
+
+  let nextIndex = 0;
+  for (let round = 0; round < tracks.length; round += 1) {
+    if (nextIndex >= 0) {
+      used.add(nextIndex);
+      ordered.push(tracks[nextIndex]);
+      currentTopics = new Set(topics[nextIndex]);
+    }
+
+    let bestIndex = -1;
+    let bestOverlap = -1;
+    for (let index = 0; index < tracks.length; index += 1) {
+      if (used.has(index)) continue;
+      const overlap = topics[index].reduce(
+        (count, key) => count + (currentTopics.has(key) ? 1 : 0),
+        0,
+      );
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestIndex = index;
+      }
+    }
+    nextIndex = bestIndex;
+  }
+
+  return ordered;
+}

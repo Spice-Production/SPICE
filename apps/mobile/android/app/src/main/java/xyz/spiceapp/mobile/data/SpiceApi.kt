@@ -329,6 +329,25 @@ class SpiceApi(
         Unit
     }
 
+    suspend fun fetchTasteStates(token: String, profileId: String = "default"): JSONObject = withContext(Dispatchers.IO) {
+        getJson("/api/sync/taste?profileId=" + encodeQuery(profileId), token)
+    }
+
+    suspend fun fetchListenersLikeYou(token: String, profileId: String = "default"): JSONObject = withContext(Dispatchers.IO) {
+        getJson("/api/listeners/like-you?profileId=" + encodeQuery(profileId), token)
+    }
+
+    suspend fun pushTasteStates(token: String, states: JSONArray, profileId: String = "default") = withContext(Dispatchers.IO) {
+        postJson(
+            "/api/sync/taste",
+            JSONObject()
+                .put("profileId", profileId)
+                .put("states", states),
+            token,
+        )
+        Unit
+    }
+
     suspend fun fetchPlaylists(token: String, profileId: String = "default"): List<Playlist> = withContext(Dispatchers.IO) {
         val payload = getJson("/api/sync/playlists?profileId=" + encodeQuery(profileId), token)
         parsePlaylists(payload)
@@ -1411,6 +1430,21 @@ internal fun parseHistoryTracks(payload: JSONObject): List<Track> {
         for (index in 0 until history.length()) {
             val item = history.optJSONObject(index) ?: continue
             add(parseTrackSnapshot(item))
+        }
+    }
+}
+
+internal fun parseListenerFavorites(payload: JSONObject): List<Track> {
+    val tracks = payload.optJSONArray("tracks") ?: JSONArray()
+    return buildList {
+        for (index in 0 until tracks.length()) {
+            val item = tracks.optJSONObject(index) ?: continue
+            val normalized = JSONObject(item.toString())
+            if (normalized.optString("id").isBlank()) {
+                normalized.put("id", normalized.optString("trackId"))
+            }
+            val track = parseTrackSnapshot(normalized)
+            if (track.id.isNotBlank() && track.title.isNotBlank() && track.title != "Track") add(track)
         }
     }
 }

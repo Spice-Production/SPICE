@@ -2,9 +2,9 @@ import {
   Innertube,
   Platform,
   UniversalCache,
+  YTNodes,
   type Misc,
   type Types,
-  type YTNodes,
 } from 'youtubei.js';
 
 const YOUTUBE_MUSIC_SOURCE_ID = 'youtube_music';
@@ -83,6 +83,40 @@ export async function searchTracks(query: string, limit: number, kind: string) {
       tracks.push(track);
       if (tracks.length >= limit) return tracks;
     }
+  }
+  return tracks;
+}
+
+// General youtube.com search (not the YouTube Music catalog). Returns regular
+// upload videos so hybrid search can surface content that has no Music entry.
+export async function searchWebVideos(query: string, limit: number) {
+  const yt = await getYouTube();
+  const search = await yt.search(query);
+
+  const tracks: SpiceTrack[] = [];
+  const seen = new Set<string>();
+  for (const item of search.results ?? []) {
+    if (!item.is(YTNodes.Video)) continue;
+    const video = item as InstanceType<typeof YTNodes.Video>;
+    if (video.is_live || video.is_upcoming) continue;
+    const id = video.video_id;
+    const title = video.title?.toString();
+    if (!id || !title) continue;
+    const seconds = Number(video.duration?.seconds);
+    if (!Number.isFinite(seconds) || seconds <= 0) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    tracks.push({
+      sourceId: YOUTUBE_VIDEO_SOURCE_ID,
+      id,
+      title,
+      artists: video.author?.name
+        ? [{ id: video.author.id ?? video.author.name, name: video.author.name }]
+        : [],
+      durationMs: seconds * 1000,
+      artworkUrl: bestThumbnailUrl(video.thumbnails),
+    });
+    if (tracks.length >= limit) return tracks;
   }
   return tracks;
 }
@@ -177,6 +211,10 @@ export async function getTrackDetails(id: string): Promise<SpiceTrackDetails> {
       // Continue to next client.
     }
   }
+
+  // Every client failed — the cached InnerTube session may be wedged (expired
+  // player, throttled session). Drop it so the next request starts fresh.
+  innertubePromise = undefined;
 
   throw lastError ?? new Error('No audio streams found for this track.');
 }

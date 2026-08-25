@@ -28,3 +28,4 @@ export const profileLikes = tableStub;
 export const systemSettings = tableStub;
 export const listenTogetherSessions = tableStub;
 export const listenTogetherInvites = tableStub;
+export const tasteState = tableStub;

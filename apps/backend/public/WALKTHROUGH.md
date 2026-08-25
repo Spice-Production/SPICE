@@ -1,5 +1,53 @@
 # SPICE Walkthrough
 
+## v1.0.169
+
+- [Spice.Music main] Add the collaborative layer: a privacy-safe "Listeners like you" home shelf aggregates community favorites from taste-neighbors on SPICE Cloud (overlap in likes and plays; only track identities and listener counts are returned, never anyone's library), and those community counts give a small bounded boost across search ordering, radio, and home ranking.
+- [Spice.Music main] Add a Dislike button next to Hide and Snooze on every recommendation: disliked tracks are hard-rejected from this profile's recommendations entirely, and the choice syncs with the rest of the taste preferences.
+- [Spice.Music main] Smart Mix now sequences for mood flow: after the diversity-aware build, the queue is re-ordered so consecutive tracks stay in related moods and genres instead of whiplashing between them.
+- [Spice.Music main] Discovery now learns from success: liking a track by an artist you had not established boosts that artist's future Fresh Finds and gives their tracks a small lasting affinity lift.
+- [Spice.Mobile main] The Android home feed gains the same "Listeners like you" community shelf when signed in.
+
+## v1.0.168
+
+- [Spice.Music main] Make the skip signal match Android everywhere on desktop: abandoning a track before 30 seconds or halfway counts double against it, natural completions count double for it, and the learned range and shuffle weighting now use the same scale as the phone.
+- [Spice.Music main] Add time-aware mixes: Home grows a "Your morning/afternoon/evening/late-night mix" shelf whenever this hour is one of the profile's established listening windows, shaped by the artists you usually play in that window.
+- [Spice.Music main] Add "On repeat" (your most-replayed tracks of the week, straight from the on-device listening log) and "Fresh finds" (unfamiliar artists near your taste, rotated daily) home shelves.
+- [Spice.Music main] Sync taste across devices: adaptive skip/completion learning, recommendation preferences, and the listening-event log now follow your SPICE account (last-writer-wins per kind, listening events merge by id), so desktop and phone share one taste profile. Nothing is new to opt into — it uses the existing SPICE Cloud sign-in and stores only the same on-device learning.
+- [Spice.Connect main] The Android client pushes its adaptive priorities after feedback and adopts newer cloud copies during account sync.
+
+## v1.0.167
+
+- [Spice.Music main] Introduce the shared taste affinity core: one on-device score per track combining the private taste profile, likes, the adaptive skip/completion learning, and the discovery slider, now driving every surface so recommendations feel coherent across the app.
+- [Spice.Music main] Let skips shape taste: repeatedly skipped tracks contribute far less to the private profile (heavily skipped ones count against it), while longer-lived listening events (90-day, on-device) deepen artist signals beyond the recent-play window.
+- [Spice.Music main] Personalize search: results keep their relevance order but tracks with genuine affinity can rise a few positions, and a new "For you" filter shows only strong matches for the active profile.
+- [Spice.Music main] Upgrade Home: a new "Because you listened to X" radio shelf grown from the strongest artist's most-played track, and Quick Picks now seed from the profile's top genre or artist instead of a hardcoded chart query.
+- [Spice.Music main] Smart Mix finally uses taste: candidate tracks are base-scored by the affinity core (likes and diversity rules still shape the final order), and the personalized auto-queue ranks related tracks with the same affinity signals.
+- [Spice.Mobile main] Mirror the affinity core on Android: home recommendations and search results re-rank with artist familiarity, likes, and the adaptive skip/completion priorities, using the same bounded re-ranking semantics as the web app.
+
+## v1.0.166
+
+- [Spice.Desktop main] Fix random brief audio dropouts in the YouTube Music and SoundCloud wrappers: the wrapper volume injector no longer routes audio through a Web Audio context unless a volume boost above 100% is actually active, so Chromium suspending that context can no longer silence playback for a second at random; the context also resumes itself immediately on suspension while a boost is in use.
+- [Spice.Desktop main] Add hysteresis to the ad blocker's ad muting in both the wrapper interval and the preload observer, so flickering ad indicators can no longer cause audible mute/unmute cycles, while still restoring audio quickly and only undoing SPICE's own mutes.
+- [Spice.Desktop main] Add an Audio Output Device setting: Settings now lists the system's audio outputs and routes the embedded player (Spice Music, YouTube Music, SoundCloud) to the chosen device immediately, remembering the choice across restarts and re-applying it whenever the embedded view loads.
+
+- [Spice.Music main] Recover playback automatically when a track's primary source is unavailable: if stream resolution fails, SPICE now searches YouTube Music and SoundCloud for a title/artist match (duration-checked, preview-filtered, up to three candidates per source) and plays the first that resolves, replacing the queue entry and showing a notice instead of dead-ending after retries.
+- [Spice.Music main] Make hybrid search surface real YouTube videos alongside YouTube Music songs, YouTube Music videos, and SoundCloud tracks via a new general youtube.com search lane.
+- [Spice.Music main] Update the topbar quick search live while typing using the same debounced, request-sequenced search pipeline as the Search page; pressing Enter still resolves pasted links with priority.
+- [Spice.Music main] Stop Volume Boost changes from restarting the current track: crossing above 100% while the YouTube embed is playing now defers the proxy switch to the next track boundary with a notice, and direct playback always silences a lingering embed player so the two transports cannot overlap.
+- [Spice.Music main] Clamp the YouTube embed volume to the player's supported range so boosted volume values cannot push the iframe player into an invalid state.
+- [Spice.Desktop main] Keep desktop and in-app volume sliders from fighting: the preload bridge now binds every volume slider (including the floating mini player), reads the slider the user is actually moving, skips payload pushes during an active drag, and skips redundant synthetic events when values already match; volume persistence to disk is debounced while dragging.
+- [Spice.Desktop main] Restore audio reliably after ad muting: ad-blocker mutes are now tagged on the video element and only un-muted when SPICE applied them, so content after an ad no longer stays silent and user-chosen mutes are respected.
+- [Spice.Music main] Reset the cached InnerTube session when every stream client fails for a track, so a wedged or throttled session cannot keep failing until the next runtime restart.
+
+## v1.0.165
+
+- [Spice.Admin main] Add per-account moderation controls to the Developer Operations dashboard: temporary timeouts (1 hour, 24 hours, 3 days, or 7 days) and permanent bans, each with an optional reason, plus an Unblock action. Only admin accounts can change moderation state, and admin accounts themselves cannot be blocked.
+- [Spice.Auth main] Enforce account moderation server-side on every authenticated request: `verifySession` now reloads the account from the database, so a timeout or ban kills existing sessions immediately instead of waiting for the 30-day JWT to expire. Sign-in and session checks reject blocked accounts with `account_timed_out` or `account_banned` including the reason and, for timeouts, the expiry.
+- [Spice.Music main] Show a full-screen blocked-account screen (banned or timed out, with reason and restoration time) as the only usable surface for a blocked account, on the web app, the desktop standard and Native shells, and the native Android client. Auto-login can no longer bypass the block, and signing back in stays blocked until an admin lifts it.
+- [Spice.Connect main] Keep Spice Connect device pairings intact during a temporary timeout so paired devices reconnect automatically when the timeout expires; a permanent ban still revokes pairings, pairing codes, and cached authorizations.
+- [Spice.Music main] Bump the visible diagnostics version to `Spice Media Core v1.0.165`.
+
 ## v1.0.164
 
 - [Spice.Connect main] Preserve receiver-owned queues when selecting duplicate or long-queue entries, serialize receiver library mutations, and keep downloads and library actions safe across command batches and startup reloads.

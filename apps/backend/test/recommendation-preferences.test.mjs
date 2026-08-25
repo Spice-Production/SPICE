@@ -40,6 +40,8 @@ test('recommendation preferences clamp malformed persisted values', () => {
   }, NOW), {
     discoveryLevel: 100,
     hiddenTrackKeys: ['one'],
+    dislikedTrackKeys: [],
     snoozedArtists: [],
+    discoveryWins: [],
   });
 });
