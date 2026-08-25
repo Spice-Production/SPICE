@@ -1144,6 +1144,14 @@ const AD_SKIP_SCRIPT = `
         (function () {
             console.log('[Spice AdBlocker] Script injected');
 
+            // Hysteresis for the mute toggle: an ad signal must persist for
+            // two consecutive checks before we mute, and its absence must
+            // persist for two checks before we restore. This prevents
+            // mute/unmute flapping when ad classes briefly appear or flicker,
+            // which was audible as random volume dips.
+            let adSignalTicks = 0;
+            let clearSignalTicks = 0;
+
             setInterval(() => {
                 // Skip video ads by clicking skip button
                 const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
@@ -1167,10 +1175,29 @@ const AD_SKIP_SCRIPT = `
                     console.log('[Spice AdBlocker] Closed overlay ad');
                 }
 
-                // Mute ads (backup if they still play)
+                // Mute ads (backup if they still play). Mark the video so the
+                // mute is only undone on content we silenced ourselves.
                 const adPlaying = document.querySelector('.ad-interrupting');
-                if (adPlaying && video) {
-                    video.muted = true;
+                if (adPlaying) {
+                    adSignalTicks += 1;
+                    clearSignalTicks = 0;
+                } else {
+                    clearSignalTicks += 1;
+                    adSignalTicks = 0;
+                }
+                if (!video) return;
+                if (adSignalTicks >= 2) {
+                    if (!video.muted) {
+                        video.muted = true;
+                        try { video.dataset.spiceAdMuted = '1'; } catch (e) {}
+                    }
+                } else if (clearSignalTicks >= 2 && video.muted) {
+                    try {
+                        if (video.dataset.spiceAdMuted === '1') {
+                            video.muted = false;
+                            delete video.dataset.spiceAdMuted;
+                        }
+                    } catch (e) {}
                 }
             }, 300);
         })();
@@ -4271,11 +4298,25 @@ app.whenReady().then(async () => {
                         media.volume = window.spiceMediaVolume;
                     }
 
+                    // Only route audio through the Web Audio graph while a
+                    // boost above 100% is actually in play (or a boost earlier
+                    // in this session already rerouted the element, which
+                    // cannot be undone). Creating the graph unconditionally
+                    // exposed every session to AudioContext suspensions that
+                    // briefly silenced audio at random moments.
+                    const boostActive = window.spiceBoostGain > 1 || !!window.boostSource;
+                    if (!boostActive) return;
+
                     if (!window.boostCtx) {
                         const AudioContext = window.AudioContext || window.webkitAudioContext;
                         window.boostCtx = new AudioContext();
                         window.boostGain = window.boostCtx.createGain();
                         window.boostGain.connect(window.boostCtx.destination);
+                        window.boostCtx.onstatechange = function() {
+                            if (window.boostCtx.state === 'suspended') {
+                                window.boostCtx.resume();
+                            }
+                        };
                     }
 
                     if (window.boostCtx.state === 'suspended') {
@@ -4368,6 +4409,18 @@ app.whenReady().then(async () => {
   }
   applyVolumeToActiveView = applyVolume;
 
+  // Volume changes arrive per slider tick; debounce the synchronous disk
+  // write so dragging cannot stall the main process.
+  let persistVolumeTimer = null;
+  function scheduleVolumePersist() {
+    if (!store) return;
+    if (persistVolumeTimer) clearTimeout(persistVolumeTimer);
+    persistVolumeTimer = setTimeout(() => {
+      persistVolumeTimer = null;
+      if (store) store.set("volume", currentVolume);
+    }, 300);
+  }
+
   // Audio output device routing for the embedded service view.
   function getPreferredAudioOutputDeviceId() {
     return normalizeAudioOutputDeviceSelection(
@@ -4391,7 +4444,7 @@ app.whenReady().then(async () => {
   // Set Volume IPC
   ipcMain.on("set-volume", async (event, gainValue) => {
     applyVolume(gainValue);
-    if (store) store.set("volume", currentVolume);
+    scheduleVolumePersist();
     sendAudioControlState();
   });
 
@@ -4436,7 +4489,7 @@ app.whenReady().then(async () => {
     const volume = Number(state && state.volume);
     if (Number.isFinite(volume)) {
       currentVolume = Math.max(0, Math.min(10, volume / 100));
-      if (store) store.set("volume", currentVolume);
+      scheduleVolumePersist();
     }
     if (typeof (state && state.boostEnabled) === "boolean") {
       currentBoostEnabled = state.boostEnabled;
@@ -4454,7 +4507,7 @@ app.whenReady().then(async () => {
     const target = currentVolume > 1.0 ? 1.0 : 10.0;
     currentVolume = target;
     applyVolume(target);
-    if (store) store.set("volume", currentVolume);
+    scheduleVolumePersist();
     sendAudioControlState();
   });
 
