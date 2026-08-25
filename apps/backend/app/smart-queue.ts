@@ -154,7 +154,7 @@ export function buildSmartQueue<TTrack extends SmartQueueTrack>(
 /**
  * Re-orders a selected queue so consecutive tracks stay in a related mood:
  * each step picks the remaining track sharing the most topic keys with the
- * current one. The track set is unchanged — only the flow is smoothed.
+ * current one. The track set is unchanged â€” only the flow is smoothed.
  */
 export function sequenceTracksByMoodFlow<TTrack>(
   tracks: readonly TTrack[],
