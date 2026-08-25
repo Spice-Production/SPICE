@@ -575,6 +575,7 @@ function installSpiceAudioBridge() {
     let desktopAudioPayloadApplied = false;
     let applyingDesktopAudioPayload = false;
     let desktopAudioRevision = -1;
+    let userVolumeDragActive = false;
 
     function readBoostEnabled() {
         const slider = findVolumeSlider();
@@ -584,14 +585,23 @@ function installSpiceAudioBridge() {
     }
 
     function findVolumeSlider() {
-        return document.querySelector('.now-playing__volume-slider')
-            || document.querySelector('.mini-player__volume-slider')
-            || document.querySelector('input[type="range"][max="1000"]')
-            || document.querySelector('input[type="range"][max="200"]');
+        return findVolumeSliders()[0] || null;
     }
 
-    function readVolume() {
-        const slider = findVolumeSlider();
+    function findVolumeSliders() {
+        const matches = document.querySelectorAll([
+            '.now-playing__volume-slider',
+            '.mini-player__volume-slider',
+            'input[type="range"][max="1000"]',
+            'input[type="range"][max="200"]',
+        ].join(','));
+        const unique = new Set();
+        for (const slider of matches) unique.add(slider);
+        return [...unique];
+    }
+
+    function readVolume(fromSlider) {
+        const slider = fromSlider || findVolumeSlider();
         if (!slider) return null;
         const value = Number(slider.value);
         return Number.isFinite(value) ? value : null;
@@ -607,9 +617,9 @@ function installSpiceAudioBridge() {
         }
     }
 
-    function emitAudioState(force = false, source = 'observer') {
+    function emitAudioState(force = false, source = 'observer', fromSlider = null) {
         if (!desktopAudioPayloadApplied) return;
-        const volume = readVolume();
+        const volume = readVolume(fromSlider);
         const boostEnabled = readBoostEnabled();
         if (volume === null) return;
 
@@ -674,6 +684,13 @@ function installSpiceAudioBridge() {
             if (desktopAudioPayload !== nextPayload) return;
             const nextVolume = nextPayload.volume;
 
+            if (desktopAudioPayloadApplied && userVolumeDragActive) {
+                // A user is actively dragging a volume slider; applying the
+                // payload now would yank the thumb mid-drag. Their drag end
+                // emits the authoritative value back to the desktop shell.
+                return;
+            }
+
             const slider = findVolumeSlider();
             if (!slider) {
                 pendingAudioPayload = nextPayload;
@@ -690,6 +707,11 @@ function installSpiceAudioBridge() {
             desktopAudioPayloadApplied = true;
             window.__spiceDesktopAudioReady = true;
             lastSignature = `${nextVolume}:${boostEnabled}`;
+            if (Number(slider.value) === nextVolume && readBoostEnabled() === boostEnabled) {
+                // Already in sync; skip the synthetic events so repeated
+                // desktop pushes cannot churn the player state mid-playback.
+                return;
+            }
             applyingDesktopAudioPayload = true;
             try {
                 setNativeRangeValue(slider, nextVolume);
@@ -715,22 +737,31 @@ function installSpiceAudioBridge() {
     };
 
     function attachListeners() {
-        const slider = findVolumeSlider();
-        if (slider && pendingAudioPayload) {
+        const sliders = findVolumeSliders();
+        if (sliders.length > 0 && pendingAudioPayload) {
             applyAudioSettingsPayload(pendingAudioPayload);
         }
-        if (slider && !slider.dataset.spiceDesktopAudioBridge) {
+        for (const slider of sliders) {
+            if (slider.dataset.spiceDesktopAudioBridge) continue;
             slider.dataset.spiceDesktopAudioBridge = '1';
+            slider.addEventListener('pointerdown', () => {
+                userVolumeDragActive = true;
+            });
             slider.addEventListener('input', (event) => {
-                emitAudioState(false, event.isTrusted && !applyingDesktopAudioPayload ? 'user' : 'programmatic');
+                emitAudioState(false, event.isTrusted && !applyingDesktopAudioPayload ? 'user' : 'programmatic', slider);
             });
             slider.addEventListener('change', (event) => {
-                emitAudioState(true, event.isTrusted && !applyingDesktopAudioPayload ? 'user' : 'programmatic');
+                emitAudioState(true, event.isTrusted && !applyingDesktopAudioPayload ? 'user' : 'programmatic', slider);
             });
         }
-
         if (!listenerAttached) {
             listenerAttached = true;
+            window.addEventListener('pointerup', () => {
+                userVolumeDragActive = false;
+            });
+            window.addEventListener('pointercancel', () => {
+                userVolumeDragActive = false;
+            });
             document.addEventListener('click', (event) => {
                 const target = event.target;
                 if (target && target.closest && target.closest('button[title="Toggle Volume Booster"]')) {
@@ -859,22 +890,52 @@ if (!IS_SPICE_LOCAL_RUNTIME) {
     }
 }
 
+// Hysteresis windows for the ad mute toggle: the ad signal must persist
+// briefly before we mute, and its absence must persist briefly before we
+// restore. Without this, ad classes that flicker between mutation batches
+// cause audible mute/unmute cycles (random volume dips).
+const AD_MUTE_CONFIRM_MS = 350;
+const AD_UNMUTE_CONFIRM_MS = 700;
+
+function shouldMuteAdVideo(adFirstSeenAt, now) {
+    return Boolean(adFirstSeenAt) && now - adFirstSeenAt >= AD_MUTE_CONFIRM_MS;
+}
+
+function shouldRestoreAdAudio(video, adLastSeenAt, now) {
+    return Boolean(
+        video
+        && video.muted
+        && video.dataset
+        && video.dataset.spiceAdMuted === '1'
+        && adLastSeenAt
+        && now - adLastSeenAt >= AD_UNMUTE_CONFIRM_MS
+    );
+}
+
 // NUCLEAR OPTION 2: MutationObserver for INSTANT Reaction
 // This watches the DOM for changes and kills ads the millisecond they appear.
 if (!IS_SPICE_LOCAL_RUNTIME) window.addEventListener('DOMContentLoaded', () => {
+    let adFirstSeenAt = 0;
+    let adLastSeenAt = 0;
+
     const observer = new MutationObserver(() => {
         const video = document.querySelector('video');
 
         // 1. Check for Ad Containers / State
         const adShowing = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
         const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
+        const now = Date.now();
 
         if (adShowing || skipBtn) {
+            if (!adFirstSeenAt) adFirstSeenAt = now;
+            adLastSeenAt = now;
             console.log('[Preload] Ad Detected!');
 
-            // A. MUTE INSTANTLY
-            if (video && !video.muted) {
+            // A. MUTE once the signal has persisted (marking the video so we
+            // only undo our own mute)
+            if (video && !video.muted && shouldMuteAdVideo(adFirstSeenAt, now)) {
                 video.muted = true;
+                try { video.dataset.spiceAdMuted = '1'; } catch (e) { /* detached node */ }
                 console.log('[Preload] Muted Ad Audio');
             }
 
@@ -895,14 +956,14 @@ if (!IS_SPICE_LOCAL_RUNTIME) window.addEventListener('DOMContentLoaded', () => {
             const overlays = document.querySelectorAll('.ytp-ad-module, .ytp-ad-image-overlay, .ytp-ad-text-overlay');
             overlays.forEach(el => el.remove());
         } else {
-            // Restore audio if ad is gone (and we muted it)
-            // Note: Be careful not to unmute if user wanted it muted. 
-            // Better strategy: Only mute if it WAS playing. 
-            // For now, let's assume if ad is gone, we can unmute if volume was 0? 
-            // Actually, safer to let user unmute or tracking script handle it.
-            // But usually, video.muted persists. Let's try to unmute if we are sure it's content.
-            if (video && video.muted && video.duration > 30) { // Content usually > 30s
-                // video.muted = false; // Risky if user muted. Let's leave it for now.
+            adFirstSeenAt = 0;
+            // Ad is gone and WE muted the video for it; restore audio only
+            // after the clear state persists, without touching a mute the
+            // user chose themselves.
+            if (shouldRestoreAdAudio(video, adLastSeenAt, now)) {
+                video.muted = false;
+                delete video.dataset.spiceAdMuted;
+                console.log('[Preload] Restored audio after ad ended');
             }
         }
     });
