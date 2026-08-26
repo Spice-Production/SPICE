@@ -1,5 +1,18 @@
 # SPICE Walkthrough
 
+## v1.0.172
+
+- [Spice.Music main] Restore full-track playback on YouTube Music: YouTube's new PO-token enforcement was truncating songs to their first megabyte before playback failed. The local runtime now runs the same attestation flow as the YouTube web player (BotGuard → integrity token → per-video PO token) and tags every resolved stream URL with a token, lifting the cap — full-length direct streaming works again without any player-side changes.
+
+## v1.0.171
+
+- [Spice.Music main] Improve failure handling for songs that fail after three retries: YouTube now rejects SPICE's direct stream URLs past the first megabyte, so such tracks now get one last chance in the embedded player before surfacing an error; embed-blocked songs fail fast with a clear diagnostic instead of silently looping transports. Full direct YouTube recovery needs PO token support and lands separately.
+
+## v1.0.170
+
+- [Spice.Music main] Make Volume Boost apply to the current song immediately instead of waiting for the next track: boosting while a YouTube track plays through the embedded player now switches that song to the gain-capable proxy stream on the spot and resumes right where playback was, silently.
+- [Spice.Desktop main] Stop the desktop volume slider from overwriting YouTube Music's own volume slider: on YouTube Music the two sliders now work independently (the site keeps its element volume while the desktop slider multiplies loudness separately); SoundCloud and all other embedded services keep their previous combined behavior.
+
 ## v1.0.169
 
 - [Spice.Music main] Add the collaborative layer: a privacy-safe "Listeners like you" home shelf aggregates community favorites from taste-neighbors on SPICE Cloud (overlap in likes and plays; only track identities and listener counts are returned, never anyone's library), and those community counts give a small bounded boost across search ordering, radio, and home ranking.
