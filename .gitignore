@@ -47,3 +47,7 @@ launch_output_2.txt
 # Native SPICE runtime bundle staging
 native-runtime/spice-local-*/**
 !native-runtime/spice-local-*/.gitkeep
+.vercel
+
+# CLI build output (regenerate with: npm run build -w @spice/cli)
+apps/cli/dist/

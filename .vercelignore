@@ -1,0 +1,22 @@
+# Keep CLI deploys to sources; build outputs and local tooling stay home.
+# (The Vercel CLI does not honor .gitignore.)
+.git
+.github
+node_modules
+**/node_modules
+.vercel
+
+# Build outputs
+apps/backend/.next
+apps/backend/dist
+apps/backend/tsconfig.tsbuildinfo
+apps/mobile/android/app/build
+apps/mobile/android/.gradle
+apps/mobile/android/build
+native-runtime
+
+# Local-only files
+.env
+.env.*
+!.env.example
+*.log

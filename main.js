@@ -4281,30 +4281,43 @@ app.whenReady().then(async () => {
   // Robust Volume Injection Script
   // This script runs on an interval in the webview to ensure volume is always applied
   // even if the video element changes (e.g. song switch, ad transition).
-  const getVolumeScript = (gainValue) => {
+  const getVolumeScript = (gainValue, options = {}) => {
     const stages = resolveWrapperVolumeStages(gainValue);
     return `
         (function() {
             window.spiceVolume = ${stages.totalGain};
             window.spiceMediaVolume = ${stages.mediaVolume};
-            window.spiceBoostGain = ${stages.boostGain};
+            // Independent-slider mode routes the full multiplier through the
+            // Web Audio gain; otherwise only the above-100% portion does.
+            window.spiceBoostGain = ${options.ownsMediaVolume ? stages.totalGain : stages.boostGain};
+            window.spiceOwnsMediaVolume = ${options.ownsMediaVolume ? "true" : "false"};
 
             // Helper to apply immediately
             function apply() {
                 try {
                     const media = document.querySelector('video') || document.querySelector('audio');
                     if (!media) return;
-                    if (media.volume !== window.spiceMediaVolume) {
+
+                    const wantsWebAudio = window.spiceOwnsMediaVolume
+                        ? window.spiceBoostGain !== 1
+                        : window.spiceBoostGain > 1;
+                    const boostActive = wantsWebAudio || !!window.boostSource;
+                    if (window.spiceOwnsMediaVolume) {
+                        // Independent-slider mode (YouTube Music only): the
+                        // page's own volume slider keeps owning media.volume;
+                        // the desktop slider acts as a separate loudness
+                        // multiplier through the Web Audio gain below, so the
+                        // two controls never overwrite each other.
+                    } else if (media.volume !== window.spiceMediaVolume) {
                         media.volume = window.spiceMediaVolume;
                     }
 
-                    // Only route audio through the Web Audio graph while a
-                    // boost above 100% is actually in play (or a boost earlier
+                    // Only route audio through the Web Audio graph while the
+                    // desktop multiplier actually needs it (or a boost earlier
                     // in this session already rerouted the element, which
                     // cannot be undone). Creating the graph unconditionally
                     // exposed every session to AudioContext suspensions that
                     // briefly silenced audio at random moments.
-                    const boostActive = window.spiceBoostGain > 1 || !!window.boostSource;
                     if (!boostActive) return;
 
                     if (!window.boostCtx) {
@@ -4404,7 +4417,7 @@ app.whenReady().then(async () => {
       return;
     }
     targetView.webContents
-      .executeJavaScript(getVolumeScript(currentVolume))
+      .executeJavaScript(getVolumeScript(currentVolume, { ownsMediaVolume: currentService === "yt" }))
       .catch(() => {});
   }
   applyVolumeToActiveView = applyVolume;
