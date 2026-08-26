@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { collectSymlinks, materializeStandaloneTracedLinks } from './lib/traced-symlinks.mjs';
+
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const standaloneDir = path.join(appRoot, '.next', 'standalone');
 const staticDir = path.join(appRoot, '.next', 'static');
@@ -51,6 +53,15 @@ const localRuntimeVersion = await readLocalRuntimeVersion();
 
 await assertExists(standaloneDir, 'Run npm run build:local --workspace @spice/backend before packaging.');
 await assertExists(staticDir, 'The local Next build did not produce .next/static.');
+
+// Next's dependency tracer emits placeholder entries named "<pkg>-<hash>"
+// under the standalone tree, implemented as symlinks/junctions back into the
+// monorepo's hoisted node_modules whenever a packaged route pulls in a
+// dependency not installed under apps/backend. Materialize them into real
+// directories in place — before anything is copied into package staging — so
+// no outbound links (or their absolute host paths) can reach an artifact.
+const repoRoot = path.resolve(appRoot, '..', '..');
+await materializeStandaloneTracedLinks({ root: standaloneDir, repoRoot });
 
 await rm(packageDir, { recursive: true, force: true });
 await mkdir(packageDir, { recursive: true });
@@ -208,17 +219,6 @@ async function materializePackageSymlinks(root) {
   }
 }
 
-async function collectSymlinks(dir, links) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isSymbolicLink()) {
-      links.push(fullPath);
-    } else if (entry.isDirectory()) {
-      await collectSymlinks(fullPath, links);
-    }
-  }
-}
 
 function isPathInside(candidate, root) {
   const relative = path.relative(root, candidate);
