@@ -151,7 +151,15 @@ test("desktop package metadata and backend workspace wrappers stay aligned", () 
   assert.equal(packageConfig.main, "main.js");
   assert.equal(packageConfig.type, "commonjs");
   assert.equal(packageConfig.license, "MIT");
-  assert.deepEqual(packageConfig.workspaces, ["apps/backend"]);
+  // The registry may grow (e.g. apps/cli), but the backend workspace must
+  // stay registered — packaged builds install dependencies through it.
+  // Drift between this list and the lockfile is covered separately by
+  // test/workspace-alignment.test.js.
+  assert.ok(
+    Array.isArray(packageConfig.workspaces) &&
+      packageConfig.workspaces.includes("apps/backend"),
+    `the apps/backend workspace must stay registered in workspaces (got ${JSON.stringify(packageConfig.workspaces)})`,
+  );
   assert.equal(packageConfig.engines.node, ">=24");
   assert.equal(packageConfig.packageManager, undefined);
 

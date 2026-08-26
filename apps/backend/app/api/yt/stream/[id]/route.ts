@@ -16,6 +16,17 @@ import { verifySignedStream } from '@/lib/stream-signing';
 export const runtime = 'nodejs';
 
 const YOUTUBE_AUDIO_USER_AGENT = 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)';
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36(KHTML, like Gecko)';
+
+/**
+ * PO-token-bearing URLs resolved via web-family clients (YTMUSIC) reject
+ * iOS-app user agents outright (HTTP 403) — the CDN checks them against the
+ * client family baked into the URL. Such URLs must be fetched with a plain
+ * browser identity; anything else keeps the historical app identity.
+ */
+function upstreamUserAgent(upstreamUrl: string): string {
+  return /([?&])pot=/.test(upstreamUrl) ? BROWSER_USER_AGENT : YOUTUBE_AUDIO_USER_AGENT;
+}
 
 export function OPTIONS(request: NextRequest) {
   return optionsResponse(request);
@@ -60,7 +71,7 @@ export async function GET(
 
   // Forward Range header from the browser so seeking works.
   const headers: Record<string, string> = {
-    'User-Agent': YOUTUBE_AUDIO_USER_AGENT,
+    'User-Agent': upstreamUserAgent(upstreamUrl),
   };
   let rangeHeader = request.headers.get('range');
 
@@ -72,7 +83,7 @@ export async function GET(
       return await createMp3DownloadResponse({
         sourceUrl: upstreamUrl,
         title: request.nextUrl.searchParams.get('title'),
-        userAgent: YOUTUBE_AUDIO_USER_AGENT,
+        userAgent: upstreamUserAgent(upstreamUrl),
         headers: corsHeadersForRequest(request),
         signal: request.signal,
       });
@@ -110,7 +121,7 @@ export async function GET(
     let upstream;
     try {
       console.log(`[stream-proxy] Fetching upstream: ${upstreamUrl.substring(0, 100)}...`);
-      upstream = await fetch(upstreamUrl, { headers });
+      upstream = await fetch(upstreamUrl, { headers: { 'User-Agent': upstreamUserAgent(upstreamUrl), ...(rangeHeader ? { Range: rangeHeader } : {}) } });
       console.log(`[stream-proxy] Upstream response status: ${upstream.status}`);
     } catch (fetchErr) {
       console.warn(`[stream-proxy] Proxy fetch failed. Falling back to HTTP 307 Redirect. Error:`, fetchErr);
@@ -131,7 +142,15 @@ export async function GET(
     }
 
     // Build response headers for the browser.
-    const responseHeaders: Record<string, string> = { ...corsHeadersForRequest(request) };
+    // NOTE: The `<audio>` element may load this endpoint cross-origin
+    // (e.g. the shell runs on 127.0.0.1 while signed URLs resolve to
+    // localhost). Without Access-Control-Allow-Origin Chromium aborts the
+    // media fetch and surfaces MEDIA_ELEMENT_ERROR / code 4. Responses here
+    // are authorized by the stream signature, so the wildcard is safe.
+    const responseHeaders: Record<string, string> = {
+      ...corsHeadersForRequest(request),
+      'Access-Control-Allow-Origin': '*',
+    };
 
     const contentType = upstream.headers.get('content-type');
     if (contentType) responseHeaders['Content-Type'] = contentType;

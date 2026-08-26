@@ -111,8 +111,13 @@ test("the injected ad-blocker interval uses the same hysteresis discipline", () 
 test("the wrapper volume script only builds the Web Audio boost graph when boosting", () => {
   assert.match(
     mainSource,
-    /const boostActive = window\.spiceBoostGain > 1 \|\| !!window\.boostSource;/,
+    /const wantsWebAudio = window\.spiceOwnsMediaVolume\s*\n\s*\? window\.spiceBoostGain !== 1\s*\n\s*: window\.spiceBoostGain > 1;/,
     "AudioContext creation must be gated on an active boost",
+  );
+  assert.match(
+    mainSource,
+    /const boostActive = wantsWebAudio \|\| !!window\.boostSource;/,
+    "the boost graph gate must include previously rerouted elements",
   );
   assert.match(
     mainSource,
@@ -133,5 +138,29 @@ test("the wrapper volume script only builds the Web Audio boost graph when boost
     preloadSource,
     /desktopAudioPayloadApplied && userVolumeDragActive/,
     "payload pushes must be skipped while the user is dragging a slider",
+  );
+});
+
+test("only YouTube Music runs the wrapper slider independently of the site volume", () => {
+  // Ownership is granted exclusively to the YouTube Music service.
+  assert.match(
+    mainSource,
+    /ownsMediaVolume: currentService === "yt"/,
+    "independent-slider mode must be limited to YouTube Music",
+  );
+
+  // In that mode the page keeps owning media.volume, so the injected script
+  // never writes it; every other service still gets the legacy behavior.
+  assert.match(
+    mainSource,
+    /if \(window\.spiceOwnsMediaVolume\) \{[\s\S]*?\} else if \(media\.volume !== window\.spiceMediaVolume\) \{\s*\n\s*media\.volume = window\.spiceMediaVolume;/,
+    "media.volume writes must be skipped only in independent-slider mode",
+  );
+
+  // The whole desktop multiplier rides the Web Audio gain there (including
+  // values below 100%), so both sliders stay fully independent.
+  assert.match(
+    mainSource,
+    /window\.spiceBoostGain = \$\{options\.ownsMediaVolume \? stages\.totalGain : stages\.boostGain\};/,
   );
 });

@@ -3,7 +3,8 @@
   "version": "1.4.64",
   "description": "Unified Electron, web runtime, and Android music client.",
   "workspaces": [
-    "apps/backend"
+    "apps/backend",
+    "apps/cli"
   ],
   "engines": {
     "node": ">=24"
@@ -32,6 +33,9 @@
     "backend:lint": "npm --workspace @spice/backend run lint",
     "backend:typecheck": "npm --workspace @spice/backend run typecheck",
     "backend:test": "npm --workspace @spice/backend run test",
+    "cli:dev": "npm --workspace @spice/cli run dev",
+    "cli:build": "npm --workspace @spice/cli run build",
+    "cli:typecheck": "npm --workspace @spice/cli run typecheck",
     "backend:package:local:windows": "npm --workspace @spice/backend run package:local:windows",
     "backend:package:local:windows:full": "npm --workspace @spice/backend run package:local:windows:full",
     "backend:package:local:linux": "npm --workspace @spice/backend run package:local:linux",

@@ -3202,6 +3202,8 @@ export default function SpiceApp() {
   const embedProxyRetryRef = useRef<Set<string>>(new Set());
   const playbackFallbackAttemptedRef = useRef<Set<string>>(new Set());
   const boostProtocolHandoffRef = useRef(false);
+  const boostResumeSecondsRef = useRef<{ trackKey: string; seconds: number } | null>(null);
+  const pendingProxyStartSecondsRef = useRef<{ trackKey: string; seconds: number } | null>(null);
   const syncLockRef = useRef<boolean>(false);
   const scrobbleStateRef = useRef<ProfileListenDeliveryState | null>(null);
   const profileListenRetryTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -4479,7 +4481,10 @@ export default function SpiceApp() {
               void playTrackRef.current(activeTrack, queueRef.current, queueIndexRef.current, Boolean(listenTogetherHostSessionIdRef.current), true);
               return;
             }
-            // Keep iframe failures on the same user-requested track.
+            // Both transports have now been tried for this track: the embed
+            // refused it here, and its earlier proxy flip cannot recover while
+            // YouTube rejects PO-token-less stream URLs past ~1 MB.
+            logDebug('error', `No playable transport for "${activeTrack.title}" (embed error ${code}). Direct streams are rejected past ~1MB without a PO token and the embed refused this video.`);
             handleAudioErrorRef.current?.();
           }
         }
@@ -5893,6 +5898,39 @@ export default function SpiceApp() {
 
     if (nextAttempt > PLAYBACK_STREAM_RETRY_LIMIT) {
       playbackRetryCountsRef.current.delete(trackKey);
+
+      // Last-resort transport rescue: YouTube now rejects PO-token-less
+      // googlevideo URLs past ~1 MB, so every direct-proxy attempt fails even
+      // though resolution succeeded. The embedded player still authorizes full
+      // playback, so hand the SAME user-requested track to it before declaring
+      // the track unplayable. embedProxyRetryRef records tracks whose embed
+      // transport already errored and flipped back to the proxy; those skip
+      // this rescue and surface the terminal error instead of looping
+      // transports forever. (directEmbedRetryRef is intentionally NOT used
+      // here — handleAudioError consumes it on the very first audio error for
+      // its own fallback flip, which would make this check always-false.)
+      if (
+        !isListenTogetherRetry
+        && track.id !== 'spice-connect-placeholder'
+        && isYouTubeTrack(track)
+        && streamProtocolRef.current !== 'embed'
+        && !embedProxyRetryRef.current.has(trackKey)
+      ) {
+        embedProxyRetryRef.current.add(trackKey);
+        const queueSnapshot = retryQueue.length > 0 ? retryQueue : [track];
+        setError('Direct stream was rejected by YouTube. Falling back to the embedded player...');
+        logDebug('diagnostics', `Direct proxy retries exhausted for "${track.title}". Retrying the same track in the YouTube embed transport.`);
+        setShowVideoPlayer(false);
+        setStreamProtocol('embed');
+        streamProtocolRef.current = 'embed';
+        setStreamUrl('youtube-embed-active');
+        streamUrlRef.current = 'youtube-embed-active';
+        setIsLoadingStream(false);
+        isLoadingStreamRef.current = false;
+        void playTrackRef.current(track, queueSnapshot, queueIndexRef.current, isListenTogetherRetry, true);
+        return true;
+      }
+
       shouldAutoPlayRef.current = false;
       setPlaybackPlaying(false);
       setIsLoadingStream(false);
@@ -6826,6 +6864,14 @@ export default function SpiceApp() {
     setQueueIndex(updatedIndex);
 
     try {
+      if (
+        pendingProxyStartSecondsRef.current
+        && pendingProxyStartSecondsRef.current.trackKey !== trackKey
+      ) {
+        // A boost restart was superseded by a different track before its proxy
+        // stream resolved; drop the stale resume position.
+        pendingProxyStartSecondsRef.current = null;
+      }
       if (boostProtocolHandoffRef.current) {
         boostProtocolHandoffRef.current = false;
         streamProtocolRef.current = 'proxy';
@@ -6921,6 +6967,33 @@ export default function SpiceApp() {
         directAudio.load();
       }
       setPlaybackPlaying(shouldStartNow);
+
+      const pendingBoostStart = pendingProxyStartSecondsRef.current;
+      if (shouldStartNow && pendingBoostStart && pendingBoostStart.trackKey === trackKey) {
+        // Volume Boost restart: the proxy stream replaced a playing YouTube
+        // embed mid-song, so jump the fresh proxy audio to the captured embed
+        // position as soon as it can seek, instead of restarting from zero.
+        const resumeSeconds = Math.max(0, Math.min(pendingBoostStart.seconds, 86_399));
+        pendingProxyStartSecondsRef.current = null;
+        boostResumeSecondsRef.current = null;
+        const applyResumeSeek = (attempt: number) => {
+          if (playbackRequestRef.current !== requestId) return;
+          const target = audioSlotRefs.current[activeAudioSlotRef.current];
+          if (!target || target.dataset.spiceTrackKey !== trackKey) return;
+          if (target.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            try {
+              target.currentTime = resumeSeconds;
+            } catch {
+              // The element rejected the seek (rare metadata edge); keep the
+              // restart from the top rather than failing playback.
+            }
+            return;
+          }
+          if (attempt <= 0) return;
+          window.setTimeout(() => applyResumeSeek(attempt - 1), 250);
+        };
+        window.setTimeout(() => applyResumeSeek(10), 150);
+      }
 
       recordPlaybackTelemetry(track);
 
@@ -7359,6 +7432,12 @@ export default function SpiceApp() {
     progressRef.current = safeSeek;
     setProgress(safeSeek);
     const targetTrack = currentTrackRef.current;
+    if (boostResumeSecondsRef.current) {
+      // A boost restart is resolving for this track; its resume-seek owns the
+      // initial position, so a user seek landing before it would be clobbered.
+      boostResumeSecondsRef.current = null;
+      pendingProxyStartSecondsRef.current = null;
+    }
     if (streamProtocolRef.current === 'embed' && isYouTubeTrack(targetTrack) && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === 'function') {
       ytPlayerRef.current.seekTo(safeSeek, true);
     }
@@ -11477,12 +11556,34 @@ export default function SpiceApp() {
       const activeTrack = currentTrackRef.current;
       const embedIsActive = streamUrlRef.current === 'youtube-embed-active';
       if (isPlayingRef.current && embedIsActive && activeTrack && activeTrack.id !== 'placeholder') {
-        // Keep the current embed playing (iframe audio caps at 100%) instead of
-        // restarting the track mid-song. The gain-capable proxy path takes over
-        // at the next track boundary.
-        boostProtocolHandoffRef.current = true;
-        logDebug('player', 'Volume Boost requested while the YouTube embed is playing. Deferring the proxy switch to the next track.');
-        showSpiceNotice('Volume boost applies from the next track.', 'info');
+        // The YouTube embed iframe caps its audio at 100% and exposes no gain
+        // hook, so boosting mid-song means restarting the current track through
+        // the gain-capable proxy path right now. Capture the embed position so
+        // the proxy restart resumes at the same second instead of from zero.
+        let resumeSeconds = 0;
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+          try {
+            resumeSeconds = Math.max(0, Number(ytPlayerRef.current.getCurrentTime()) || 0);
+          } catch {
+            resumeSeconds = 0;
+          }
+        }
+        boostResumeSecondsRef.current = {
+          trackKey: playbackTrackKey(activeTrack),
+          seconds: resumeSeconds,
+        };
+        boostProtocolHandoffRef.current = false;
+        streamProtocolRef.current = 'proxy';
+        setStreamProtocol('proxy');
+        setShowVideoPlayer(false);
+        localStorage.setItem('spice_stream_protocol', 'proxy');
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === 'function') {
+          ytPlayerRef.current.pauseVideo();
+        }
+        setStreamUrl(null);
+        streamUrlRef.current = null;
+        logDebug('player', `Volume Boost switching the playing YouTube embed to the gain-capable proxy path now (resuming near ${Math.floor(resumeSeconds / 60)}:${String(Math.floor(resumeSeconds % 60)).padStart(2, '0')}).`);
+        void playTrackRef.current(activeTrack, queueRef.current, queueIndexRef.current, true, true);
       } else {
         boostProtocolHandoffRef.current = false;
         streamProtocolRef.current = 'proxy';

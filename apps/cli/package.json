@@ -1,0 +1,31 @@
+{
+  "name": "@spice/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Spice Music CLI — search, play, and download from the Spice local runtime / cloud",
+  "bin": {
+    "spice": "./bin/spice.js",
+    "spice-music": "./bin/spice.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
