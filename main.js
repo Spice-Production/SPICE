@@ -27,7 +27,7 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
-const { SpiceLocalRuntimeManager } = require("./spice-local-runtime-manager");
+const { SpiceLocalRuntimeManager, compareVersions } = require("./spice-local-runtime-manager");
 const {
   DEFAULT_SHELL_THEME,
   normalizeShellTheme,
@@ -50,7 +50,9 @@ const logFile = path.join(app.getPath("userData"), "debug.log");
 function logToFile(msg) {
   try {
     const timestamp = new Date().toISOString();
-    fs.appendFileSync(logFile, `[${timestamp}] ${msg}\n`);
+    // Async append: appendFileSync on every console.log blocked the main
+    // thread (9% constant CPU + UI freezes under 1s poll logging).
+    fs.appendFile(logFile, `[${timestamp}] ${msg}\n`, () => {});
   } catch (e) {}
 }
 
@@ -446,8 +448,35 @@ async function resolveServiceUrl(serviceKey) {
   if (spiceRuntimeManager) {
     const status = await spiceRuntimeManager.getStatus();
 
+    if (
+      status.running &&
+      status.installedVersion &&
+      status.bundledVersion &&
+      compareVersions(status.installedVersion, status.bundledVersion) < 0
+    ) {
+      // An older externally-started runtime is answering while a newer
+      // bundled runtime sits unused: the wrapper would keep playing through
+      // stale code while native runs the fix. Name it instead of failing
+      // playback silently.
+      console.warn(
+        `Wrapper is talking to a stale SPICE local runtime (installed ${status.installedVersion}, bundled ${status.bundledVersion}). Close the external runtime and reload to pick up the bundled one.`,
+      );
+    }
+
     if (status.supported && status.installed) {
       try {
+        // Parity with native ensureLocalRuntimeReady: upgrade a stale
+        // installed runtime (e.g. pre-WebPO) before spawning it, otherwise
+        // the wrapper keeps playing through the old runtime while native
+        // already runs the bundled fix.
+        try {
+          await spiceRuntimeManager.ensureBundledRuntimeInstalled();
+        } catch (upgradeError) {
+          console.warn(
+            "Wrapper runtime bundled upgrade check failed, starting installed runtime:",
+            upgradeError && upgradeError.message,
+          );
+        }
         await spiceRuntimeManager.start();
         return SPICE_LOCAL_RUNTIME_URL;
       } catch (error) {
@@ -2082,15 +2111,22 @@ let trackPollingInterval = null;
 let lastPolledTrackKey = null;
 let lastScrobbledTrackKey = null;
 let lastPolledTime = 0;
+let isTrackPollInFlight = false;
+let trackPollErrorCount = 0;
 
 let queuePollingInterval = null;
+let isQueuePollInFlight = false;
 
 function startQueuePolling() {
   if (queuePollingInterval) clearInterval(queuePollingInterval);
   queuePollingInterval = setInterval(async () => {
+    // In-flight guard: a slow executeJavaScript must not pile up concurrent
+    // runs on this 1s timer (main-thread CPU + UI freezes).
+    if (isQueuePollInFlight) return;
     const activeView = getActiveBackendView();
-    if (!activeView || !activeView.webContents) return;
+    if (!activeView || !activeView.webContents || activeView.webContents.isDestroyed()) return;
 
+    isQueuePollInFlight = true;
     try {
       const queueData = await activeView.webContents.executeJavaScript(`
         (function() {
@@ -2116,6 +2152,8 @@ function startQueuePolling() {
       }
     } catch (e) {
       // Ignore errors when page is still loading
+    } finally {
+      isQueuePollInFlight = false;
     }
   }, 1000);
 }
@@ -2130,11 +2168,15 @@ function startTrackPolling() {
   console.log("[Main] Starting track polling...");
 
   trackPollingInterval = setInterval(async () => {
+    // In-flight guard: this 350ms timer does heavy DOM serialization, so a
+    // slow page must not pile up concurrent runs (main-thread CPU + freezes).
+    if (isTrackPollInFlight) return;
     const activeView = getActiveBackendView();
-    if (!activeView || !activeView.webContents) {
+    if (!activeView || !activeView.webContents || activeView.webContents.isDestroyed()) {
       return;
     }
 
+    isTrackPollInFlight = true;
     try {
       // Query track info directly from the page - simplified to return raw text
       const rawData = await activeView.webContents.executeJavaScript(`
@@ -2165,7 +2207,7 @@ function startTrackPolling() {
                                         likeStatus: snapshot.likeStatus === true,
                                         queueIndex: Number.isInteger(snapshot.queueIndex) ? snapshot.queueIndex : -1,
                                         queueLength: Number.isInteger(snapshot.queueLength) ? snapshot.queueLength : 0,
-                                        repeatDebug: 'spice-playback-snapshot'
+                                        repeatDebug: ''
                                     };
                                 }
                             } catch (e) {
@@ -2728,20 +2770,26 @@ function startTrackPolling() {
         }
       }
 
-      console.log(
-        "[Main Poll] Result:",
-        track ? `${track.title} by ${track.artist}` : "null",
-        "repeat=" + (track ? track.repeat : ""),
-        track && track.repeatDebug ? `[DEBUG REPEAT] ${track.repeatDebug}` : "",
-      );
+      // Gated poll debug: logging every 1s poll + sync file append kept the
+      // main thread hot (constant CPU) and grew spice_debug.log unbounded.
+      // Set SPICE_DEBUG_POLL=1 only while diagnosing repeat detection.
+      if (process.env.SPICE_DEBUG_POLL === "1") {
+        console.log(
+          "[Main Poll] Result:",
+          track ? `${track.title} by ${track.artist}` : "null",
+          "repeat=" + (track ? track.repeat : ""),
+          track && track.repeatDebug ? `[DEBUG REPEAT] ${track.repeatDebug}` : "",
+        );
 
-      if (track && track.repeatDebug) {
-        try {
-          require("fs").appendFileSync(
-            "spice_debug.log",
-            `[DEBUG REPEAT] repeat=${track.repeat} ` + track.repeatDebug + "\n",
-          );
-        } catch (e) {}
+        if (track && track.repeatDebug) {
+          try {
+            require("fs").appendFile(
+              "spice_debug.log",
+              `[DEBUG REPEAT] repeat=${track.repeat} ` + track.repeatDebug + "\n",
+              () => {},
+            );
+          } catch (e) {}
+        }
       }
 
       if (track && track.title && track.artist) {
@@ -2869,8 +2917,17 @@ function startTrackPolling() {
           });
         }
       }
+      trackPollErrorCount = 0;
     } catch (e) {
-      console.log("[Main Poll] Error:", e.message);
+      // Throttled: this timer fires every 350ms, so logging every failure
+      // kept the main thread hot even after logToFile went async. Always log
+      // the first failure of a burst, then every 20th, unless debugging polls.
+      trackPollErrorCount += 1;
+      if (process.env.SPICE_DEBUG_POLL === "1" || trackPollErrorCount % 20 === 1) {
+        console.log("[Main Poll] Error:", e.message);
+      }
+    } finally {
+      isTrackPollInFlight = false;
     }
   }, 350); // Poll every 350ms for smooth VK player progress
 }
@@ -2884,6 +2941,9 @@ function stopTrackPolling() {
     clearInterval(queuePollingInterval);
     queuePollingInterval = null;
   }
+  isTrackPollInFlight = false;
+  isQueuePollInFlight = false;
+  trackPollErrorCount = 0;
   lastPolledTrackKey = null;
   lastScrobbledTrackKey = null;
 }

@@ -48,6 +48,10 @@ class SpiceLocalRuntimeManager {
     this.childOutput = "";
     this.busy = false;
     this.message = "Ready";
+    this.runState = "idle";
+    this.startPromise = null;
+    this.spawnImpl = options.spawnImpl || null;
+    this.startTimeoutMs = options.startTimeoutMs || 15000;
     this.onStatus = typeof options.onStatus === "function" ? options.onStatus : () => {};
   }
 
@@ -245,6 +249,17 @@ class SpiceLocalRuntimeManager {
   }
 
   async start() {
+    // Concurrency guard: resolveServiceUrl can be re-entered (service
+    // switches, retries) while a start is still awaiting its health check.
+    // Without this, two spawns race for port 3939 and the loser crashes.
+    if (this.startPromise) return this.startPromise;
+    this.startPromise = this._startInner().finally(() => {
+      this.startPromise = null;
+    });
+    return this.startPromise;
+  }
+
+  async _startInner() {
     if (!this.supported) {
       throw new Error("The managed SPICE local runtime starter is not supported on this platform.");
     }
@@ -268,7 +283,8 @@ class SpiceLocalRuntimeManager {
     prepareRuntimeExecutables(this.runtimeDir, this.platform);
     await clearMacRuntimeQuarantine(this.runtimeDir, this.platform);
     this.childOutput = "";
-    this.child = spawn(
+    this.runState = "starting";
+    this.child = (this.spawnImpl || spawn)(
       this.execPath,
       [serverFile],
       {
@@ -299,29 +315,51 @@ class SpiceLocalRuntimeManager {
       this.captureChildOutput(error && error.message ? error.message : String(error));
     });
     this.child.once("exit", (code, signal) => {
+      const unexpected = this.runState === "starting" || this.runState === "running";
       if (!this.childOutput.trim()) {
         this.captureChildOutput(`Runtime exited with code ${code ?? "unknown"}${signal ? ` (${signal})` : ""}.`);
       }
       this.child = null;
+      if (unexpected) {
+        // A post-start exit used to go silent (status kept implying the
+        // runtime was fine while every media request failed). Record the
+        // crash with its last log line so the UI and debug.log name it.
+        this.runState = "idle";
+        const detail = lastRuntimeLogLine(this.childOutput);
+        this.message =
+          `SPICE local runtime stopped unexpectedly (code ${code ?? "unknown"}` +
+          `${signal ? `, signal ${signal}` : ""}).` +
+          `${detail ? ` Last log: ${detail}` : " Restart SPICE to launch it again."}`;
+      }
       this.emitStatus();
     });
 
     this.message = "Starting SPICE local runtime...";
     this.emitStatus();
     try {
-      await this.waitUntilRunning(15000);
+      await this.waitUntilRunning(this.startTimeoutMs);
     } catch (error) {
+      this.runState = "idle";
       await this.stop().catch(() => {});
       throw error;
     }
+    this.runState = "running";
     this.message = "SPICE local runtime is running.";
     this.emitStatus();
     return this.getStatus();
   }
 
   async stop() {
+    // Mark intentional first: the child's exit event fires after the kill,
+    // and the handler must stay quiet for deliberate stops while still
+    // reporting real crashes.
+    this.runState = "idle";
     if (!this.child) {
-      this.message = "Only a runtime started by this desktop app can be stopped here.";
+      // Keep a crash/timeout diagnosis: overwriting it here hid the real
+      // cause behind "Only a runtime..." after boot failures.
+      if (!/stopped unexpectedly|did not answer/.test(this.message || "")) {
+        this.message = "Only a runtime started by this desktop app can be stopped here.";
+      }
       this.emitStatus();
       return this.getStatus();
     }

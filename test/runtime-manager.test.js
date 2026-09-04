@@ -7,6 +7,7 @@ const path = require("node:path");
 const { PassThrough } = require("node:stream");
 
 const {
+  SpiceLocalRuntimeManager,
   clearMacRuntimeQuarantine,
   compareVersions,
   readRuntimeArchitectures,
@@ -120,5 +121,95 @@ test("runtime status reports packaged Apple Silicon and Intel support", () => {
     assert.deepEqual(readRuntimeArchitectures(runtimeDir), ["arm64", "x64"]);
   } finally {
     fs.rmSync(runtimeDir, { recursive: true, force: true });
+  }
+});
+
+function makeStartTestRig({ answerAfterSpawn = false, onSpawn } = {}) {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "spice-runtime-start-"));
+  fs.mkdirSync(path.join(rootDir, "runtime", "apps", "backend"), { recursive: true });
+  fs.writeFileSync(path.join(rootDir, "runtime", "apps", "backend", "server.js"), "// stub");
+
+  const flap = { running: false };
+  const spawnCalls = [];
+  const manager = new SpiceLocalRuntimeManager({
+    app: { getPath: () => rootDir },
+    platform: "linux",
+    execPath: process.execPath,
+    rootDir,
+    fetch: async () => ({ ok: flap.running }),
+    onStatus: () => {},
+    startTimeoutMs: 400,
+    spawnImpl: (...args) => {
+      spawnCalls.push(args);
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.pid = 2147483647;
+      child.killed = false;
+      child.kill = () => {
+        child.killed = true;
+        child.emit("exit", 0, null);
+      };
+      // Model reality: the health endpoint answers only once spawned.
+      if (answerAfterSpawn) flap.running = true;
+      if (onSpawn) onSpawn(child, flap);
+      return child;
+    },
+  });
+  return { rootDir, manager, spawnCalls };
+}
+
+test("concurrent starts share one spawn instead of racing for the port", async () => {
+  const { rootDir, manager, spawnCalls } = makeStartTestRig();
+  try {
+    const first = manager.start();
+    const second = manager.start();
+    await assert.rejects(first, /did not answer/);
+    await assert.rejects(second, /did not answer/);
+    assert.equal(spawnCalls.length, 1);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("a runtime that crashes on boot surfaces its last log line", async () => {
+  const { rootDir, manager } = makeStartTestRig({
+    onSpawn: (child) => {
+      child.stderr.write("boom failure line");
+      setImmediate(() => child.emit("exit", 1, null));
+    },
+  });
+  try {
+    await assert.rejects(manager.start(), /boom failure line/);
+    const status = await manager.getStatus();
+    assert.match(status.message, /stopped unexpectedly/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("a runtime that dies after starting is reported, not silent", async () => {
+  const { rootDir, manager, spawnCalls } = makeStartTestRig({ answerAfterSpawn: true });
+  try {
+    const started = manager.start();
+    await started;
+    manager.child.emit("exit", 1, null);
+    const status = await manager.getStatus();
+    assert.match(status.message, /stopped unexpectedly/);
+    assert.match(status.message, /code 1/);
+    assert.equal(spawnCalls.length, 1);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("an intentional stop stays quiet about crashes", async () => {
+  const { rootDir, manager } = makeStartTestRig({ answerAfterSpawn: true });
+  try {
+    await manager.start();
+    const status = await manager.stop();
+    assert.doesNotMatch(status.message, /unexpectedly/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
   }
 });
