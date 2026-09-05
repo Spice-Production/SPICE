@@ -4,6 +4,7 @@ import { audioContentDisposition, audioDownloadExtension } from '@/lib/audio-dow
 import { createMp3DownloadResponse } from '@/lib/audio-transcode';
 import { corsHeadersForRequest, jsonResponse, optionsResponse } from '@/lib/cors';
 import { requireLocalMediaNamespace } from '@/lib/runtime-target';
+import { parseRangeHeader } from '@/lib/stream-range';
 import { verifySignedStream } from '@/lib/stream-signing';
 
 /**
@@ -104,16 +105,9 @@ export async function GET(
       headers['Range'] = rangeHeader;
     }
   } else {
-    // Optimize Vercel Fluid Compute: chunking
-    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
-    if (!rangeHeader) {
-        rangeHeader = `bytes=0-${CHUNK_SIZE - 1}`;
-    } else {
-        const parts = rangeHeader.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : start + CHUNK_SIZE - 1;
-        rangeHeader = `bytes=${start}-${Math.min(end, start + CHUNK_SIZE - 1)}`;
-    }
+    // Optimize Vercel Fluid Compute: chunking (robust parse — suffix and
+    // multi-range headers used to become `bytes=NaN-NaN` upstreams).
+    rangeHeader = parseRangeHeader(rangeHeader);
     headers['Range'] = rangeHeader;
   }
 
@@ -121,16 +115,40 @@ export async function GET(
     let upstream;
     try {
       console.log(`[stream-proxy] Fetching upstream: ${upstreamUrl.substring(0, 100)}...`);
-      upstream = await fetch(upstreamUrl, { headers: { 'User-Agent': upstreamUserAgent(upstreamUrl), ...(rangeHeader ? { Range: rangeHeader } : {}) } });
+      upstream = await fetch(upstreamUrl, {
+        headers: { 'User-Agent': upstreamUserAgent(upstreamUrl), ...(rangeHeader ? { Range: rangeHeader } : {}) },
+        // Client disconnects must not leave hung upstream connections, and
+        // googlevideo must not hang the proxy forever.
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]),
+      });
       console.log(`[stream-proxy] Upstream response status: ${upstream.status}`);
     } catch (fetchErr) {
-      console.warn(`[stream-proxy] Proxy fetch failed. Falling back to HTTP 307 Redirect. Error:`, fetchErr);
-      return Response.redirect(upstreamUrl, 307);
+      // No unsigned-URL fallback: redirecting to the raw googlevideo URL
+      // bypasses the 10-min HMAC expiry and leaks the pot token into browser
+      // history/logs, for a URL the browser would likely 403 on anyway.
+      console.warn(`[stream-proxy] Proxy fetch failed:`, fetchErr);
+      return jsonResponse(
+        {
+          error: 'upstream_unreachable',
+          message: 'The audio source could not be reached. Retry the track.',
+        },
+        { status: 502 },
+        request,
+      );
     }
 
     if (!upstream.ok && upstream.status !== 206 && upstream.status !== 416) {
-      console.warn(`[stream-proxy] Upstream failed with status ${upstream.status}. Falling back to HTTP 307 Redirect.`);
-      return Response.redirect(upstreamUrl, 307);
+      // Same rationale: a known-bad upstream status (403 cap, 5xx) will not
+      // heal by bouncing the browser to the same URL unsigned.
+      console.warn(`[stream-proxy] Upstream failed with status ${upstream.status}.`);
+      return jsonResponse(
+        {
+          error: 'upstream_error',
+          message: `The audio source answered ${upstream.status}. Retry the track.`,
+        },
+        { status: 502 },
+        request,
+      );
     }
 
     if (upstream.status === 416) {

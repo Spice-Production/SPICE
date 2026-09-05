@@ -83,6 +83,16 @@ process.on("uncaughtException", (error) => {
   } catch (e) {}
 });
 
+// Log async failures to the file log only: floating promises (fire-and-forget
+// scrobbler updates, volume applies) otherwise fail silently, and a dialog
+// here would spam modal boxes on recurring rejections.
+process.on("unhandledRejection", (reason) => {
+  try {
+    const detail = reason instanceof Error ? reason.stack || reason.message : String(reason);
+    logToFile(`UNHANDLED REJECTION: ${detail}`);
+  } catch (e) {}
+});
+
 console.log("App Starting...");
 
 let ElectronBlocker, fetch, Scrobbler, validateListenBrainzToken, discordRpc;
@@ -1901,6 +1911,18 @@ async function loadService(serviceKey) {
   // Notify renderer that a service is active (to show top bar)
   sendActiveServiceState(true);
 
+  // Check if already loading this URL to prevent duplicate calls.
+  // NOTE: this must run BEFORE registering the dom-ready listener below —
+  // every redundant call used to stack a never-firing once() listener on the
+  // same WebContents (EventEmitter leak, MaxListeners warnings).
+  const currentUrl = view.webContents.getURL();
+  if (currentUrl && currentUrl.startsWith(serviceUrl)) {
+    console.log(
+      `[Main] Service URL already loaded or loading: ${serviceUrl}`,
+    );
+    return true;
+  }
+
   // Send VK player config once DOM is interactive
   view.webContents.once("dom-ready", () => {
     const vkPlayerEnabled = store ? store.get("vkPlayerEnabled", false) : false;
@@ -1909,15 +1931,6 @@ async function loadService(serviceKey) {
     );
     view.webContents.send("vk-player-config", vkPlayerEnabled);
   });
-
-  // Check if already loading this URL to prevent duplicate calls
-  const currentUrl = view.webContents.getURL();
-  if (currentUrl && currentUrl.startsWith(serviceUrl)) {
-    console.log(
-      `[Main] Service URL already loaded or loading: ${serviceUrl}`,
-    );
-    return true;
-  }
 
   console.log(`Loading service URL: ${serviceUrl} `);
   try {
@@ -2964,6 +2977,11 @@ function injectTrackDetection(serviceKey) {
     // YouTube Music track detection
     script = `
     (function () {
+      // Re-injection guard: injectTrackDetection runs on every service load,
+      // and without this each pass stacks another 1s + 500ms interval pair
+      // plus a capture-phase play listener (duplicate IPC + scrobbles).
+      if (window.__spiceTrackDetectionInstalled) return;
+      window.__spiceTrackDetectionInstalled = true;
       console.log('[Spice Scrobbler] YouTube Music track detection injected');
       console.log('[Spice Scrobbler] Checking for spiceReportTrack:', typeof window.spiceReportTrack);
 
@@ -3132,6 +3150,9 @@ function injectTrackDetection(serviceKey) {
     // SoundCloud track detection
     script = `
     (function () {
+      // Same re-injection guard as the YouTube branch above.
+      if (window.__spiceTrackDetectionInstalled) return;
+      window.__spiceTrackDetectionInstalled = true;
       console.log('[Spice Scrobbler] SoundCloud track detection injected');
 
       let lastTrackKey = null;
@@ -3985,6 +4006,10 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.on("play-queue-index", (event, index) => {
+    // Validate: the renderer-supplied value is interpolated into page JS
+    // below, so a non-numeric payload would break out of the expression.
+    const queueIndex = Number(index);
+    if (!Number.isInteger(queueIndex) || queueIndex < 0) return;
     if (view && view.webContents) {
       markSpiceNativePlaybackIntent("queue index");
       view.webContents
@@ -3992,8 +4017,8 @@ app.whenReady().then(async () => {
           `
         (function() {
           const items = document.querySelectorAll('ytmusic-player-queue-item');
-          if (items && items[${index}]) {
-             const playBtn = items[${index}].querySelector('ytmusic-play-button-renderer') || items[${index}];
+          if (items && items[${queueIndex}]) {
+             const playBtn = items[${queueIndex}].querySelector('ytmusic-play-button-renderer') || items[${queueIndex}];
              playBtn.click();
           }
         })();
@@ -4914,10 +4939,14 @@ app.whenReady().then(async () => {
       wizardWindow.loadURL("https://www.last.fm/api/account/create");
 
       let credentialsFound = false;
+      let credentialsCheckInFlight = false;
 
       // Function to check for credentials on the current page
       const checkForCredentials = async () => {
-        if (credentialsFound) return;
+        // In-flight guard: the 2s interval plus navigation timeouts can
+        // otherwise stack concurrent full-page DOM scrapes on slow pages.
+        if (credentialsFound || credentialsCheckInFlight) return;
+        credentialsCheckInFlight = true;
 
         try {
           const url = wizardWindow.webContents.getURL();
@@ -5029,6 +5058,8 @@ app.whenReady().then(async () => {
           }
         } catch (e) {
           console.error("[API Wizard] Check error:", e);
+        } finally {
+          credentialsCheckInFlight = false;
         }
       };
 
