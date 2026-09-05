@@ -232,13 +232,16 @@ async function resolveWithClient(
   // Use the top-level getInfo (not music.getInfo) so we can specify client.
   const info = await yt.getInfo(id, { client });
   const formats = info.streaming_data?.adaptive_formats ?? [];
-  const streams = (
-    await Promise.all(
-      formats
-        .filter((format) => format.has_audio && !format.has_video)
-        .map(async (format) => formatToStream(format, yt.session.player, id, poToken)),
-    )
-  )
+  // allSettled: one throwing decipher must not discard every other playable
+  // format and force a needless fallback to the next InnerTube client.
+  const settled = await Promise.allSettled(
+    formats
+      .filter((format) => format.has_audio && !format.has_video)
+      .map(async (format) => formatToStream(format, yt.session.player, id, poToken)),
+  );
+  const streams = settled
+    .filter((result): result is PromiseFulfilledResult<SpiceStreamVariant | null> => result.status === 'fulfilled')
+    .map((result) => result.value)
     .filter((stream): stream is SpiceStreamVariant => stream !== null)
     .sort((a, b) => {
       // Prefer AAC/m4a for broadest browser/device compatibility.

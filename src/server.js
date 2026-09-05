@@ -103,6 +103,22 @@ function handleApi(req, res, pathname) {
   }
 
   if (pathname === "/api/control" && req.method === "POST") {
+    // Same-machine check: any website the user visits can reach
+    // http://localhost:6969, and the preflight handler answers ACAO *, so a
+    // foreign Origin must not drive playback/window control. Browser clients
+    // always send Origin (non-browser clients like curl send none).
+    const origin = req.headers.origin;
+    if (origin) {
+      let originHost = "";
+      try {
+        originHost = new URL(origin).hostname;
+      } catch (parseError) {
+        return sendText(res, 403, "403 Forbidden");
+      }
+      if (originHost !== "localhost" && originHost !== "127.0.0.1") {
+        return sendText(res, 403, "403 Forbidden");
+      }
+    }
     let body = "";
     req.on("data", (chunk) => {
       body += chunk.toString();
@@ -262,7 +278,10 @@ function startServer(callback) {
     server.once("listening", onListening);
     server.once("error", onError);
 
-    server.listen(PORT, () => {
+    // Loopback only: this is a local companion server (mini-player, OBS,
+    // queue windows). The default binds all interfaces, exposing playback
+    // control and listening activity to every host on the LAN.
+    server.listen(PORT, "127.0.0.1", () => {
       console.log(`[Server] Running on http://localhost:${PORT}`);
       console.log(`[Server] Main UI:      http://localhost:${PORT}/`);
       console.log(

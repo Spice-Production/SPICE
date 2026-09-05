@@ -4,7 +4,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { PassThrough } = require("node:stream");
+const { PassThrough, Readable } = require("node:stream");
 
 const {
   SpiceLocalRuntimeManager,
@@ -211,5 +211,115 @@ test("an intentional stop stays quiet about crashes", async () => {
     assert.doesNotMatch(status.message, /unexpectedly/);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+function makeLifecycleRig(fetchImpl) {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "spice-runtime-lifecycle-"));
+  const manager = new SpiceLocalRuntimeManager({
+    app: { getPath: () => rootDir },
+    platform: "linux",
+    execPath: process.execPath,
+    rootDir,
+    fetch: fetchImpl,
+    onStatus: () => {},
+  });
+  return { rootDir, manager };
+}
+
+test("committing a staged runtime swaps atomically with no leftovers", () => {
+  const { rootDir, manager } = makeLifecycleRig(async () => ({ ok: false }));
+  try {
+    fs.mkdirSync(path.join(rootDir, "runtime"), { recursive: true });
+    fs.writeFileSync(path.join(rootDir, "runtime", "live.txt"), "live");
+    const staging = path.join(rootDir, "staging");
+    fs.mkdirSync(staging, { recursive: true });
+    fs.writeFileSync(path.join(staging, "new.txt"), "new");
+    manager.commitStagedRuntime(staging);
+    assert.equal(fs.existsSync(path.join(rootDir, "runtime", "new.txt")), true);
+    assert.equal(fs.existsSync(path.join(rootDir, "runtime", "live.txt")), false);
+    assert.deepEqual(
+      fs.readdirSync(rootDir).filter((name) => name.includes(".bak-")),
+      [],
+    );
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("a failed swap rolls back to the live runtime", () => {
+  const { rootDir, manager } = makeLifecycleRig(async () => ({ ok: false }));
+  try {
+    fs.mkdirSync(path.join(rootDir, "runtime"), { recursive: true });
+    fs.writeFileSync(path.join(rootDir, "runtime", "live.txt"), "live");
+    assert.throws(
+      () => manager.commitStagedRuntime(path.join(rootDir, "no-such-staging")),
+      /ENOENT/,
+    );
+    assert.equal(fs.readFileSync(path.join(rootDir, "runtime", "live.txt"), "utf8"), "live");
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("install failures name their cause instead of freezing progress text", async () => {
+  const { rootDir, manager } = makeLifecycleRig(async () => {
+    throw new Error("offline");
+  });
+  try {
+    await assert.rejects(manager.installFromManifest(null), /offline/);
+    const status = await manager.getStatus();
+    assert.match(status.message, /install failed:.*offline/);
+    assert.equal(status.busy, false);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("update-check failures name their cause", async () => {
+  const { rootDir, manager } = makeLifecycleRig(async () => {
+    throw new Error("offline");
+  });
+  try {
+    // The original error still propagates to callers; the diagnosis lands
+    // on the status message instead.
+    await assert.rejects(manager.installLatestIfAvailable(), /offline/);
+    const status = await manager.getStatus();
+    assert.match(status.message, /update check failed:.*offline/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("downloads map network and disk failures to recovery guidance", async () => {
+  const offline = makeLifecycleRig(async () => {
+    throw new Error("socket hang up");
+  });
+  try {
+    await assert.rejects(
+      offline.manager.downloadFile("https://example.com/runtime.zip", path.join(offline.rootDir, "rt.zip")),
+      /Check your connection and retry/,
+    );
+  } finally {
+    fs.rmSync(offline.rootDir, { recursive: true, force: true });
+  }
+
+  const fullDisk = makeLifecycleRig(async () => ({
+    ok: true,
+    body: (() => {
+      const stream = new Readable({ read() {} });
+      process.nextTick(() =>
+        stream.destroy(Object.assign(new Error("no space left on device"), { code: "ENOSPC" })),
+      );
+      return stream;
+    })(),
+  }));
+  try {
+    await assert.rejects(
+      fullDisk.manager.downloadFile("https://example.com/runtime.zip", path.join(fullDisk.rootDir, "rt.zip")),
+      /disk is full\. Free space and retry/,
+    );
+  } finally {
+    fs.rmSync(fullDisk.rootDir, { recursive: true, force: true });
   }
 });

@@ -104,6 +104,18 @@ async function getChallengeFromHomepage(fetchFn: typeof fetch): Promise<Challeng
 let minterCache: MinterCacheEntry | undefined;
 let inflightMinter: Promise<WebPoMinter> | undefined;
 
+/**
+ * How long a freshly-minted WebPO minter stays cached. A missing/zero TTL
+ * from GenerateIT must NOT become a 12h cache entry — every mint from it
+ * would produce invalid GVS tokens (systemic 403 past 1MB) until restart.
+ * Park unknown TTLs short so the next request re-mints instead.
+ */
+export function minterCacheTtlMs(estimatedTtlSecs: unknown): number {
+  const ttlSecs = typeof estimatedTtlSecs === 'number' ? estimatedTtlSecs : Number(estimatedTtlSecs);
+  if (!Number.isFinite(ttlSecs) || ttlSecs <= 0) return 5 * 60 * 1000;
+  return Math.max(5 * 60 * 1000, ttlSecs * 1000 - 10 * 60 * 1000);
+}
+
 async function loadTokenMinter(fetchFn: typeof fetch): Promise<WebPoMinter> {
   if (minterCache && Date.now() < minterCache.expiry) return minterCache.minter;
   if (inflightMinter) return inflightMinter;
@@ -142,8 +154,7 @@ async function loadTokenMinter(fetchFn: typeof fetch): Promise<WebPoMinter> {
     );
 
     // Refresh comfortably before expiry; tokens themselves are minted lazily.
-    const ttlMs = Math.max(30 * 60 * 1000, Number(estimatedTtlSecs || 43200) * 1000 - 10 * 60 * 1000);
-    minterCache = { minter, expiry: Date.now() + ttlMs };
+    minterCache = { minter, expiry: Date.now() + minterCacheTtlMs(estimatedTtlSecs) };
     return minter;
   })();
 
