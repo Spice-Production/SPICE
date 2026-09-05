@@ -50,8 +50,36 @@ test('PO token minting mirrors the bgutil attestation flow', () => {
   // The minter outlives individual requests: cache keyed on TTL with refresh.
   assert.match(
     poTokenSource,
-    /minterCache = \{ minter, expiry: Date\.now\(\) \+ ttlMs \}/,
+    /minterCache = \{ minter, expiry: Date\.now\(\) \+ minterCacheTtlMs\(estimatedTtlSecs\) \}/,
     'minted minters must be cached until shortly before their TTL expires',
+  );
+});
+
+test('unknown minter TTLs park short instead of caching invalid tokens', () => {
+  // A missing/zero GenerateIT TTL must not become a 12h cache entry — every
+  // mint from it would produce invalid GVS tokens until manual restart.
+  assert.match(
+    poTokenSource,
+    /export function minterCacheTtlMs/,
+    'the minter TTL computation must be a testable exported helper',
+  );
+  assert.match(
+    poTokenSource,
+    /if \(!Number\.isFinite\(ttlSecs\) \|\| ttlSecs <= 0\) return 5 \* 60 \* 1000;/,
+    'unknown TTLs must park short so the next request re-mints',
+  );
+  assert.doesNotMatch(
+    poTokenSource,
+    /estimatedTtlSecs \|\| 43200/,
+    'a zero TTL must not fall back to a 12h cache entry',
+  );
+});
+
+test('one undecipherable format does not discard every playable stream', () => {
+  assert.match(
+    youtubeSource,
+    /Promise\.allSettled\(/,
+    'format deciphers must settle independently so one thrower cannot fail the batch',
   );
 });
 

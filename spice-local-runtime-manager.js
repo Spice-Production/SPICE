@@ -109,7 +109,7 @@ class SpiceLocalRuntimeManager {
     this.message = `Installing bundled SPICE local runtime ${bundledVersion || "included"}...`;
     this.emitStatus();
 
-    const scratchDir = path.join(this.tempDir, `bundled-${Date.now()}`);
+    const scratchDir = path.join(this.tempDir, `bundled-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`);
     const stagingDir = path.join(scratchDir, "runtime");
 
     try {
@@ -117,9 +117,7 @@ class SpiceLocalRuntimeManager {
       copyDirectory(this.bundledRuntimeDir, stagingDir);
 
       await this.stop();
-      fs.mkdirSync(this.rootDir, { recursive: true });
-      fs.rmSync(this.runtimeDir, { recursive: true, force: true });
-      fs.renameSync(stagingDir, this.runtimeDir);
+      this.commitStagedRuntime(stagingDir);
       await clearMacRuntimeQuarantine(this.runtimeDir, this.platform);
 
       this.message = `Bundled SPICE local runtime ${bundledVersion || "included"} installed.`;
@@ -169,7 +167,11 @@ class SpiceLocalRuntimeManager {
     this.message = "Checking for SPICE local runtime updates...";
     this.emitStatus();
 
-    const manifest = await this.fetchManifest();
+    const manifest = await this.fetchManifest().catch((error) => {
+      this.message = `SPICE local runtime update check failed: ${error && error.message ? error.message : "unknown error"}`;
+      this.emitStatus();
+      throw error;
+    });
     const latestVersion = typeof manifest?.version === "string" ? manifest.version : null;
     const installedVersion = this.getInstalledVersion();
 
@@ -180,6 +182,28 @@ class SpiceLocalRuntimeManager {
     }
 
     return this.installFromManifest(manifest);
+  }
+
+  commitStagedRuntime(stagingDir) {
+    // Atomic-ish swap: the old code deleted the live runtime BEFORE the
+    // replacement rename, so a failed commit (disk-full, AV lock,
+    // permissions) left the user with NO runtime at all. Park the live tree
+    // aside and roll back to it when the commit fails.
+    fs.mkdirSync(this.rootDir, { recursive: true });
+    const backupDir = `${this.runtimeDir}.bak-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    const hadLive = fs.existsSync(this.runtimeDir);
+    try {
+      if (hadLive) fs.renameSync(this.runtimeDir, backupDir);
+      fs.renameSync(stagingDir, this.runtimeDir);
+    } catch (error) {
+      try {
+        if (hadLive && fs.existsSync(backupDir) && !fs.existsSync(this.runtimeDir)) {
+          fs.renameSync(backupDir, this.runtimeDir);
+        }
+      } catch {}
+      throw error;
+    }
+    if (hadLive) fs.rmSync(backupDir, { recursive: true, force: true });
   }
 
   async installFromManifest(manifestOverride) {
@@ -194,7 +218,7 @@ class SpiceLocalRuntimeManager {
     this.message = manifestOverride ? "Preparing runtime update..." : "Fetching runtime manifest...";
     this.emitStatus();
 
-    const scratchDir = path.join(this.tempDir, `install-${Date.now()}`);
+    const scratchDir = path.join(this.tempDir, `install-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`);
     const zipPath = path.join(scratchDir, this.platformConfig.archiveName);
     const stagingDir = path.join(scratchDir, "runtime");
 
@@ -233,14 +257,19 @@ class SpiceLocalRuntimeManager {
       await extractRuntimeArchive(zipPath, stagingDir);
 
       await this.stop();
-      fs.mkdirSync(this.rootDir, { recursive: true });
-      fs.rmSync(this.runtimeDir, { recursive: true, force: true });
-      fs.renameSync(stagingDir, this.runtimeDir);
+      this.commitStagedRuntime(stagingDir);
       await clearMacRuntimeQuarantine(this.runtimeDir, this.platform);
 
       this.message = `SPICE local runtime ${manifest.version || "latest"} installed.`;
       this.emitStatus();
       return this.getStatus();
+    } catch (error) {
+      // Name the failure: without this the status message froze at the last
+      // progress string ("Downloading…/Verifying…/Extracting…") with
+      // busy=false, so users could not tell the install failed or why.
+      this.message = `SPICE local runtime install failed: ${error && error.message ? error.message : "unknown error"}`;
+      this.emitStatus();
+      throw error;
     } finally {
       fs.rmSync(scratchDir, { recursive: true, force: true });
       this.busy = false;
@@ -422,12 +451,31 @@ class SpiceLocalRuntimeManager {
     }
 
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    const response = await this.fetch(url);
+    let response;
+    try {
+      response = await this.fetch(url);
+    } catch (error) {
+      throw new Error(
+        `SPICE runtime download failed: ${error && error.message ? error.message : "network error"}. Check your connection and retry.`,
+      );
+    }
     if (!response.ok) {
       throw new Error(`SPICE runtime download failed with status ${response.status}.`);
     }
 
-    await pipeline(response.body, fs.createWriteStream(targetPath));
+    try {
+      await pipeline(response.body, fs.createWriteStream(targetPath));
+    } catch (error) {
+      // A truncated stream or full disk otherwise surfaces later as an
+      // opaque extract error behind a stale "Extracting…" message.
+      if (error && error.code === "ENOSPC") {
+        throw new Error("SPICE runtime download failed: disk is full. Free space and retry.");
+      }
+      if (error && (error.code === "EACCES" || error.code === "EPERM")) {
+        throw new Error(`SPICE runtime download failed: cannot write to ${targetPath}. Check folder permissions and retry.`);
+      }
+      throw error;
+    }
   }
 
   emitStatus() {

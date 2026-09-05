@@ -1,5 +1,11 @@
 # SPICE Walkthrough
 
+## v1.0.173
+
+- [Spice.Music main] Harden direct streaming: malformed Range headers (suffix/multi-range) no longer produce `bytes=NaN-NaN` upstream requests, proxy failures answer 502 instead of redirecting to unsigned expiring URLs, upstream fetches abort on client disconnect, one undecipherable format no longer discards every playable stream, and unknown PO-minter TTLs re-mint within minutes instead of caching invalid tokens.
+- [Spice.Desktop main] Calm the main thread: track/queue polls carry in-flight guards and skip destroyed views, poll errors are throttled, redundant service loads no longer stack dom-ready listeners, re-injected track detection no longer duplicates page timers, and async failures are logged instead of vanishing.
+- [Spice.Desktop main] Harden the local runtime lifecycle: concurrent starts share one spawn, unexpected runtime exits report their exit code and last log line, installs swap atomically with rollback, install failures name their cause, and the mini-player server binds loopback with an Origin check on control.
+
 ## v1.0.172
 
 - [Spice.Music main] Restore full-track playback on YouTube Music: YouTube's new PO-token enforcement was truncating songs to their first megabyte before playback failed. The local runtime now runs the same attestation flow as the YouTube web player (BotGuard → integrity token → per-video PO token) and tags every resolved stream URL with a token, lifting the cap — full-length direct streaming works again without any player-side changes.
