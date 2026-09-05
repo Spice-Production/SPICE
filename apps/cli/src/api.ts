@@ -28,7 +28,7 @@ export interface SpiceTrackDetails {
 }
 
 // Use global fetch (Node 18+). No extra deps.
-async function fetchJson(url: string, opts: RequestInit & { timeoutMs?: number } = {}) {
+export async function fetchJson(url: string, opts: RequestInit & { timeoutMs?: number } = {}) {
   const { timeoutMs = 15000, ...rest } = opts;
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), timeoutMs);
@@ -161,6 +161,33 @@ export async function getLyrics(cfg: SpiceCliConfig, id: string, _track?: SpiceT
   return json as { trackId: string; title: string; artist: string; plainLyrics: string; syncedLyrics: string; isSynced: boolean };
 }
 
+// ---- playlist / album import via local runtime ----
+
+export async function getPlaylistImport(cfg: SpiceCliConfig, playlistId: string) {
+  const ep = resolveEndpoints(cfg);
+  const url = ep.localPlaylist(playlistId);
+  const { res, json } = await fetchJson(url);
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  // shape: { title, description, tracks }
+  return json as { title: string; description?: string; tracks: SpiceTrack[] };
+}
+
+export async function getAlbumImport(cfg: SpiceCliConfig, albumId: string) {
+  const ep = resolveEndpoints(cfg);
+  const url = ep.localAlbum(albumId);
+  const { res, json } = await fetchJson(url);
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { title: string; description?: string; tracks: SpiceTrack[] };
+}
+
+export async function getRelatedTracks(cfg: SpiceCliConfig, id: string, limit = 30) {
+  const ep = resolveEndpoints(cfg);
+  const url = ep.localRelated(id, Math.max(1, Math.min(50, limit)));
+  const { res, json } = await fetchJson(url);
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return (json.tracks ?? []) as SpiceTrack[];
+}
+
 // ---- stream proxy download (signed URL already in track details) ----
 
 export function pickBestStream(streams: SpiceStreamVariant[], prefer: 'm4a' | 'opus' | 'mp3' | 'original' = 'original'): SpiceStreamVariant | null {
@@ -181,4 +208,100 @@ export function pickBestStream(streams: SpiceStreamVariant[], prefer: 'm4a' | 'o
   const m4a = streams.find(s => s.container === 'mp4' || s.container === 'm4a');
   if (prefer === 'm4a' && m4a) return m4a;
   return streams[0];
+}
+
+// ---- cloud auth (direct to cloudUrl, not via local proxy) ----
+
+export async function cloudSignIn(cfg: SpiceCliConfig, email: string, password: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/auth/spice/signin`;
+  const { res, json } = await fetchJson(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { token?: string; user?: any; account?: any; message?: string; verificationRequired?: boolean; registrationId?: string };
+}
+
+export async function cloudSignUp(cfg: SpiceCliConfig, email: string, password: string, username: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/auth/spice/signup`;
+  const { res, json } = await fetchJson(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, username }) });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { registrationId?: string; verificationRequired?: boolean; maskedEmail?: string; token?: string; user?: any; message?: string };
+}
+
+export async function cloudVerifyEmail(cfg: SpiceCliConfig, registrationId: string, code: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/auth/spice/verify-email`;
+  const { res, json } = await fetchJson(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationId, code }) });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { token?: string; user?: any; account?: any };
+}
+
+export async function cloudResendVerification(cfg: SpiceCliConfig, registrationId: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/auth/spice/resend-verification`;
+  const { res, json } = await fetchJson(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registrationId }) });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
+}
+
+export async function cloudGetMe(cfg: SpiceCliConfig, token: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/account/me`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { account: any; user: any };
+}
+
+// ---- cloud sync: playlists / likes / history / library ----
+
+export async function cloudGetPlaylists(cfg: SpiceCliConfig, token: string, profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/playlists?profileId=${encodeURIComponent(profileId)}`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { playlists: any[] };
+}
+
+export async function cloudPostPlaylists(cfg: SpiceCliConfig, token: string, playlists: any[], profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/playlists`;
+  const { res, json } = await fetchJson(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playlists, profileId }),
+  });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
+}
+
+export async function cloudGetLikes(cfg: SpiceCliConfig, token: string, profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/likes?profileId=${encodeURIComponent(profileId)}`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json as { likedTracks: string[]; likedTrackDetails: Record<string, any> };
+}
+
+export async function cloudPostLikes(cfg: SpiceCliConfig, token: string, likesPayload: { tracks: any[] }, profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/likes`;
+  const { res, json } = await fetchJson(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...likesPayload, profileId }),
+  });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
+}
+
+export async function cloudGetHistory(cfg: SpiceCliConfig, token: string, profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/history?profileId=${encodeURIComponent(profileId)}`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
+}
+
+export async function cloudGetLibrary(cfg: SpiceCliConfig, token: string, profileId = 'default') {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/library?profileId=${encodeURIComponent(profileId)}`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
+}
+
+export async function cloudGetProfiles(cfg: SpiceCliConfig, token: string) {
+  const url = `${cfg.cloudUrl.replace(/\/+$/, '')}/api/sync/profiles`;
+  const { res, json } = await fetchJson(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(pickError(json, res), res.status, json?.error);
+  return json;
 }
