@@ -11,6 +11,7 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const crypto = require("crypto");
 const { pathToFileURL } = require("url");
 const { autoUpdater } = require("electron-updater");
@@ -151,6 +152,264 @@ const SPICE_INSTALL_URL = normalizeServiceUrl(
   process.env.SPICE_INSTALL_URL || "https://install.spice-app.xyz/",
 );
 const SPICE_REMOTE_MUSIC_URL = "https://music.spice-app.xyz/";
+// Remote runtime mode: when runtime.mode is "remote", the desktop shells
+// (standard wrapper and the native shell launched via scripts/start-native.js)
+// talk to a hosted SPICE runtime instead of managing a local one.
+const DEFAULT_REMOTE_RUNTIME_URL = "https://music.spice-app.xyz/";
+const RUNTIME_MODE_STORAGE_KEY = "runtime.mode";
+const RUNTIME_REMOTE_URL_STORAGE_KEY = "runtime.remoteUrl";
+const RUNTIME_DEVICE_STORAGE_KEY = "runtime.device";
+const RUNTIME_TOKEN_STORAGE_KEY = "runtime.remoteToken";
+
+function normalizeRuntimeMode(value) {
+  return String(value || "").trim().toLowerCase() === "remote" ? "remote" : "local";
+}
+
+function normalizeRemoteRuntimeUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  let parsed = null;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    return null;
+  }
+  if (!parsed || parsed.protocol !== "https:") return null;
+  const normalized = parsed.toString();
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+
+function getRuntimeModeState(storeLike) {
+  const source = storeLike || null;
+  const rawMode = source ? source.get(RUNTIME_MODE_STORAGE_KEY, "local") : "local";
+  const rawUrl = source
+    ? source.get(RUNTIME_REMOTE_URL_STORAGE_KEY, DEFAULT_REMOTE_RUNTIME_URL)
+    : DEFAULT_REMOTE_RUNTIME_URL;
+  const mode = normalizeRuntimeMode(rawMode);
+  const remoteUrl = normalizeRemoteRuntimeUrl(rawUrl);
+  let device = source ? source.get(RUNTIME_DEVICE_STORAGE_KEY, null) : null;
+  if (!device || typeof device !== "object" || typeof device.id !== "string" || !device.id) {
+    device = null;
+  } else {
+    device = { id: device.id, name: typeof device.name === "string" ? device.name : "" };
+  }
+  return { mode, remoteUrl, device };
+}
+
+function resolveEffectiveRuntimeMode(state) {
+  if (!state || state.mode !== "remote") return "local";
+  return state.remoteUrl ? "remote" : "local";
+}
+
+function buildRemoteRuntimeUrl(remoteUrl, apiPath) {
+  const base = normalizeRemoteRuntimeUrl(remoteUrl);
+  if (!base) {
+    throw new Error("Remote runtime URL must be a valid https:// URL.");
+  }
+  return new URL(String(apiPath || "/"), base).toString();
+}
+
+function buildRuntimeAuthorizationHeader(mode, token) {
+  if (normalizeRuntimeMode(mode) !== "remote") return null;
+  const value = String(token || "").trim();
+  return value ? `Bearer ${value}` : null;
+}
+
+function shouldSkipLocalRuntimeLifecycle(mode) {
+  return normalizeRuntimeMode(mode) === "remote";
+}
+
+function isRemoteRuntimeModeActive() {
+  return shouldSkipLocalRuntimeLifecycle(resolveEffectiveRuntimeMode(getRuntimeModeState(store)));
+}
+
+function resolveRuntimeBaseUrl() {
+  const state = getRuntimeModeState(store);
+  if (resolveEffectiveRuntimeMode(state) === "remote") return state.remoteUrl;
+  return SPICE_LOCAL_RUNTIME_URL;
+}
+
+function remoteRuntimeTokenFilePath() {
+  return path.join(app.getPath("userData"), "runtime-remote-token");
+}
+
+function readElectronSafeStorage() {
+  try {
+    const electron = require("electron");
+    return (electron && electron.safeStorage) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getRemoteRuntimeToken() {
+  const safeStorage = readElectronSafeStorage();
+  if (store) {
+    const saved = store.get(RUNTIME_TOKEN_STORAGE_KEY, null);
+    if (typeof saved === "string" && saved) {
+      if (safeStorage && safeStorage.isEncryptionAvailable()) {
+        try {
+          const decrypted = safeStorage.decryptString(Buffer.from(saved, "base64"));
+          if (decrypted) return decrypted;
+        } catch (_) {}
+      }
+    }
+  }
+  try {
+    const fallbackPath = remoteRuntimeTokenFilePath();
+    if (fs.existsSync(fallbackPath)) {
+      const fallback = fs.readFileSync(fallbackPath, "utf8").trim();
+      if (fallback) return fallback;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function saveRemoteRuntimeToken(token) {
+  const value = String(token || "");
+  if (!value) return;
+  const safeStorage = readElectronSafeStorage();
+  if (safeStorage && safeStorage.isEncryptionAvailable()) {
+    try {
+      if (store) {
+        store.set(RUNTIME_TOKEN_STORAGE_KEY, safeStorage.encryptString(value).toString("base64"));
+      }
+      try {
+        fs.rmSync(remoteRuntimeTokenFilePath(), { force: true });
+      } catch (_) {}
+      return;
+    } catch (_) {}
+  }
+  try {
+    fs.writeFileSync(remoteRuntimeTokenFilePath(), value, { mode: 0o600 });
+  } catch (_) {}
+  if (store) store.delete(RUNTIME_TOKEN_STORAGE_KEY);
+}
+
+function clearRemoteRuntimeToken() {
+  if (store) store.delete(RUNTIME_TOKEN_STORAGE_KEY);
+  try {
+    fs.rmSync(remoteRuntimeTokenFilePath(), { force: true });
+  } catch (_) {}
+}
+
+function applyRemoteRuntimeAuthHeaders(headers) {
+  const next = headers && typeof headers === "object" ? { ...headers } : {};
+  const state = getRuntimeModeState(store);
+  if (resolveEffectiveRuntimeMode(state) !== "remote") return next;
+  const auth = buildRuntimeAuthorizationHeader("remote", getRemoteRuntimeToken());
+  if (auth) next.Authorization = auth;
+  return next;
+}
+
+function getRuntimeModePublicState() {
+  const state = getRuntimeModeState(store);
+  return {
+    mode: state.mode,
+    effectiveMode: resolveEffectiveRuntimeMode(state),
+    remoteUrl: state.remoteUrl || DEFAULT_REMOTE_RUNTIME_URL,
+    device: state.device,
+    hasToken: Boolean(getRemoteRuntimeToken()),
+  };
+}
+
+function setRuntimeModeConfig(patch) {
+  const next = patch && typeof patch === "object" ? patch : {};
+  if (!store) throw new Error("Settings storage is not ready yet.");
+  if (typeof next.mode !== "undefined") {
+    store.set(RUNTIME_MODE_STORAGE_KEY, normalizeRuntimeMode(next.mode));
+  }
+  if (typeof next.remoteUrl !== "undefined") {
+    const normalized = normalizeRemoteRuntimeUrl(next.remoteUrl);
+    if (!normalized) {
+      throw new Error("Remote runtime URL must be a valid https:// URL.");
+    }
+    store.set(RUNTIME_REMOTE_URL_STORAGE_KEY, normalized);
+  }
+  return getRuntimeModePublicState();
+}
+
+async function registerRemoteRuntimeDevice() {
+  const account = getNativeAccountSnapshot();
+  if (!account || typeof account.token !== "string" || !account.token) {
+    throw new Error("Sign in to your SPICE account first, then register this device.");
+  }
+  const state = getRuntimeModeState(store);
+  const remoteUrl = state.remoteUrl || DEFAULT_REMOTE_RUNTIME_URL;
+  if (!normalizeRemoteRuntimeUrl(remoteUrl)) {
+    throw new Error("Set a valid https:// remote runtime URL first.");
+  }
+  const fetchFn = getFetchImplementation() || fetch;
+  const target = buildRemoteRuntimeUrl(remoteUrl, "/api/account/devices");
+  const timeout = new Promise((resolve) => {
+    setTimeout(() => resolve(null), 8000);
+  });
+  const request = fetchFn(target, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${account.token}`,
+    },
+    body: JSON.stringify({ name: os.hostname() }),
+  }).catch(() => null);
+  const response = await Promise.race([request, timeout]);
+  if (!response) {
+    throw new Error("The remote runtime did not answer device registration.");
+  }
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {
+    data = { message: text };
+  }
+  if (!response.ok) {
+    throw new Error((data && (data.message || data.error)) || "Device registration failed.");
+  }
+  const source = data && typeof data.device === "object" && data.device ? data.device : data;
+  const id = source && (source.id || source.deviceId);
+  if (!id || typeof id !== "string") {
+    throw new Error("Device registration did not return a device id.");
+  }
+  const device = {
+    id,
+    name: typeof source.name === "string" && source.name ? source.name : os.hostname(),
+  };
+  if (store) store.set(RUNTIME_DEVICE_STORAGE_KEY, device);
+  const deviceToken = data.token || data.deviceToken || data.sessionToken || account.token;
+  saveRemoteRuntimeToken(deviceToken);
+  return getRuntimeModePublicState();
+}
+
+async function testRemoteRuntimeConnection() {
+  const state = getRuntimeModeState(store);
+  if (resolveEffectiveRuntimeMode(state) !== "remote" || !state.remoteUrl) {
+    return {
+      ok: false,
+      remoteUrl: state.remoteUrl || null,
+      error: "Set a valid https:// remote runtime URL first.",
+    };
+  }
+  const reachable = await isRemoteSpiceRuntimeReachable(state.remoteUrl);
+  if (!reachable) {
+    return {
+      ok: false,
+      remoteUrl: state.remoteUrl,
+      error: "The remote runtime did not answer /api/runtime.",
+    };
+  }
+  return { ok: true, remoteUrl: state.remoteUrl };
+}
+
+function unlinkRemoteRuntimeDevice() {
+  if (store) {
+    store.delete(RUNTIME_DEVICE_STORAGE_KEY);
+    store.set(RUNTIME_MODE_STORAGE_KEY, "local");
+  }
+  clearRemoteRuntimeToken();
+  return getRuntimeModePublicState();
+}
+
 const SPICE_LOCAL_MANIFEST_URL = SPICE_LOCAL_RUNTIME_PLATFORM
   ? process.env.SPICE_LOCAL_UPDATE_MANIFEST_URL ||
     `https://music.spice-app.xyz/api/updates/local-${SPICE_LOCAL_RUNTIME_PLATFORM}`
@@ -331,6 +590,10 @@ function clearNativeAccount() {
 }
 
 async function ensureLocalRuntimeReady() {
+  if (shouldSkipLocalRuntimeLifecycle(resolveEffectiveRuntimeMode(getRuntimeModeState(store)))) {
+    console.log("Remote runtime mode is active; skipping local runtime startup.");
+    return null;
+  }
   if (!spiceRuntimeManager) {
     throw new Error("SPICE local runtime manager is not ready yet.");
   }
@@ -384,12 +647,13 @@ async function nativeCloudAuth(payload) {
     body.registrationId = String(payload.registrationId || "");
   }
 
-  const response = await fetch(new URL(`/api/cloud/auth/spice/${mode}`, SPICE_LOCAL_RUNTIME_URL).toString(), {
+  const runtimeBase = resolveRuntimeBaseUrl();
+  const response = await fetch(new URL(`/api/cloud/auth/spice/${mode}`, runtimeBase).toString(), {
     method: "POST",
-    headers: {
+    headers: applyRemoteRuntimeAuthHeaders({
       "Content-Type": "application/json",
-      Origin: SPICE_LOCAL_RUNTIME_URL.replace(/\/$/, ""),
-    },
+      Origin: runtimeBase.replace(/\/$/, ""),
+    }),
     body: JSON.stringify(body),
   });
 
@@ -441,8 +705,39 @@ async function isLocalSpiceRuntimeReady() {
   return Boolean(response && response.ok);
 }
 
+async function isRemoteSpiceRuntimeReachable(remoteUrl) {
+  const fetchFn = getFetchImplementation();
+  if (!fetchFn) return false;
+  let target = null;
+  try {
+    target = buildRemoteRuntimeUrl(remoteUrl, "/api/runtime");
+  } catch (_) {
+    return false;
+  }
+  const timeout = new Promise((resolve) => {
+    setTimeout(() => resolve(null), 2500);
+  });
+  const headers = {};
+  const auth = buildRuntimeAuthorizationHeader("remote", getRemoteRuntimeToken());
+  if (auth) headers.Authorization = auth;
+
+  const request = fetchFn(target, {
+    headers,
+  }).catch(() => null);
+
+  const response = await Promise.race([request, timeout]);
+  return Boolean(response && response.ok);
+}
+
 async function resolveServiceUrl(serviceKey) {
   if (serviceKey !== "spice_crazy") return SERVICES[serviceKey];
+  const runtimeState = getRuntimeModeState(store);
+  if (resolveEffectiveRuntimeMode(runtimeState) === "remote") {
+    if (await isRemoteSpiceRuntimeReachable(runtimeState.remoteUrl)) {
+      return runtimeState.remoteUrl;
+    }
+    console.warn("Remote SPICE runtime is unreachable, falling back to the local runtime.");
+  }
   if (await isLocalSpiceRuntimeReady()) return SPICE_LOCAL_RUNTIME_URL;
   if (!SPICE_LOCAL_RUNTIME_PLATFORM) return SPICE_REMOTE_MUSIC_URL;
 
@@ -1335,7 +1630,7 @@ async function cleanupDesktopProcessForQuit() {
       } catch (_) {}
     }
 
-    if (spiceRuntimeManager) {
+    if (spiceRuntimeManager && !isRemoteRuntimeModeActive()) {
       try {
         await spiceRuntimeManager.stop();
       } catch (_) {}
@@ -3868,6 +4163,7 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("spice-runtime-status", async () => {
+    if (isRemoteRuntimeModeActive()) return { skipped: true, mode: "remote" };
     if (!spiceRuntimeManager) return null;
     return spiceRuntimeManager.getStatus();
   });
@@ -3877,19 +4173,32 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle("spice-runtime-install", async () => {
+    if (isRemoteRuntimeModeActive()) return { skipped: true, mode: "remote" };
     if (!spiceRuntimeManager) return null;
     return spiceRuntimeManager.installOrUpdate();
   });
 
   ipcMain.handle("spice-runtime-start", async () => {
+    if (isRemoteRuntimeModeActive()) return { skipped: true, mode: "remote" };
     if (!spiceRuntimeManager) return null;
     return spiceRuntimeManager.start();
   });
 
   ipcMain.handle("spice-runtime-stop", async () => {
+    if (isRemoteRuntimeModeActive()) return { skipped: true, mode: "remote" };
     if (!spiceRuntimeManager) return null;
     return spiceRuntimeManager.stop();
   });
+
+  ipcMain.handle("spice:runtime:get", async () => getRuntimeModePublicState());
+
+  ipcMain.handle("spice:runtime:set", async (event, patch) => setRuntimeModeConfig(patch));
+
+  ipcMain.handle("spice:runtime:register", async () => registerRemoteRuntimeDevice());
+
+  ipcMain.handle("spice:runtime:test-connection", async () => testRemoteRuntimeConnection());
+
+  ipcMain.handle("spice:runtime:unlink", async () => unlinkRemoteRuntimeDevice());
 
   ipcMain.handle("native-app-status", async () => {
     return {
@@ -3904,6 +4213,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("native-runtime-prepare", async () => {
     if (!spiceRuntimeManager) return null;
+    if (isRemoteRuntimeModeActive()) return spiceRuntimeManager.getStatus();
     await ensureLocalRuntimeReady();
     return spiceRuntimeManager.getStatus();
   });
@@ -3916,7 +4226,9 @@ app.whenReady().then(async () => {
     if (store) {
       store.set("nativeOnboarded", true);
     }
-    await ensureLocalRuntimeReady();
+    if (!isRemoteRuntimeModeActive()) {
+      await ensureLocalRuntimeReady();
+    }
     return {
       account: null,
       runtime: spiceRuntimeManager ? await spiceRuntimeManager.getStatus() : null,
