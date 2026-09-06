@@ -10,10 +10,11 @@ import {
 // The standalone server builds request.url from the bind address, not the
 // Host header (observed on the self-host box: url.hostname stayed 0.0.0.0
 // while Host varied). Gates must resolve the host from the forwarded chain.
-function fakeRequest({ url = 'http://0.0.0.0:3000/api/yt/track/x', host, forwarded } = {}) {
+function fakeRequest({ url = 'http://0.0.0.0:3000/api/yt/track/x', host, forwarded, proto } = {}) {
   const headers = new Headers();
   if (host !== undefined) headers.set('host', host);
   if (forwarded !== undefined) headers.set('x-forwarded-host', forwarded);
+  if (proto !== undefined) headers.set('x-forwarded-proto', proto);
   return { url, headers };
 }
 
@@ -58,4 +59,24 @@ test('isLoopbackHost covers the loopback forms', () => {
   for (const host of ['0.0.0.0', '', 'music.spice-app.xyz', '10.0.0.4']) {
     assert.ok(!isLoopbackHost(host), `${host} must not count as loopback`);
   }
+});
+
+test('effectiveRequestOrigin follows the client-facing address', async () => {
+  const { effectiveRequestOrigin } = await import('../lib/request-host.ts');
+  // Local PC runtime: desktop calls 127.0.0.1:3939, signed URLs stay there.
+  assert.equal(
+    effectiveRequestOrigin(fakeRequest({ url: 'http://127.0.0.1:3939/api/yt/track/x', host: '127.0.0.1:3939' })),
+    'http://127.0.0.1:3939',
+  );
+  // Self-host behind Caddy: internal URL is http + bind address, but the
+  // client used https + the public domain.
+  assert.equal(
+    effectiveRequestOrigin(fakeRequest({
+      url: 'http://0.0.0.0:3000/api/yt/track/x',
+      host: 'music.spice-app.xyz',
+      forwarded: 'music.spice-app.xyz',
+      proto: 'https',
+    })),
+    'https://music.spice-app.xyz',
+  );
 });

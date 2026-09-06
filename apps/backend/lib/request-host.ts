@@ -44,6 +44,26 @@ export function isLoopbackHost(hostname: string): boolean {
   );
 }
 
+/**
+ * Public origin of this request: scheme from X-Forwarded-Proto (Caddy
+ * terminates TLS, so the internal URL is always http) over the effective
+ * host. Used anywhere the server hands a URL back to the client — signed
+ * stream URLs, OAuth callbacks, share links — which must point at the
+ * address the client actually used, not the container bind address.
+ */
+export function effectiveRequestOrigin(request: Request): string {
+  const protoHeader = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+  const scheme = protoHeader === 'http' || protoHeader === 'https' ? protoHeader : null;
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const hostHeader = request.headers.get('host')?.trim();
+  try {
+    const url = new URL(request.url);
+    return `${scheme ?? url.protocol.replace(/:$/, '')}://${forwardedHost || hostHeader || url.host}`;
+  } catch {
+    return `${scheme ?? 'http'}://${forwardedHost || hostHeader || 'localhost'}`;
+  }
+}
+
 function safeUrlHostname(url: string): string | null {
   try {
     return new URL(url).hostname;

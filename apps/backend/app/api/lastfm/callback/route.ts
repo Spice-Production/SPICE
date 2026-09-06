@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { verifyLastFmLinkState } from '@/lib/auth';
 import { isAllowedCorsOrigin } from '@/lib/cors';
 import { createLastFmSession } from '@/lib/lastfm';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { saveLastFmConnection } from '@/lib/profile-connections';
 
 export const runtime = 'nodejs';
@@ -13,10 +14,10 @@ export async function GET(request: NextRequest) {
   const returnOrigin = request.nextUrl.searchParams.get('return_origin')?.trim() || '';
   const popupTargetOrigin = returnOrigin && isAllowedCorsOrigin(returnOrigin)
     ? returnOrigin
-    : request.nextUrl.origin;
+    : effectiveRequestOrigin(request);
   const result = token
     ? await completeLastFmLink(token, spiceState, popupTargetOrigin)
-    : { html: callbackInfoHtml(request.nextUrl.origin), status: 200 };
+    : { html: callbackInfoHtml(effectiveRequestOrigin(request)), status: 200 };
 
   return new Response(result.html, {
     status: result.status,

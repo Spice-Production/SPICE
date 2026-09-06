@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { getSoundCloudTrackDetails } from '@/lib/soundcloud';
 import { buildSignedStreamUrl } from '@/lib/stream-signing';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { requireLocalMediaNamespace } from '@/lib/runtime-target';
 
 export const runtime = 'nodejs';
@@ -32,7 +33,7 @@ export async function GET(
       streams: details.streams.map((stream) => ({
         ...stream,
         url: stream.protocol === 'progressive'
-          ? buildSignedStreamUrl(request.nextUrl.origin, {
+          ? buildSignedStreamUrl(effectiveRequestOrigin(request), {
               id,
               itag: stream.itag,
               upstreamUrl: stream.url,

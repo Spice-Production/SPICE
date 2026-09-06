@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 
 import { verifySession } from '@/lib/auth';
 import { jsonResponse, optionsResponse } from '@/lib/cors';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { db } from '@/db';
 import { playlistInvites, playlists } from '@/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     return jsonResponse({
       token,
-      inviteUrl: `${request.nextUrl.origin}/?playlistInvite=${encodeURIComponent(token)}`,
+      inviteUrl: `${effectiveRequestOrigin(request)}/?playlistInvite=${encodeURIComponent(token)}`,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
