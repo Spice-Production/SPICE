@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # Playback depends on youtubei.js tracking YouTube's InnerTube API. When it
+  # drifts behind, songs fail with provider gating errors (observed live:
+  # LOGIN_REQUIRED on some videos while others resolve fine), so this
+  # dependency gets its own weekly PR instead of waiting in the npm bundle.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    allow:
+      - dependency-name: youtubei.js
+    groups:
+      youtubei:
+        patterns:
+          - youtubei.js
+    labels:
+      - dependencies
+      - playback
+    commit-message:
+      prefix: chore(deps)
+  # Everything else, bundled into one weekly PR to keep noise down.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: youtubei.js
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)

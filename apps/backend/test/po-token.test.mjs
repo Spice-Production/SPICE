@@ -128,6 +128,16 @@ test('stream URLs carry video-bound PO tokens with graceful degradation', () => 
   );
 });
 
+test('unplayable videos report the provider reason, not a generic failure', async () => {
+  const youtubeSource = await readFile(new URL('../lib/youtube.ts', import.meta.url), 'utf8');
+  // Observed live: YouTube gates some videos per-video (LOGIN_REQUIRED
+  // "confirm you're not a bot") while others resolve fine. The extra
+  // playability lookup runs only on total failure, so the player UI can
+  // show the real reason instead of "no streams".
+  assert.match(youtubeSource, /describeUnplayable\(yt, id\)/);
+  assert.match(youtubeSource, /YouTube reports this video as/);
+});
+
 test('release notes document the PO token playback restoration', () => {
   assert.match(walkthroughSource, /## v1\.0\.172/, 'v1.0.172 changelog entry must exist');
   assert.match(
