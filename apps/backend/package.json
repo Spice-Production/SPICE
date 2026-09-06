@@ -12,6 +12,7 @@
     "dev:vercel": "node scripts/run-next.mjs dev vercel",
     "build": "node scripts/run-next.mjs build vercel",
     "build:local": "node scripts/run-next.mjs build local",
+    "build:selfhost": "node scripts/run-next.mjs build selfhost",
     "build:vercel": "node scripts/run-next.mjs build vercel",
     "package:local:windows": "node scripts/package-local-windows.mjs",
     "package:local:windows:full": "npm run build:local && npm run package:local:windows",

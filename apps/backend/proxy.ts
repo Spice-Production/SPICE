@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getProxySystemSettings } from '@/lib/proxy-system-settings';
+import { effectiveRequestHost, shouldServeHub } from '@/lib/request-host';
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
+
+  // Apex hub: the bare apex domain serves the hub landing page while the
+  // music subdomain serves the player directly. Rewrite (not redirect) so
+  // the address bar keeps showing the apex domain.
+  if (shouldServeHub(effectiveRequestHost(request), url.pathname, process.env.SPICE_APEX_DOMAIN)) {
+    return NextResponse.rewrite(new URL('/hub', request.url));
+  }
 
   // Keep admin bootstrap and management APIs reachable so operators can
   // verify their session and disable an emergency stop from the dashboard.

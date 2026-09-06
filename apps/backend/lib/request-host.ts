@@ -81,6 +81,17 @@ export function loopbackOriginFor(requestUrl: string): string {
   }
 }
 
+/**
+ * Whether this request should serve the apex hub page: only the bare apex
+ * path on the configured apex domain (e.g. spice-app.xyz/). Everything else
+ * — including the music subdomain and all API routes — passes through.
+ */
+export function shouldServeHub(hostname: string, pathname: string, apexDomain: string | null | undefined): boolean {
+  const apex = apexDomain?.trim().toLowerCase();
+  if (!apex) return false;
+  return hostname.toLowerCase() === apex && (pathname === '/' || pathname === '');
+}
+
 function safeUrlHostname(url: string): string | null {
   try {
     return new URL(url).hostname;

@@ -11,8 +11,8 @@ export const metadata: Metadata = getRuntimeTarget() === 'vercel'
       description: 'The Vercel-hosted control plane for SPICE auth, sync, metadata, installs, and local runtime updates.',
     }
   : {
-    title: 'SPICE Music - Local PC Runtime',
-    description: 'The local SPICE Music runtime for search, streaming, playlists, and Spice Connect.',
+    title: 'SPICE Music',
+    description: 'Search, stream, and play SPICE Music in the browser, on your PC, or from your private server.',
   };
 
 export default function Home() {

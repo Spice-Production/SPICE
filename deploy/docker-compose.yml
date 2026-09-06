@@ -33,6 +33,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
       SPICE_STREAM_HMAC_SECRET: ${SPICE_STREAM_HMAC_SECRET:?set SPICE_STREAM_HMAC_SECRET in deploy/.env}
       SPICE_PUBLIC_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
+      SPICE_APEX_DOMAIN: ${SPICE_APEX_DOMAIN:?set SPICE_APEX_DOMAIN in deploy/.env}
       SPICE_SELFHOST_MEDIA_TOKEN: ${SPICE_SELFHOST_MEDIA_TOKEN:-}
       SPICE_CLOUD_API_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_LOCAL_UPDATE_MANIFEST_URL: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}/api/updates/local-windows
@@ -58,6 +59,7 @@ services:
       - app
     environment:
       SPICE_DOMAIN: ${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
+      SPICE_APEX_DOMAIN: ${SPICE_APEX_DOMAIN:?set SPICE_APEX_DOMAIN in deploy/.env}
 
 volumes:
   pgdata:

@@ -1,7 +1,13 @@
 # Caddy reverse proxy for the SPICE self-host box.
 # Automatic HTTPS: Caddy obtains and renews a Let's Encrypt certificate for
 # {$SPICE_DOMAIN} on first boot (ports 80/443 must be reachable).
+# {$SPICE_DOMAIN} serves the player, {$SPICE_APEX_DOMAIN} serves the hub;
+# the app itself branches on the Host header (see proxy.ts).
 
 {$SPICE_DOMAIN} {
+	reverse_proxy app:3000
+}
+
+{$SPICE_APEX_DOMAIN} {
 	reverse_proxy app:3000
 }

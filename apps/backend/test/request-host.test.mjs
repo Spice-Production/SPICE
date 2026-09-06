@@ -91,3 +91,14 @@ test('loopbackOriginFor stays on 127.0.0.1 with the serving port', async () => {
   assert.equal(loopbackOriginFor('http://127.0.0.1:3939/api/x'), 'http://127.0.0.1:3939');
   assert.equal(loopbackOriginFor('not a url'), 'http://127.0.0.1:3000');
 });
+
+test('shouldServeHub matches only the bare apex path on the apex domain', async () => {
+  const { shouldServeHub } = await import('../lib/request-host.ts');
+  assert.equal(shouldServeHub('spice-app.xyz', '/', 'spice-app.xyz'), true);
+  assert.equal(shouldServeHub('SPICE-APP.XYZ', '/', 'spice-app.xyz'), true);
+  assert.equal(shouldServeHub('music.spice-app.xyz', '/', 'spice-app.xyz'), false);
+  assert.equal(shouldServeHub('spice-app.xyz', '/api/runtime', 'spice-app.xyz'), false);
+  assert.equal(shouldServeHub('spice-app.xyz', '/hub', 'spice-app.xyz'), false);
+  assert.equal(shouldServeHub('spice-app.xyz', '/', null), false);
+  assert.equal(shouldServeHub('spice-app.xyz', '/', ''), false);
+});

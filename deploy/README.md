@@ -7,7 +7,9 @@ against the cloud until they are repointed (separate step).
 
 ## One-time setup (on the VPS)
 
-1. **DNS:** point an A record for your domain at the VPS IP.
+1. **DNS:** point an A record for your domain at the VPS IP, plus an A
+   record for `@` (the apex, e.g. `spice-app.xyz`) — the apex serves the
+   hub landing page while the player lives on the main domain.
 2. **Oracle firewall:** in the OCI console, open ingress **80/443** for the
    instance's subnet security list (Oracle blocks everything by default).
 3. **Box firewall:** allow 80/443 (this repo's provisioning does it).

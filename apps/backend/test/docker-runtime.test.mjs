@@ -24,6 +24,18 @@ test('backend Docker image ships migrations for self-hosted boots', async () => 
   assert.match(dockerfile, /SPICE_RUN_MIGRATIONS/);
 });
 
+test('backend Docker builder bakes the selfhost target, not the Vercel default', async () => {
+  const dockerfile = await readFile(dockerfileUrl, 'utf8');
+  const builderStage = dockerfile.slice(
+    dockerfile.indexOf('FROM base AS builder'),
+    dockerfile.indexOf('FROM base AS runner'),
+  );
+  // The bare `npm run build` bakes the Vercel control-plane home page; the
+  // VPS must serve the full player UI, so the builder runs build:selfhost.
+  // (Observed live: music. served the portal with a selfhost API underneath.)
+  assert.match(builderStage, /build:selfhost/);
+});
+
 test('backend Docker runner installs prod deps for the migrate script', async () => {
   const dockerfile = await readFile(dockerfileUrl, 'utf8');
   const runnerStage = dockerfile.slice(dockerfile.indexOf('FROM base AS runner'));
