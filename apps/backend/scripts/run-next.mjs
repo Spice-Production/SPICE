@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const [, , command = 'dev', target = 'local', ...extraArgs] = process.argv;
-const normalizedTarget = target === 'vercel' ? 'vercel' : 'local';
+const normalizedTarget = target === 'vercel' || target === 'selfhost' ? target : 'local';
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = path.resolve(appRoot, '..', '..');
 const require = createRequire(import.meta.url);

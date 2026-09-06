@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.174
+
+- [Spice.Selfhost main] Run the whole stack on your own box: new `selfhost` runtime target serves the full web UI, media routes, and cloud routes together behind one origin. The database layer uses Neon SQL-over-HTTP on Neon URLs and pooled node-postgres everywhere else (self-hosted Postgres replaces Neon; Spice Connect LISTEN works natively there). Public-host media calls require same-origin requests or a bearer media token; the Docker image takes a build-time target, ships migrations with an entrypoint that applies them, and `deploy/` adds a Compose stack (app + Postgres + Caddy auto-HTTPS).
+
 ## v1.0.173
 
 - [Spice.Music main] Harden direct streaming: malformed Range headers (suffix/multi-range) no longer produce `bytes=NaN-NaN` upstream requests, proxy failures answer 502 instead of redirecting to unsigned expiring URLs, upstream fetches abort on client disconnect, one undecipherable format no longer discards every playable stream, and unknown PO-minter TTLs re-mint within minutes instead of caching invalid tokens.

@@ -1,20 +1,24 @@
 import { jsonResponse } from '@/lib/cors';
 import { currentLocalRuntimeVersion, localUpdateManifestUrl } from '@/lib/local-updates';
 
-export type SpiceRuntimeTarget = 'local' | 'vercel';
+export type SpiceRuntimeTarget = 'local' | 'vercel' | 'selfhost';
 
 export function getRuntimeTarget(): SpiceRuntimeTarget {
   const configured = process.env.SPICE_RUNTIME_TARGET?.trim().toLowerCase();
-  if (configured === 'local' || configured === 'vercel') return configured;
+  if (configured === 'local' || configured === 'vercel' || configured === 'selfhost') {
+    return configured;
+  }
   return process.env.VERCEL ? 'vercel' : 'local';
 }
 
 export function isLocalRuntime() {
-  return getRuntimeTarget() === 'local';
+  const target = getRuntimeTarget();
+  return target === 'local' || target === 'selfhost';
 }
 
 export function isCloudRuntime() {
-  return getRuntimeTarget() === 'vercel';
+  const target = getRuntimeTarget();
+  return target === 'vercel' || target === 'selfhost';
 }
 
 export function requireLocalRuntime(request: Request) {
@@ -30,18 +34,24 @@ export function requireLocalRuntime(request: Request) {
   }
 
   const url = new URL(request.url);
-  if (!isLoopbackHost(url.hostname)) {
-    return jsonResponse(
-      {
-        error: 'loopback_required',
-        message: 'Local media service routes only accept localhost or 127.0.0.1 requests.',
-      },
-      { status: 403 },
-      request,
-    );
+  if (isLoopbackHost(url.hostname)) return null;
+
+  // Self-hosted boxes sit behind a reverse proxy under a public hostname, so
+  // loopback alone would lock out the very deployment. The public host is
+  // admitted here; media-call authorization itself lives in
+  // requireLocalMediaNamespace below.
+  if (getRuntimeTarget() === 'selfhost' && isSelfhostPublicHost(url.hostname)) {
+    return null;
   }
 
-  return null;
+  return jsonResponse(
+    {
+      error: 'loopback_required',
+      message: 'Local media service routes only accept localhost or 127.0.0.1 requests.',
+    },
+    { status: 403 },
+    request,
+  );
 }
 
 export function requireCloudRuntime(request: Request) {
@@ -72,7 +82,67 @@ export function requireLocalMediaNamespace(request: Request) {
     );
   }
 
-  return requireLocalRuntime(request);
+  const runtimeBlock = requireLocalRuntime(request);
+  if (runtimeBlock) return runtimeBlock;
+  return requireSelfhostMediaAuth(request);
+}
+
+/**
+ * Public-host media authorization for self-hosted boxes. Loopback callers
+ * (local processes, direct desktop/CLI access) always pass. Browsers on the
+ * site pass via same-origin Origin/Referer. Anything else needs the bearer
+ * media token; when no token is configured, token-less non-browser callers
+ * (curl, health probes) still pass while foreign browsers stay blocked.
+ */
+export function requireSelfhostMediaAuth(request: Request) {
+  if (getRuntimeTarget() !== 'selfhost') return null;
+
+  const url = new URL(request.url);
+  if (isLoopbackHost(url.hostname)) return null;
+
+  const publicHost = selfhostPublicHost();
+  const originHost = hostOfHeader(request.headers.get('origin'));
+  const refererHost = hostOfHeader(request.headers.get('referer'));
+  if (publicHost && (originHost === publicHost || refererHost === publicHost)) return null;
+
+  const token = process.env.SPICE_SELFHOST_MEDIA_TOKEN?.trim();
+  if (token && request.headers.get('authorization')?.trim() === `Bearer ${token}`) return null;
+  if (!token && !originHost && !refererHost) return null;
+
+  return jsonResponse(
+    {
+      error: 'media_auth_required',
+      message:
+        'This self-hosted box requires same-origin requests or a media token for media routes.',
+    },
+    { status: 401 },
+    request,
+  );
+}
+
+/** Public hostname of a self-hosted box, from SPICE_PUBLIC_ORIGIN. */
+export function selfhostPublicHost(): string | null {
+  const configured = process.env.SPICE_PUBLIC_ORIGIN?.trim();
+  if (!configured) return null;
+  try {
+    return new URL(configured).hostname.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+export function isSelfhostPublicHost(hostname: string): boolean {
+  const publicHost = selfhostPublicHost();
+  return Boolean(publicHost) && hostname.toLowerCase() === publicHost;
+}
+
+function hostOfHeader(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase() || null;
+  } catch {
+    return null;
+  }
 }
 
 export function runtimeConfigPayload() {

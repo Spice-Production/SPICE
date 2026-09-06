@@ -1,0 +1,61 @@
+name: spice-selfhost
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spice}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-spice}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-spice}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+      args:
+        SPICE_RUNTIME_TARGET: selfhost
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPICE_RUNTIME_TARGET: selfhost
+      SPICE_RUN_MIGRATIONS: 1
+      DATABASE_URL: postgres://${POSTGRES_USER:-spice}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spice}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+      SPICE_STREAM_HMAC_SECRET: ${SPICE_STREAM_HMAC_SECRET:?set SPICE_STREAM_HMAC_SECRET in deploy/.env}
+      SPICE_PUBLIC_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
+      SPICE_SELFHOST_MEDIA_TOKEN: ${SPICE_SELFHOST_MEDIA_TOKEN:-}
+      SPICE_CLOUD_API_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
+      SPICE_LOCAL_UPDATE_MANIFEST_URL: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}/api/updates/local-windows
+      PORT: 3000
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    environment:
+      SPICE_DOMAIN: ${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
