@@ -375,6 +375,13 @@ function installSpiceNativeShellBridge() {
         checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
         installUpdate: () => ipcRenderer.send('install-update'),
         openDevTools: () => ipcRenderer.send('open-devtools'),
+        runtime: {
+            get: () => ipcRenderer.invoke('spice:runtime:get'),
+            set: (patch) => ipcRenderer.invoke('spice:runtime:set', patch),
+            register: () => ipcRenderer.invoke('spice:runtime:register'),
+            testConnection: () => ipcRenderer.invoke('spice:runtime:test-connection'),
+            unlink: () => ipcRenderer.invoke('spice:runtime:unlink'),
+        },
         onUpdateStatus: (callback) => {
             if (typeof callback !== 'function') return () => {};
             const listener = (_event, status) => callback(status);

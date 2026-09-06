@@ -20,6 +20,7 @@ export const remoteDevices = tableStub;
 export const remoteCommands = tableStub;
 export const remotePairingCodes = tableStub;
 export const remoteDeviceAuthorizations = tableStub;
+export const remoteMediaDevices = tableStub;
 export const likes = tableStub;
 export const history = tableStub;
 export const profiles = tableStub;

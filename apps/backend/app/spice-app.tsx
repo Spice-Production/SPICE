@@ -53,6 +53,7 @@ import CommandPalette, { type CommandPaletteCommand } from './command-palette';
 import { isCommandPaletteShortcut } from './command-palette-core';
 import ThemeEditor from './theme-editor';
 import RuntimeDiagnosticsPanel from './runtime-diagnostics-panel';
+import MusicRuntimeSettingsPanel from './music-runtime-settings-panel';
 import PlaybackProfilePanel from './playback-profile-panel';
 import SecurePairingPanel, {
   type PairedDeviceAuthorization,
@@ -897,6 +898,23 @@ interface DesktopStartOnBootPreference {
 
 interface SpiceNativeShellBridge extends SpiceDesktopUpdaterBridge {
   getSettings: () => Promise<NativeShellPreferences>;
+  runtime: {
+    get: () => Promise<{
+      mode: 'local' | 'remote';
+      remoteUrl: string;
+      device: { id: string; name: string } | null;
+      hasToken: boolean;
+    }>;
+    set: (patch: { mode?: 'local' | 'remote'; remoteUrl?: string }) => Promise<{
+      mode: 'local' | 'remote';
+      remoteUrl: string;
+      device: { id: string; name: string } | null;
+      hasToken: boolean;
+    }>;
+    register: () => Promise<{ device?: { id: string; name: string }; error?: string }>;
+    testConnection: () => Promise<{ ok: boolean; version?: string; error?: string }>;
+    unlink: () => Promise<{ ok: boolean }>;
+  };
   setDiscordRpc: (enabled: boolean) => Promise<boolean>;
   setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
   setToolbarButtons: (buttons: Record<string, boolean>) => void;
@@ -12860,6 +12878,7 @@ const getMaskedEmail = (email: string) => {
         ...(desktopUpdaterAvailable ? [{ id: 'desktop-updates', label: 'Desktop App', icon: Icons.monitor }] : []),
         ...(nativeShellAvailable ? [
           { id: 'native-shell', label: 'Native Desktop', icon: Icons.monitor },
+          { id: 'music-runtime', label: 'Music Runtime', icon: Icons.globe },
           { id: 'discord-activity', label: 'Discord Activity', icon: Icons.account },
         ] : []),
       ],
@@ -17538,6 +17557,14 @@ const getMaskedEmail = (email: string) => {
                       onRevokeAuthorization={revokeSecurePairingAuthorization}
                       onForgetCredential={forgetLocalPairingCredential}
                     />
+                  </div>
+
+                  <div id="music-runtime" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', gap: '8px' }}>{Icons.globe} Music Runtime</h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: 1.4 }}>
+                      Choose where SPICE Music runs. Local PC plays everything on this computer. SPICE Cloud streams from your private server.
+                    </p>
+                    <MusicRuntimeSettingsPanel />
                   </div>
 
                   <div id="offline-runtime" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
