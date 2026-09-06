@@ -10,7 +10,6 @@ import {
   createRemoteMediaDeviceToken,
   hashRemoteMediaDeviceToken,
   normalizeRemoteMediaDeviceName,
-  noteRemoteMediaDeviceTokenHash,
 } from '@/lib/remote-media-devices';
 
 export const runtime = 'nodejs';
@@ -50,11 +49,15 @@ export async function GET(request: Request) {
   const userIdOrResponse = await sessionUserId(request);
   if (typeof userIdOrResponse !== 'string') return userIdOrResponse;
 
-  const devices = await db.query.remoteMediaDevices.findMany({
-    columns: { id: true, deviceName: true, createdAt: true },
-    where: eq(remoteMediaDevices.userId, userIdOrResponse),
-    orderBy: asc(remoteMediaDevices.createdAt),
-  });
+  const devices = await db
+    .select({
+      id: remoteMediaDevices.id,
+      deviceName: remoteMediaDevices.deviceName,
+      createdAt: remoteMediaDevices.createdAt,
+    })
+    .from(remoteMediaDevices)
+    .where(eq(remoteMediaDevices.userId, userIdOrResponse))
+    .orderBy(asc(remoteMediaDevices.createdAt));
 
   return jsonResponse({
     devices: devices.map((device) => ({
@@ -79,10 +82,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const existing = await db.query.remoteMediaDevices.findMany({
-    columns: { id: true },
-    where: eq(remoteMediaDevices.userId, userId),
-  });
+  const existing = await db
+    .select({ id: remoteMediaDevices.id })
+    .from(remoteMediaDevices)
+    .where(eq(remoteMediaDevices.userId, userId));
   if (existing.length >= REMOTE_MEDIA_DEVICE_LIMIT) {
     return jsonResponse(
       { error: 'device_limit', message: `Up to ${REMOTE_MEDIA_DEVICE_LIMIT} media devices per account.` },
@@ -108,9 +111,6 @@ export async function POST(request: Request) {
     deviceName: remoteMediaDevices.deviceName,
     createdAt: remoteMediaDevices.createdAt,
   });
-
-  // Write through to the gate allowlist so the token passes immediately.
-  noteRemoteMediaDeviceTokenHash(tokenHash);
 
   // The plaintext token is returned exactly once; only its hash is stored.
   return jsonResponse({

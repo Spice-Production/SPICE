@@ -46,81 +46,37 @@ export function normalizeRemoteMediaDeviceName(value: unknown): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Self-host gate verification. Media routes call the gate synchronously, so
-// per-device bearer checks below are sync reads over an allowlist that is
-// verified asynchronously (indexed WHERE token_hash = sha256(bearer) point
-// lookup) and refreshed in the background. Device create/revoke routes write
-// through to the same set, so tokens work (and stop working) immediately in
-// the serving process; other processes converge on next verification.
+// Self-host gate verification. Direct indexed lookup, awaited by the media
+// gate: revocation takes effect on the very next request, on every process.
+// Fails closed (unknown hash or unreachable DB denies device tokens — the
+// shared server token and same-origin paths are unaffected).
 // ---------------------------------------------------------------------------
 
-const VERIFIED_TOKEN_CACHE_TTL_MS = 30_000;
-
-let verifiedTokenHashes: { hashes: Set<string>; loadedAt: number } | null = null;
-const inflightVerifications = new Map<string, Promise<void>>();
-
-function verifiedCacheStale(): boolean {
-  return !verifiedTokenHashes || Date.now() - verifiedTokenHashes.loadedAt > VERIFIED_TOKEN_CACHE_TTL_MS;
-}
-
-/** Write-through on device create: the plaintext token's hash passes immediately. */
-export function noteRemoteMediaDeviceTokenHash(tokenHash: string): void {
-  if (verifiedCacheStale()) {
-    verifiedTokenHashes = { hashes: new Set(), loadedAt: Date.now() };
-  }
-  verifiedTokenHashes?.hashes.add(tokenHash);
-}
-
-/** Write-through on device revoke: a revoked hash stops passing immediately. */
-export function forgetRemoteMediaDeviceTokenHash(tokenHash: string): void {
-  verifiedTokenHashes?.hashes.delete(tokenHash);
-}
-
-function verifyTokenHashAsync(tokenHash: string): void {
-  if (inflightVerifications.has(tokenHash)) return;
-  if (!process.env.DATABASE_URL) return;
-  const pending = (async () => {
-    try {
-      const [{ db }, { remoteMediaDevices }, { eq }] = await Promise.all([
-        import('@/db'),
-        import('@/db/schema'),
-        import('drizzle-orm'),
-      ]);
-      const row = await db.query.remoteMediaDevices.findFirst({
-        columns: { tokenHash: true },
-        where: eq(remoteMediaDevices.tokenHash, tokenHash),
-      });
-      if (row) noteRemoteMediaDeviceTokenHash(row.tokenHash);
-    } catch {
-      // Transient (cold DB, DNS): stay unverified; the next device-token
-      // request retries verification.
-    }
-  })();
-  inflightVerifications.set(tokenHash, pending);
-  void pending.finally(() => {
-    inflightVerifications.delete(tokenHash);
-  });
-}
-
 /**
- * Sync gate predicate: true when the request carries a per-device media
- * token whose sha256 hash is already verified. Unknown hashes kick off a
- * background indexed lookup and report false until it completes, so callers
- * stay synchronous while the allowlist converges without polling the DB.
+ * True when the Authorization header carries a per-device media token
+ * registered in the database. Accepts the raw header value (or null).
  */
-export function isVerifiedRemoteMediaDeviceRequest(request: Request): boolean {
-  const header = request.headers.get('authorization')?.trim() ?? '';
-  if (!header.startsWith('Bearer ')) return false;
-  const bearer = header.substring(7).trim();
-  if (!isRemoteMediaDeviceToken(bearer)) return false;
-  const tokenHash = hashRemoteMediaDeviceToken(bearer);
+export async function isRegisteredRemoteMediaDeviceToken(
+  authorizationHeader: string | null | undefined,
+): Promise<boolean> {
+  const bearer = authorizationHeader?.trim() ?? '';
+  if (!bearer.startsWith('Bearer ')) return false;
+  const tokenHash = hashRemoteMediaDeviceToken(bearer.substring(7).trim());
   if (!tokenHash) return false;
-  if (verifiedCacheStale()) {
-    // Drop memoized positives so revocations converge; in-flight and future
-    // lookups re-verify against the database.
-    verifiedTokenHashes = { hashes: new Set(), loadedAt: Date.now() };
+  try {
+    // Dynamic imports keep node-postgres out of edge-bundled callers.
+    const [{ db }, { remoteMediaDevices }, { eq }] = await Promise.all([
+      import('@/db'),
+      import('@/db/schema'),
+      import('drizzle-orm'),
+    ]);
+    const rows = await db
+      .select({ tokenHash: remoteMediaDevices.tokenHash })
+      .from(remoteMediaDevices)
+      .where(eq(remoteMediaDevices.tokenHash, tokenHash))
+      .limit(1);
+    return rows.length > 0;
+  } catch {
+    return false;
   }
-  if (verifiedTokenHashes?.hashes.has(tokenHash)) return true;
-  verifyTokenHashAsync(tokenHash);
-  return false;
 }

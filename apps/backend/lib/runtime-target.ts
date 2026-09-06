@@ -1,6 +1,6 @@
 import { jsonResponse } from '@/lib/cors';
 import { currentLocalRuntimeVersion, localUpdateManifestUrl } from '@/lib/local-updates';
-import { isVerifiedRemoteMediaDeviceRequest } from './remote-media-devices.ts';
+import { isRegisteredRemoteMediaDeviceToken } from './remote-media-devices.ts';
 import { effectiveRequestHost, isLoopbackHost } from './request-host.ts';
 
 export type SpiceRuntimeTarget = 'local' | 'vercel' | 'selfhost';
@@ -74,7 +74,7 @@ export function requireCloudRuntime(request: Request) {
   return null;
 }
 
-export function requireLocalMediaNamespace(request: Request) {
+export async function requireLocalMediaNamespace(request: Request) {
   const namespace = request.headers.get('x-spice-api-namespace');
   if (namespace !== 'local') {
     return jsonResponse(
@@ -95,11 +95,14 @@ export function requireLocalMediaNamespace(request: Request) {
 /**
  * Public-host media authorization for self-hosted boxes. Loopback callers
  * (local processes, direct desktop/CLI access) always pass. Browsers on the
- * site pass via same-origin Origin/Referer. Anything else needs the bearer
- * media token; when no token is configured, token-less non-browser callers
- * (curl, health probes) still pass while foreign browsers stay blocked.
+ * site pass via same-origin Origin/Referer. Anything else needs a bearer
+ * token: either the shared server media token or a per-device token minted
+ * at POST /api/account/devices (verified by direct indexed lookup, so
+ * revocation takes effect immediately); when no shared token is configured,
+ * token-less non-browser callers (curl, health probes) still pass while
+ * foreign browsers stay blocked.
  */
-export function requireSelfhostMediaAuth(request: Request) {
+export async function requireSelfhostMediaAuth(request: Request) {
   if (getRuntimeTarget() !== 'selfhost') return null;
 
   if (isLoopbackHost(effectiveRequestHost(request))) return null;
@@ -111,7 +114,7 @@ export function requireSelfhostMediaAuth(request: Request) {
 
   const token = process.env.SPICE_SELFHOST_MEDIA_TOKEN?.trim();
   if (token && request.headers.get('authorization')?.trim() === `Bearer ${token}`) return null;
-  if (isVerifiedRemoteMediaDeviceRequest(request)) return null;
+  if (await isRegisteredRemoteMediaDeviceToken(request.headers.get('authorization'))) return null;
   if (!token && !originHost && !refererHost) return null;
 
   return jsonResponse(

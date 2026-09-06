@@ -15,7 +15,7 @@ interface RouteParams {
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  const blocked = requireLocalMediaNamespace(request);
+  const blocked = await requireLocalMediaNamespace(request);
   if (blocked) return blocked;
 
   const { id } = await params;

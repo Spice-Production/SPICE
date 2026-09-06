@@ -5,7 +5,6 @@ import { remoteMediaDevices } from '@/db/schema';
 import { verifySession } from '@/lib/auth';
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { accountModerationErrorPayload } from '@/lib/moderation';
-import { forgetRemoteMediaDeviceTokenHash } from '@/lib/remote-media-devices';
 
 export const runtime = 'nodejs';
 
@@ -56,10 +55,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   // Ownership is enforced in the WHERE clause: missing-or-not-yours revokes
   // zero rows and reports 404 without revealing which case applied.
-  const existing = await db.query.remoteMediaDevices.findFirst({
-    columns: { tokenHash: true },
-    where: and(eq(remoteMediaDevices.id, id), eq(remoteMediaDevices.userId, userId)),
-  });
+  const existing = await db
+    .select({ tokenHash: remoteMediaDevices.tokenHash })
+    .from(remoteMediaDevices)
+    .where(and(eq(remoteMediaDevices.id, id), eq(remoteMediaDevices.userId, userId)))
+    .limit(1)
+    .then((rows) => rows[0]);
 
   if (!existing) {
     return jsonResponse(
@@ -71,9 +72,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   await db.delete(remoteMediaDevices).where(
     and(eq(remoteMediaDevices.id, id), eq(remoteMediaDevices.userId, userId)),
   );
-
-  // Write through to the gate allowlist so the token stops passing immediately.
-  forgetRemoteMediaDeviceTokenHash(existing.tokenHash);
 
   return jsonResponse({ revoked: true });
 }

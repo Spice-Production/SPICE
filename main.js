@@ -376,7 +376,13 @@ async function registerRemoteRuntimeDevice() {
     name: typeof source.name === "string" && source.name ? source.name : os.hostname(),
   };
   if (store) store.set(RUNTIME_DEVICE_STORAGE_KEY, device);
-  const deviceToken = data.token || data.deviceToken || data.sessionToken || account.token;
+  // Contract: the server returns { token } once. Anything else (session
+  // tokens, alternate field names) is rejected loudly — storing a token the
+  // media gate will not accept produces only confusing 401s later.
+  const deviceToken = data.token;
+  if (typeof deviceToken !== "string" || !deviceToken) {
+    throw new Error("Device registration did not return a device token.");
+  }
   saveRemoteRuntimeToken(deviceToken);
   return getRuntimeModePublicState();
 }

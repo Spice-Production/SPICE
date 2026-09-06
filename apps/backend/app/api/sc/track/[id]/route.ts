@@ -16,7 +16,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const blocked = requireLocalMediaNamespace(request);
+  const blocked = await requireLocalMediaNamespace(request);
   if (blocked) return blocked;
 
   const { id } = await params;

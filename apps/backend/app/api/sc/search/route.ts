@@ -11,7 +11,7 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const blocked = requireLocalMediaNamespace(request);
+  const blocked = await requireLocalMediaNamespace(request);
   if (blocked) return blocked;
 
   const q = request.nextUrl.searchParams.get('q');
