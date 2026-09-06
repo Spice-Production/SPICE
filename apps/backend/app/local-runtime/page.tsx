@@ -18,15 +18,17 @@ export default function LocalRuntimePage() {
         margin: '0 auto',
         padding: '48px 24px',
         fontFamily: 'Outfit, sans-serif',
-        color: 'var(--text-primary)',
+        color: '#f5f5f5',
+        background: '#000000',
+        minHeight: '100vh',
       }}
     >
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', letterSpacing: '0.2em', textTransform: 'uppercase', margin: '0 0 12px 0' }}>
+      <p style={{ color: '#a1a1a1', fontSize: '0.85rem', letterSpacing: '0.2em', textTransform: 'uppercase', margin: '0 0 12px 0' }}>
         SPICE on your PC
       </p>
       <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: '0 0 12px 0' }}>Local Runtime</h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6, margin: '0 0 32px 0', maxWidth: '600px' }}>
-        Prefer the browser instead? The <Link href="/" style={{ color: 'var(--accent)' }}>web player</Link> needs
+      <p style={{ color: '#a1a1a1', fontSize: '1rem', lineHeight: 1.6, margin: '0 0 32px 0', maxWidth: '600px' }}>
+        Prefer the browser instead? The <Link href="/" style={{ color: '#ec4899' }}>web player</Link> needs
         nothing installed.
       </p>
       <InstallGuide />
