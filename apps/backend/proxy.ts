@@ -71,7 +71,12 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Deployment metadata and update/download routes stay available during an
   // emergency stop and bypass Proxy entirely so CDN hits do not wake Neon.
-  matcher: '/api/((?!version/?$|runtime/?$|notifications/release/?$|updates/local-(?:windows|linux|macos)/?$|downloads/local-(?:windows|linux|macos)/?$).*)',
+  // '/' is included so the apex domain can rewrite to the hub page; all
+  // non-API paths otherwise pass straight through (see the top of proxy()).
+  matcher: [
+    '/',
+    '/api/((?!version/?$|runtime/?$|notifications/release/?$|updates/local-(?:windows|linux|macos)/?$|downloads/local-(?:windows|linux|macos)/?$).*)',
+  ],
 };
 
 function isAdminEmergencyBypassPath(pathname: string) {

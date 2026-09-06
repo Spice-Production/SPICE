@@ -127,3 +127,11 @@ test('namespace proxies self-fetch loopback, never the incoming origin', async (
     'behind Caddy the incoming origin is the public https address, which hairpins and 500s — self-fetch stays on 127.0.0.1',
   );
 });
+
+test('apex hub rewrite is reachable: proxy matcher includes the root path', async () => {
+  const proxySource = await readFile(new URL('../proxy.ts', import.meta.url), 'utf8');
+  // The matcher used to cover /api/* only, which silently disabled the apex
+  // '/' → '/hub' rewrite in production (observed live: apex served the player).
+  assert.match(proxySource, /shouldServeHub\(effectiveRequestHost\(request\)/);
+  assert.match(proxySource, /'\/',\r?\n\s*'\/api\//);
+});
