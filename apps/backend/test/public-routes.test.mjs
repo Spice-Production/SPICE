@@ -66,10 +66,51 @@ test('public deployment routes remain cacheable, preflight-safe, and wildcard-CO
 
 test('Proxy skips only the intended public endpoints', async () => {
   const proxySource = await readFile(new URL('../proxy.ts', import.meta.url), 'utf8');
-  const matcherMatch = proxySource.match(/matcher:\s*(['"])(?<matcher>[^'"\r\n]+)\1/u);
+  // The matcher is an array (apex '/' hub rewrite + the /api/* regex), so
+  // collect every literal instead of assuming a single string.
+  // Scan the matcher array quote-aware: the /api/* literal itself contains
+  // brackets and slashes, so naive splits cut it apart.
+  const QUOTE = 39;
+  const DQUOTE = 34;
+  const OPEN = 91;
+  const CLOSE = 93;
+  const BACKSLASH = 92;
+  const matcherIdx = proxySource.indexOf('matcher:');
+  let pos = proxySource.indexOf('[', matcherIdx);
+  let depth = 0;
+  let inStr = 0;
+  let cur = '';
+  const literals = [];
+  for (; pos < proxySource.length; pos++) {
+    const code = proxySource.charCodeAt(pos);
+    if (inStr) {
+      if (code === BACKSLASH) {
+        cur += proxySource[pos + 1];
+        pos += 1;
+      } else if (code === inStr) {
+        literals.push(cur);
+        cur = '';
+        inStr = 0;
+      } else {
+        cur += proxySource[pos];
+      }
+      continue;
+    }
+    if (code === QUOTE || code === DQUOTE) {
+      inStr = code;
+      cur = '';
+    } else if (code === OPEN) {
+      depth += 1;
+    } else if (code === CLOSE) {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+  }
 
-  assert.ok(matcherMatch?.groups?.matcher, 'proxy.ts must export a literal matcher');
-  const config = { matcher: matcherMatch.groups.matcher };
+  assert.ok(literals.length > 0, 'proxy.ts must export literal matcher(s)');
+  assert.ok(literals.includes('/'), 'proxy.ts must keep the apex hub rewrite');
+  const matchesAny = (url) =>
+    literals.some((matcher) => unstable_doesMiddlewareMatch({ config: { matcher }, url }));
 
   for (const url of [
     '/api/version',
@@ -85,11 +126,19 @@ test('Proxy skips only the intended public endpoints', async () => {
     '/api/updates/local-windows/',
   ]) {
     assert.equal(
-      unstable_doesMiddlewareMatch({ config, url }),
+      matchesAny(url),
       false,
       `${url} should bypass Proxy and avoid a Neon settings read`,
     );
   }
+
+  // The apex rewrite must stay covered. Next's middleware-test util reports
+  // no match for an exact '/' matcher even though production Next invokes
+  // the Proxy for it, so pin the rewrite in source instead of via the util.
+  assert.ok(
+    proxySource.includes('shouldServeHub(') && proxySource.includes("'/hub'"),
+    'proxy must rewrite the apex root to the hub page',
+  );
 
   for (const url of [
     '/api/auth/login',
@@ -106,7 +155,7 @@ test('Proxy skips only the intended public endpoints', async () => {
     '/api/downloads/internal',
   ]) {
     assert.equal(
-      unstable_doesMiddlewareMatch({ config, url }),
+      matchesAny(url),
       true,
       `${url} should remain protected by Proxy`,
     );

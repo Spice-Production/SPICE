@@ -20,8 +20,10 @@ COPY apps/backend ./apps/backend
 # Learn more here: https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the app
-RUN SPICE_STANDALONE_OUTPUT=1 npm run build --workspace @spice/backend
+# Build the app selfhost target: the VPS serves the full player UI plus
+# media and cloud routes from this image (the default `build` bakes the
+# Vercel control-plane home instead — wrong page for this box).
+RUN SPICE_STANDALONE_OUTPUT=1 npm run build:selfhost --workspace @spice/backend
 
 # Production image, copy all the files and run next
 FROM base AS runner

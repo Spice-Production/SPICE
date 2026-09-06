@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { proxyToLegacyApi, namespaceOptionsResponse } from '@/lib/api-namespace-proxy';
 import { jsonResponse, withCors } from '@/lib/cors';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { isCloudRuntime } from '@/lib/runtime-target';
 
 export const runtime = 'nodejs';
@@ -82,7 +83,10 @@ function redirectCloudNamespaceRequest(request: NextRequest, path: string[]) {
   }
 
   const incomingUrl = new URL(request.url);
-  const targetUrl = new URL(`/api/${path.map(encodeURIComponent).join('/')}`, incomingUrl.origin);
+  // Redirect at the client-facing origin, never request.url's bind-address
+  // origin: behind Caddy the latter is https://0.0.0.0:3000, which browsers
+  // block outright (this broke every /api/cloud/* call, incl. login).
+  const targetUrl = new URL(`/api/${path.map(encodeURIComponent).join('/')}`, effectiveRequestOrigin(request));
   targetUrl.search = incomingUrl.search;
 
   return withCors(NextResponse.redirect(targetUrl, 307), request);
