@@ -37,6 +37,10 @@ services:
       SPICE_CLOUD_API_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_LOCAL_UPDATE_MANIFEST_URL: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}/api/updates/local-windows
       PORT: 3000
+      # Docker injects HOSTNAME=<container id>, which would bind the Next
+      # standalone server to the container IP only. Bind all interfaces so
+      # loopback checks (exec, healthchecks) and Caddy all reach the app.
+      HOSTNAME: 0.0.0.0
     expose:
       - "3000"
 

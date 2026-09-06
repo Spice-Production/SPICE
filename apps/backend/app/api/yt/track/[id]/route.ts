@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { buildSignedStreamUrl } from '@/lib/stream-signing';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { requireLocalMediaNamespace } from '@/lib/runtime-target';
 import { getTrackDetails } from '@/lib/youtube';
 
@@ -26,7 +27,7 @@ export async function GET(
   try {
     const details = await getTrackDetails(id);
     const expiresAt = Date.now() + 10 * 60 * 1000;
-    const origin = request.nextUrl.origin;
+    const origin = effectiveRequestOrigin(request);
     return jsonResponse({
       track: details.track,
       streams: details.streams.map((stream) => ({

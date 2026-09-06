@@ -33,8 +33,13 @@ test('selfhost joins the runtime target union without disturbing defaults', () =
 test('selfhost public hosts pass the loopback gate; others still fail', () => {
   assert.match(
     runtimeTargetSource,
-    /if \(getRuntimeTarget\(\) === 'selfhost' && isSelfhostPublicHost\(url\.hostname\)\)/,
+    /isSelfhostPublicHost\(hostname\)/,
     'the configured public origin must pass requireLocalRuntime on selfhost',
+  );
+  assert.match(
+    runtimeTargetSource,
+    /effectiveRequestHost\(request\)/,
+    'gates must resolve the host from the forwarded chain — request.url carries the bind address, not Host',
   );
   assert.match(
     runtimeTargetSource,

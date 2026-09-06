@@ -54,6 +54,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/scripts/migrate-self
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/docker-entrypoint.sh ./apps/backend/docker-entrypoint.sh
 RUN chmod +x ./apps/backend/docker-entrypoint.sh
 
+# The standalone trace only carries modules reachable from server.js, so the
+# migrate script's imports (drizzle-orm, pg) are absent at runtime and the
+# entrypoint crash-loops with ERR_MODULE_NOT_FOUND. Install backend prod
+# deps explicitly for the entrypoint tooling.
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/package.json
+RUN npm ci --workspace @spice/backend --omit=dev --include-workspace-root=false
+
 USER nextjs
 
 WORKDIR /app/apps/backend

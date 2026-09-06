@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { isAllowedCorsOrigin, jsonResponse, optionsResponse } from '@/lib/cors';
 import { createLastFmAuthToken, createLastFmSession, createLastFmWebAuthUrl } from '@/lib/lastfm';
+import { effectiveRequestOrigin } from '@/lib/request-host';
 import { signLastFmLinkState, verifySession } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     if (body.action === 'web_auth') {
       const spiceSession = await optionalSession(request);
-      const callbackUrl = new URL('/api/cloud/lastfm/callback', request.nextUrl.origin);
+      const callbackUrl = new URL('/api/cloud/lastfm/callback', effectiveRequestOrigin(request));
       const returnOrigin = request.headers.get('origin')?.trim();
       if (returnOrigin && isAllowedCorsOrigin(returnOrigin)) {
         callbackUrl.searchParams.set('return_origin', returnOrigin);

@@ -24,6 +24,15 @@ test('backend Docker image ships migrations for self-hosted boots', async () => 
   assert.match(dockerfile, /SPICE_RUN_MIGRATIONS/);
 });
 
+test('backend Docker runner installs prod deps for the migrate script', async () => {
+  const dockerfile = await readFile(dockerfileUrl, 'utf8');
+  const runnerStage = dockerfile.slice(dockerfile.indexOf('FROM base AS runner'));
+  // migrate-selfhost.mjs imports drizzle-orm + pg, which the standalone
+  // trace does not carry — without an explicit prod install the entrypoint
+  // crash-loops with ERR_MODULE_NOT_FOUND on first self-host boot.
+  assert.match(runnerStage, /npm ci --workspace @spice\/backend --omit=dev/);
+});
+
 test('backend Docker context excludes unrelated workspaces and generated output', async () => {
   const dockerignore = await readFile(dockerignoreUrl, 'utf8');
 

@@ -1,5 +1,6 @@
 import { jsonResponse } from '@/lib/cors';
 import { currentLocalRuntimeVersion, localUpdateManifestUrl } from '@/lib/local-updates';
+import { effectiveRequestHost, isLoopbackHost } from './request-host.ts';
 
 export type SpiceRuntimeTarget = 'local' | 'vercel' | 'selfhost';
 
@@ -33,14 +34,17 @@ export function requireLocalRuntime(request: Request) {
     );
   }
 
-  const url = new URL(request.url);
-  if (isLoopbackHost(url.hostname)) return null;
+  // request.url carries the bind address under the standalone server, not
+  // the Host header (see lib/request-host.ts) — resolve the effective host
+  // from the forwarded chain so the public origin matches behind Caddy.
+  const hostname = effectiveRequestHost(request);
+  if (isLoopbackHost(hostname)) return null;
 
   // Self-hosted boxes sit behind a reverse proxy under a public hostname, so
   // loopback alone would lock out the very deployment. The public host is
   // admitted here; media-call authorization itself lives in
   // requireLocalMediaNamespace below.
-  if (getRuntimeTarget() === 'selfhost' && isSelfhostPublicHost(url.hostname)) {
+  if (getRuntimeTarget() === 'selfhost' && isSelfhostPublicHost(hostname)) {
     return null;
   }
 
@@ -97,8 +101,7 @@ export function requireLocalMediaNamespace(request: Request) {
 export function requireSelfhostMediaAuth(request: Request) {
   if (getRuntimeTarget() !== 'selfhost') return null;
 
-  const url = new URL(request.url);
-  if (isLoopbackHost(url.hostname)) return null;
+  if (isLoopbackHost(effectiveRequestHost(request))) return null;
 
   const publicHost = selfhostPublicHost();
   const originHost = hostOfHeader(request.headers.get('origin'));
@@ -161,8 +164,4 @@ export function runtimeConfigPayload() {
     localRuntimeVersion: currentLocalRuntimeVersion(),
     updateManifestUrl: localUpdateManifestUrl(cloudApiOrigin),
   };
-}
-
-function isLoopbackHost(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
 }
