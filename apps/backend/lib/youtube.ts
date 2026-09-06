@@ -220,7 +220,28 @@ export async function getTrackDetails(id: string): Promise<SpiceTrackDetails> {
   // player, throttled session). Drop it so the next request starts fresh.
   innertubePromise = undefined;
 
-  throw lastError ?? new Error('No audio streams found for this track.');
+  throw lastError ?? new Error(await describeUnplayable(yt, id));
+}
+
+/**
+ * One extra player request, only on total failure, so the error says WHY
+ * instead of a generic "no streams". Observed live: YouTube gates some
+ * videos per-video (LOGIN_REQUIRED "confirm you're not a bot") while others
+ * resolve fine from the same IP — that reason belongs in the message, where
+ * the player UI can show it, rather than hidden behind a generic failure.
+ */
+async function describeUnplayable(yt: Innertube, id: string): Promise<string> {
+  try {
+    const info = await yt.getInfo(id, { client: 'YTMUSIC' });
+    const status = info.playability_status?.status;
+    const reason = info.playability_status?.reason;
+    if (status && status !== 'OK') {
+      return `YouTube reports this video as ${status}${reason ? `: ${reason}` : ''}.`;
+    }
+  } catch {
+    // Playability lookup itself failed — fall through to the generic message.
+  }
+  return 'No audio streams found for this track.';
 }
 
 async function resolveWithClient(
