@@ -51,7 +51,7 @@ test('selfhost public hosts pass the loopback gate; others still fail', () => {
 test('public-host media calls need same-origin or a bearer token', () => {
   assert.match(
     runtimeTargetSource,
-    /export function requireSelfhostMediaAuth/,
+    /export async function requireSelfhostMediaAuth/,
     'media authorization must be a dedicated exported gate',
   );
   assert.match(

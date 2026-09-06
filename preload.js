@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld("api", {
       return () => ipcRenderer.removeListener("spice-runtime-status", listener);
     },
   },
+  runtime: {
+    get: () => ipcRenderer.invoke("spice:runtime:get"),
+    set: (patch) => ipcRenderer.invoke("spice:runtime:set", patch),
+    register: () => ipcRenderer.invoke("spice:runtime:register"),
+    testConnection: () => ipcRenderer.invoke("spice:runtime:test-connection"),
+    unlink: () => ipcRenderer.invoke("spice:runtime:unlink"),
+  },
   native: {
     getStatus: () => ipcRenderer.invoke("native-app-status"),
     prepareRuntime: () => ipcRenderer.invoke("native-runtime-prepare"),

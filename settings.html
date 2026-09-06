@@ -425,6 +425,7 @@
             <!-- Sidebar Navigation -->
             <nav class="settings-sidebar">
                 <a href="#desktop-settings" class="settings-sidebar-link active">Desktop Settings</a>
+                <a href="#runtime-section" class="settings-sidebar-link">Runtime</a>
                 <a href="#adblock-section" class="settings-sidebar-link">Ad Blocker</a>
                 <a href="#default-service-section" class="settings-sidebar-link">Startup Service</a>
                 <a href="#audio-output-section" class="settings-sidebar-link">Audio Output</a>
@@ -459,6 +460,74 @@
                     <button id="open-spice-settings-btn" class="btn" style="margin: 0 0 0 auto">
                         Open
                     </button>
+                </div>
+            </div>
+
+            <div class="settings-header" id="runtime-section" style="margin-top: 30px">
+                <h2>Runtime</h2>
+            </div>
+
+            <div class="settings-section" id="runtime-mode-section">
+                <div id="runtime-failure-banner" class="hidden" style="border: 1px solid rgba(var(--accent-rgb), 0.4); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; background: rgba(var(--accent-rgb), 0.07);">
+                    <p id="runtime-failure-text" style="color: var(--text-primary); font-size: 13px; margin: 0 0 4px;"></p>
+                    <p id="runtime-failure-detail" style="color: var(--text-secondary); font-size: 12px; margin: 0 0 10px;"></p>
+                    <button id="runtime-failure-action" class="btn btn-secondary" style="margin-top: 0;"></button>
+                </div>
+                <label style="font-size: 16px">Music Runtime</label>
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px">
+                    Choose where SPICE Music runs. Local PC plays everything on
+                    this computer. SPICE Cloud streams from your private server.
+                </p>
+                <div class="field-group" role="radiogroup" aria-label="Music runtime mode">
+                    <label style="font-size: 14px; margin-bottom: 8px;">
+                        <input type="radio" name="runtime-mode" id="runtime-mode-local" value="local" checked style="accent-color: var(--accent); width: auto;" />
+                        Local PC (default)
+                    </label>
+                    <label style="font-size: 14px; margin-bottom: 0;">
+                        <input type="radio" name="runtime-mode" id="runtime-mode-remote" value="remote" style="accent-color: var(--accent); width: auto;" />
+                        SPICE Cloud
+                    </label>
+                </div>
+                <div id="runtime-remote-fields">
+                    <div class="field-group">
+                        <label for="runtime-remote-url">SPICE Cloud URL</label>
+                        <input
+                            type="text"
+                            id="runtime-remote-url"
+                            value="https://music.spice-app.xyz"
+                            placeholder="https://music.spice-app.xyz"
+                            spellcheck="false"
+                        />
+                    </div>
+                    <div class="field-group">
+                        <span id="runtime-device-state" class="status status-disconnected">Not linked</span>
+                    </div>
+                    <div id="runtime-login-prompt" class="hidden" style="border-left: 2px solid rgba(var(--accent-rgb), 0.3); padding-left: 10px; margin: 10px 0;">
+                        <p style="color: var(--text-secondary); font-size: 12px; margin: 0 0 8px;">
+                            Sign in to your SPICE account first, then link this PC.
+                        </p>
+                        <button id="runtime-open-login-btn" class="btn btn-secondary" style="margin-top: 0;">
+                            Open SPICE Music settings
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="runtime-register-btn" class="btn">
+                            Link this PC
+                        </button>
+                        <button id="runtime-test-btn" class="btn btn-secondary">
+                            Test connection
+                        </button>
+                        <button id="runtime-unlink-btn" class="btn btn-secondary hidden">
+                            Unlink
+                        </button>
+                    </div>
+                    <p id="runtime-status-text" style="color: #666; font-size: 12px; margin: 8px 0 0;"></p>
+                    <p style="color: #666; font-size: 12px; margin-top: 8px;">
+                        No token to paste: linking registers this PC automatically
+                        using your SPICE account. If you lose a device, Unlink it
+                        here or remove it from a future SPICE account page. Token
+                        rotation happens server-side.
+                    </p>
                 </div>
             </div>
 
@@ -1507,6 +1576,383 @@
                     scrollContainer.scrollBy({ top: event.deltaY, behavior: 'auto' });
                 }, { passive: false });
             });
+        </script>
+        <script id="runtime-settings-script">
+            // Remote runtime (SPICE Cloud) controls for the settings window.
+            //
+            // Main-process contract (owned by a sibling track): the preload
+            // exposes window.api.runtime invoking these IPC channels:
+            //   spice:runtime:get  -> { mode, remoteUrl, device: { id, name } | null, hasToken }
+            //   spice:runtime:set  ({ mode, remoteUrl })
+            //   spice:runtime:register -> { device, error? } (uses the logged-in
+            //     SPICE account + os.hostname; no token is ever pasted here)
+            //   spice:runtime:test-connection -> { ok, version? | error }
+            //   spice:runtime:unlink -> { ok } (revokes server-side + clears local)
+            // Expected preload shape:
+            //   window.api.runtime = { get, set, register, testConnection, unlink }
+            // Aliases are probed defensively below so minor naming differences
+            // on the main-process side do not deaden this UI.
+            (function () {
+                "use strict";
+                var DEFAULT_REMOTE_URL = "https://music.spice-app.xyz";
+                var REJECTED_COPY = "Remote token rejected \u2014 check Settings, Runtime";
+                var UNREACHABLE_COPY = "SPICE Cloud unreachable";
+
+                function $(id) {
+                    return document.getElementById(id);
+                }
+
+                var modeLocal = $("runtime-mode-local");
+                var modeRemote = $("runtime-mode-remote");
+                var urlInput = $("runtime-remote-url");
+                var deviceState = $("runtime-device-state");
+                var registerBtn = $("runtime-register-btn");
+                var testBtn = $("runtime-test-btn");
+                var unlinkBtn = $("runtime-unlink-btn");
+                var statusText = $("runtime-status-text");
+                var loginPrompt = $("runtime-login-prompt");
+                var openLoginBtn = $("runtime-open-login-btn");
+                var banner = $("runtime-failure-banner");
+                var bannerText = $("runtime-failure-text");
+                var bannerDetail = $("runtime-failure-detail");
+                var bannerAction = $("runtime-failure-action");
+                var section = $("runtime-mode-section");
+                if (!modeLocal || !modeRemote || !urlInput || !section) return;
+
+                function getBridge() {
+                    if (typeof window === "undefined" || !window.api) return null;
+                    return window.api.runtime || null;
+                }
+
+                // Call the first available alias on the runtime bridge.
+                function callBridge(names, arg) {
+                    var bridge = getBridge();
+                    if (!bridge) {
+                        return Promise.reject(new Error("Remote runtime is not available in this shell yet."));
+                    }
+                    for (var i = 0; i < names.length; i += 1) {
+                        if (typeof bridge[names[i]] === "function") {
+                            try {
+                                return Promise.resolve(bridge[names[i]](arg));
+                            } catch (error) {
+                                return Promise.reject(error);
+                            }
+                        }
+                    }
+                    return Promise.reject(new Error("Remote runtime is not available in this shell yet."));
+                }
+
+                function runtimeGet() {
+                    return callBridge(["get", "getState", "fetchState"]);
+                }
+
+                function runtimeSet(state) {
+                    return callBridge(["set", "setState", "save"], state);
+                }
+
+                function currentMode() {
+                    return modeRemote.checked ? "remote" : "local";
+                }
+
+                function currentUrl() {
+                    var value = (urlInput.value || "").trim();
+                    return value || DEFAULT_REMOTE_URL;
+                }
+
+                function setStatus(message) {
+                    if (statusText) statusText.textContent = message || "";
+                }
+
+                function hideBanner() {
+                    if (!banner) return;
+                    banner.classList.add("hidden");
+                    bannerAction.textContent = "";
+                    bannerAction.onclick = null;
+                }
+
+                function focusRuntimeSection() {
+                    try {
+                        if (section.scrollIntoView) section.scrollIntoView({ behavior: "smooth", block: "start" });
+                    } catch (error) { /* scroll is best-effort */ }
+                    try {
+                        if (urlInput.focus) urlInput.focus({ preventScroll: true });
+                    } catch (error) { /* focus is best-effort */ }
+                }
+
+                // Failure UX. kind: "rejected" | "unreachable".
+                function showFailure(kind, detail) {
+                    if (!banner) return;
+                    banner.classList.remove("hidden");
+                    if (kind === "rejected") {
+                        bannerText.textContent = REJECTED_COPY;
+                        bannerDetail.textContent = detail || "This PC's cloud token was refused by the server.";
+                        bannerAction.textContent = "Open Runtime settings";
+                        bannerAction.onclick = focusRuntimeSection;
+                    } else {
+                        bannerText.textContent = UNREACHABLE_COPY;
+                        bannerDetail.textContent = detail || "Could not reach your SPICE Cloud server.";
+                        bannerAction.textContent = "Back to Local PC";
+                        bannerAction.onclick = backToLocal;
+                    }
+                }
+
+                function hideFailure() {
+                    hideBanner();
+                }
+
+                function classifyFailure(error) {
+                    var message = error instanceof Error ? error.message : String(error || "");
+                    if (/reject|unauthor|forbidden|\b401\b|\b403\b|invalid token|expired/i.test(message)) {
+                        return "rejected";
+                    }
+                    return "unreachable";
+                }
+
+                function renderState(state) {
+                    state = state || {};
+                    var mode = state.mode === "remote" ? "remote" : "local";
+                    modeLocal.checked = mode === "local";
+                    modeRemote.checked = mode === "remote";
+                    urlInput.value = state.remoteUrl || DEFAULT_REMOTE_URL;
+                    var device = state.device || null;
+                    if (deviceState) {
+                        if (device) {
+                            var label = device.name || device.id || "Linked PC";
+                            deviceState.textContent = state.hasToken
+                                ? "Linked: " + label + " \u00b7 token saved"
+                                : "Linked: " + label + " \u00b7 no token saved";
+                            deviceState.className = "status status-connected";
+                        } else {
+                            deviceState.textContent = "Not linked";
+                            deviceState.className = "status status-disconnected";
+                        }
+                    }
+                    if (unlinkBtn) unlinkBtn.classList.toggle("hidden", !device);
+                    if (loginPrompt) loginPrompt.classList.add("hidden");
+                }
+
+                function setControlsEnabled(enabled) {
+                    [modeLocal, modeRemote, urlInput, registerBtn, testBtn, unlinkBtn].forEach(function (control) {
+                        if (control) control.disabled = !enabled;
+                    });
+                }
+
+                function refresh() {
+                    return runtimeGet().then(
+                        function (state) {
+                            renderState(state);
+                            return state;
+                        },
+                        function (error) {
+                            setControlsEnabled(false);
+                            setStatus(
+                                error && error.message
+                                    ? error.message
+                                    : "Remote runtime is not available in this shell yet."
+                            );
+                            return null;
+                        }
+                    );
+                }
+
+                function persistMode() {
+                    hideFailure();
+                    setStatus("Saving...");
+                    return runtimeSet({ mode: currentMode(), remoteUrl: currentUrl() }).then(
+                        function (state) {
+                            if (state) renderState(state);
+                            setStatus(
+                                currentMode() === "remote"
+                                    ? "SPICE Cloud selected."
+                                    : "Local PC selected."
+                            );
+                        },
+                        function (error) {
+                            setStatus(error instanceof Error ? error.message : String(error));
+                            return refresh();
+                        }
+                    );
+                }
+
+                function backToLocal() {
+                    setStatus("Switching back to Local PC...");
+                    return runtimeSet({ mode: "local", remoteUrl: currentUrl() }).then(
+                        function (state) {
+                            renderState(state || { mode: "local", remoteUrl: currentUrl() });
+                            hideFailure();
+                            setStatus("Switched back to Local PC.");
+                        },
+                        function (error) {
+                            setStatus(error instanceof Error ? error.message : String(error));
+                        }
+                    );
+                }
+
+                // Exposed for deep-links (#runtime-rejected / #runtime-unreachable)
+                // and for future main-window failure banners.
+                window.spiceRuntimeSettings = {
+                    refresh: refresh,
+                    showFailure: showFailure,
+                    backToLocal: backToLocal,
+                };
+
+                modeLocal.addEventListener("change", function () {
+                    if (modeLocal.checked) void persistMode();
+                });
+                modeRemote.addEventListener("change", function () {
+                    if (modeRemote.checked) void persistMode();
+                });
+                urlInput.addEventListener("change", function () {
+                    void persistMode();
+                });
+
+                registerBtn.addEventListener("click", function () {
+                    hideFailure();
+                    if (loginPrompt) loginPrompt.classList.add("hidden");
+                    setStatus("Linking this PC...");
+                    registerBtn.disabled = true;
+
+                    function doRegister() {
+                        return callBridge(["register", "registerDevice", "link"]).then(
+                            function (result) {
+                                registerBtn.disabled = false;
+                                if (result && result.error) {
+                                    showFailure(classifyFailure(result.error), String(result.error));
+                                    setStatus(String(result.error));
+                                    return refresh();
+                                }
+                                var name =
+                                    (result && result.device && (result.device.name || result.device.id)) ||
+                                    "this PC";
+                                setStatus("Linked: " + name + ".");
+                                return refresh();
+                            },
+                            function (error) {
+                                registerBtn.disabled = false;
+                                var message = error instanceof Error ? error.message : String(error);
+                                showFailure(classifyFailure(message), message);
+                                setStatus(message);
+                            }
+                        );
+                    }
+
+                    // Per-device flow uses the logged-in SPICE account: prompt
+                    // login first when logged out.
+                    var api = typeof window !== "undefined" ? window.api : null;
+                    var nativeStatus =
+                        api && api.native && typeof api.native.getStatus === "function"
+                            ? api.native.getStatus()
+                            : Promise.resolve(null);
+                    Promise.resolve(nativeStatus).then(
+                        function (nativeState) {
+                            var account = nativeState && nativeState.account;
+                            if (!account) {
+                                registerBtn.disabled = false;
+                                if (loginPrompt) loginPrompt.classList.remove("hidden");
+                                setStatus("Sign in to your SPICE account first, then link this PC.");
+                                return;
+                            }
+                            void doRegister();
+                        },
+                        function () {
+                            // Account state unreadable: attempt register and
+                            // surface whatever the main process reports.
+                            void doRegister();
+                        }
+                    );
+                });
+
+                if (openLoginBtn) {
+                    openLoginBtn.addEventListener("click", function () {
+                        var api = typeof window !== "undefined" ? window.api : null;
+                        if (api && typeof api.openSpiceSettings === "function") {
+                            void api.openSpiceSettings();
+                        }
+                    });
+                }
+
+                testBtn.addEventListener("click", function () {
+                    hideFailure();
+                    setStatus("Testing connection...");
+                    testBtn.disabled = true;
+                    callBridge(["testConnection", "test", "test-connection"]).then(
+                        function (result) {
+                            testBtn.disabled = false;
+                            if (result && result.ok) {
+                                setStatus(
+                                    result.version
+                                        ? "Connected (version " + result.version + ")."
+                                        : "Connected."
+                                );
+                                return;
+                            }
+                            var message =
+                                (result && result.error) || "Connection test failed.";
+                            showFailure(classifyFailure(message), String(message));
+                            setStatus(String(message));
+                        },
+                        function (error) {
+                            testBtn.disabled = false;
+                            var message = error instanceof Error ? error.message : String(error);
+                            showFailure(classifyFailure(message), message);
+                            setStatus(message);
+                        }
+                    );
+                });
+
+                unlinkBtn.addEventListener("click", function () {
+                    hideFailure();
+                    setStatus("Unlinking...");
+                    unlinkBtn.disabled = true;
+                    callBridge(["unlink", "unlinkDevice", "remove"]).then(
+                        function () {
+                            unlinkBtn.disabled = false;
+                            setStatus("Unlinked.");
+                            return refresh();
+                        },
+                        function (error) {
+                            unlinkBtn.disabled = false;
+                            setStatus(error instanceof Error ? error.message : String(error));
+                        }
+                    );
+                });
+
+                if (bannerAction && !bannerAction.onclick) {
+                    bannerAction.addEventListener("click", function () {
+                        if (typeof bannerAction.onclick === "function") return;
+                        focusRuntimeSection();
+                    });
+                }
+
+                // Optional push failures from the main process, if provided.
+                (function subscribe() {
+                    var bridge = getBridge();
+                    if (bridge && typeof bridge.onFailure === "function") {
+                        try {
+                            bridge.onFailure(function (info) {
+                                info = info || {};
+                                showFailure(
+                                    info.kind === "rejected" ? "rejected" : "unreachable",
+                                    info.error ? String(info.error) : ""
+                                );
+                            });
+                        } catch (error) { /* subscription is best-effort */ }
+                    }
+                })();
+
+                void refresh();
+
+                // Deep-links: settings.html#runtime[-rejected | -unreachable]
+                // highlights this section and optionally shows failure UX.
+                try {
+                    var hash = (window.location && window.location.hash) || "";
+                    if (hash.indexOf("#runtime") === 0) {
+                        focusRuntimeSection();
+                        if (hash === "#runtime-rejected") showFailure("rejected", "");
+                        else if (hash === "#runtime-unreachable") showFailure("unreachable", "");
+                    }
+                } catch (error) { /* hash handling is best-effort */ }
+            })();
         </script>
     </body>
 </html>
