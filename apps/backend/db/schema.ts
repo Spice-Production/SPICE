@@ -247,6 +247,20 @@ export const remoteDeviceAuthorizations = pgTable(
   ],
 );
 
+export const remoteMediaDevices = pgTable(
+  'remote_media_devices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    deviceName: text('device_name').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('remote_media_devices_user_idx').on(t.userId)],
+);
+
 export const likes = pgTable(
   'likes',
   {
