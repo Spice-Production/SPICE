@@ -23,6 +23,9 @@ const {
   isRemoteMediaDeviceToken,
   hashRemoteMediaDeviceToken,
   normalizeRemoteMediaDeviceName,
+  noteRemoteMediaDeviceTokenHash,
+  forgetRemoteMediaDeviceTokenHash,
+  isVerifiedRemoteMediaDeviceRequest,
 } = devices;
 
 test('media device tokens carry the spice_rm_ prefix and hash to sha256 hex', () => {
@@ -88,8 +91,16 @@ test('device account routes never leak token hashes', async () => {
     new URL('../app/api/account/devices/[id]/route.ts', import.meta.url),
     'utf8',
   );
-  assert.doesNotMatch(collectionSource, /tokenHash/);
-  assert.doesNotMatch(itemSource, /tokenHash/);
+  // GET reads an explicit column allowlist and maps only id/name/createdAt.
+  assert.match(collectionSource, /columns: \{ id: true, deviceName: true, createdAt: true \}/);
+  assert.match(collectionSource, /devices: devices\.map/);
+  assert.match(
+    collectionSource,
+    /id: device\.id,\s+name: device\.deviceName,\s+createdAt: device\.createdAt\.toISOString\(\),/,
+  );
+  // POST returns the plaintext token once; the revoke response is a bare flag.
+  assert.match(collectionSource, /token,\s+createdAt: row\.createdAt\.toISOString\(\),/);
+  assert.doesNotMatch(itemSource, /jsonResponse\(\{[^}]*tokenHash/s);
   assert.match(collectionSource, /device_limit/);
   assert.match(itemSource, /revoked/);
 });
@@ -105,9 +116,42 @@ test('remote_media_devices table matches the auth contract', async () => {
 test('selfhost media gate accepts per-device tokens by token_hash lookup', async () => {
   const source = await readFile(new URL('../lib/runtime-target.ts', import.meta.url), 'utf8');
   assert.match(source, /SPICE_SELFHOST_MEDIA_TOKEN/);
-  assert.match(source, /remoteMediaDevices/);
-  assert.match(source, /token_hash|tokenHash/);
-  assert.match(source, /createHash\(['"]sha256['"]\)/);
+  assert.match(
+    source,
+    /if \(token && request\.headers\.get\('authorization'\)\?\.trim\(\) === `Bearer \$\{token\}`\) return null;/,
+    'shared media token still passes first, unchanged',
+  );
+  assert.match(source, /isVerifiedRemoteMediaDeviceRequest\(request\)/);
+
+  const libSource = await readFile(new URL('../lib/remote-media-devices.ts', import.meta.url), 'utf8');
+  assert.match(libSource, /eq\(remoteMediaDevices\.tokenHash, tokenHash\)/);
+  assert.match(libSource, /sha256/);
+  assert.match(libSource, /remoteMediaDevices/);
+});
+
+test('verified device requests pass sync after write-through and fail after revoke', () => {
+  const token = createRemoteMediaDeviceToken();
+  const bearer = new Request('https://box.example/media', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(isVerifiedRemoteMediaDeviceRequest(bearer), false);
+
+  const tokenHash = hashRemoteMediaDeviceToken(token);
+  assert.ok(tokenHash);
+  noteRemoteMediaDeviceTokenHash(tokenHash);
+  assert.equal(isVerifiedRemoteMediaDeviceRequest(bearer), true);
+
+  forgetRemoteMediaDeviceTokenHash(tokenHash);
+  assert.equal(isVerifiedRemoteMediaDeviceRequest(bearer), false);
+
+  const foreign = new Request('https://box.example/media', {
+    headers: { authorization: 'Bearer shared-secret' },
+  });
+  assert.equal(isVerifiedRemoteMediaDeviceRequest(foreign), false);
+  assert.equal(
+    isVerifiedRemoteMediaDeviceRequest(new Request('https://box.example/media')),
+    false,
+  );
 });
 
 const hasTestDb = enableDatabaseIntegrationTests();

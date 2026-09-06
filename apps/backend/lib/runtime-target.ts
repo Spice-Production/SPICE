@@ -1,5 +1,6 @@
 import { jsonResponse } from '@/lib/cors';
 import { currentLocalRuntimeVersion, localUpdateManifestUrl } from '@/lib/local-updates';
+import { isVerifiedRemoteMediaDeviceRequest } from './remote-media-devices.ts';
 import { effectiveRequestHost, isLoopbackHost } from './request-host.ts';
 
 export type SpiceRuntimeTarget = 'local' | 'vercel' | 'selfhost';
@@ -110,6 +111,7 @@ export function requireSelfhostMediaAuth(request: Request) {
 
   const token = process.env.SPICE_SELFHOST_MEDIA_TOKEN?.trim();
   if (token && request.headers.get('authorization')?.trim() === `Bearer ${token}`) return null;
+  if (isVerifiedRemoteMediaDeviceRequest(request)) return null;
   if (!token && !originHost && !refererHost) return null;
 
   return jsonResponse(
