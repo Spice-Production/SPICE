@@ -80,3 +80,14 @@ test('effectiveRequestOrigin follows the client-facing address', async () => {
     'https://music.spice-app.xyz',
   );
 });
+
+test('loopbackOriginFor stays on 127.0.0.1 with the serving port', async () => {
+  const { loopbackOriginFor } = await import('../lib/request-host.ts');
+  // Namespace proxies self-fetch here: through Caddy the request URL is the
+  // public https origin (no port) and the app listens on PORT.
+  assert.equal(loopbackOriginFor('https://music.spice-app.xyz/api/x'), 'http://127.0.0.1:3000');
+  // Direct and local-runtime hits carry the listen port already.
+  assert.equal(loopbackOriginFor('http://127.0.0.1:3000/api/x'), 'http://127.0.0.1:3000');
+  assert.equal(loopbackOriginFor('http://127.0.0.1:3939/api/x'), 'http://127.0.0.1:3939');
+  assert.equal(loopbackOriginFor('not a url'), 'http://127.0.0.1:3000');
+});

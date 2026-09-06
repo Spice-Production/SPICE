@@ -105,3 +105,25 @@ test('non-Neon databases expose the Neon dialect surface without connecting', as
   assert.equal(typeof db.transaction, 'function');
   delete process.env.DATABASE_URL;
 });
+
+test('selfhost reads system settings through the shared db, not the Neon client', async () => {
+  const settingsSource = await readFile(new URL('../lib/proxy-system-settings.ts', import.meta.url), 'utf8');
+  assert.ok(
+    !settingsSource.includes('@neondatabase/serverless'),
+    'the Neon HTTP client cannot speak to self-host Postgres (it fetches https://<db-host>:443 and fails every request)',
+  );
+  assert.match(
+    settingsSource,
+    /from\(systemSettings\)/,
+    'emergency controls must query the shared driver-aware db so they work on Neon and selfhost alike',
+  );
+});
+
+test('namespace proxies self-fetch loopback, never the incoming origin', async () => {
+  const proxySource = await readFile(new URL('../lib/api-namespace-proxy.ts', import.meta.url), 'utf8');
+  assert.match(
+    proxySource,
+    /loopbackOriginFor\(request\.url\)/,
+    'behind Caddy the incoming origin is the public https address, which hairpins and 500s — self-fetch stays on 127.0.0.1',
+  );
+});

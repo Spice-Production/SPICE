@@ -1,4 +1,5 @@
-import { neon } from '@neondatabase/serverless';
+import { db } from '@/db';
+import { systemSettings } from '@/db/schema';
 
 export interface ProxySystemSettings {
   emergencyAusterity: boolean;
@@ -9,35 +10,42 @@ export interface ProxySystemSettings {
 
 let cachedSettings: ProxySystemSettings | null = null;
 let lastFetchTime = 0;
-// Emergency controls still converge quickly while halving repeated Neon reads
-// from a warm Proxy instance compared with the previous 15-second window.
+// Emergency controls still converge quickly while halving repeated reads
+// from a warm instance compared with the previous 15-second window.
 const CACHE_TTL_MS = 30000;
 
-export async function getProxySystemSettings(): Promise<ProxySystemSettings | null> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) return null;
+const DEFAULTS: ProxySystemSettings = {
+  emergencyAusterity: false,
+  austerityThrottleRate: 50,
+  disableSync: false,
+  emergencyStop: false,
+};
 
+export async function getProxySystemSettings(): Promise<ProxySystemSettings | null> {
   const now = Date.now();
   if (cachedSettings && now - lastFetchTime <= CACHE_TTL_MS) {
     return cachedSettings;
   }
 
-  const sql = neon(databaseUrl);
-  const rows = await sql`SELECT emergency_austerity, austerity_throttle_rate, disable_sync, emergency_stop FROM system_settings WHERE id = 'default' LIMIT 1`;
-
-  cachedSettings = rows && rows.length > 0
-    ? {
-        emergencyAusterity: Boolean(rows[0].emergency_austerity),
-        austerityThrottleRate: Number(rows[0].austerity_throttle_rate ?? 50),
-        disableSync: Boolean(rows[0].disable_sync),
-        emergencyStop: Boolean(rows[0].emergency_stop),
+  try {
+    // Driver-aware shared client: Neon HTTP on Neon URLs, pooled
+    // node-postgres everywhere else (self-host). Never the Neon-only
+    // client here — it cannot speak to self-host Postgres.
+    const rows = await db.select().from(systemSettings).limit(1);
+    const row = rows[0];
+    cachedSettings = row
+      ? {
+        emergencyAusterity: Boolean(row.emergencyAusterity),
+        austerityThrottleRate: Number(row.austerityThrottleRate ?? 50),
+        disableSync: Boolean(row.disableSync),
+        emergencyStop: Boolean(row.emergencyStop),
       }
-    : {
-        emergencyAusterity: false,
-        austerityThrottleRate: 50,
-        disableSync: false,
-        emergencyStop: false,
-      };
+      : { ...DEFAULTS };
+  } catch {
+    // Fail open if the database is unreachable to avoid breaking the app.
+    // (The proxy caller also fails open; this keeps behavior identical.)
+    return null;
+  }
   lastFetchTime = now;
 
   return cachedSettings;
