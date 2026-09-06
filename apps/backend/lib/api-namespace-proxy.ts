@@ -1,4 +1,5 @@
 import { corsHeadersForRequest, jsonResponse, withCors, withoutDecodedBodyHeaders } from '@/lib/cors';
+import { loopbackOriginFor } from '@/lib/request-host';
 
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
@@ -33,7 +34,11 @@ export async function proxyToLegacyApi(
   }
 
   const incomingUrl = new URL(request.url);
-  const origin = targetOrigin || incomingUrl.origin;
+  // Self-fetch through loopback, never the incoming origin: behind Caddy the
+  // incoming origin is the public https address, which hairpins out of the
+  // container network and back (TLS/handshake failure → 500). Explicit
+  // cross-origin targets still opt in via targetOrigin (cloud namespace).
+  const origin = targetOrigin || loopbackOriginFor(request.url);
   const targetUrl = new URL(`/api/${path.map(encodeURIComponent).join('/')}`, origin);
   targetUrl.search = incomingUrl.search;
 

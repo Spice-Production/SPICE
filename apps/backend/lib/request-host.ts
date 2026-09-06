@@ -64,6 +64,23 @@ export function effectiveRequestOrigin(request: Request): string {
   }
 }
 
+/**
+ * Loopback origin of the server handling this request: 127.0.0.1 on the
+ * port the request arrived on (the listen port — request.url carries it
+ * even when its hostname is the bind address). Namespace proxies self-fetch
+ * through this instead of the incoming origin so proxied media calls never
+ * hairpin out to the public address and back (which fails TLS/handshake
+ * from inside the container network).
+ */
+export function loopbackOriginFor(requestUrl: string): string {
+  try {
+    const port = new URL(requestUrl).port || process.env.PORT || '3000';
+    return `http://127.0.0.1:${port}`;
+  } catch {
+    return `http://127.0.0.1:${process.env.PORT || '3000'}`;
+  }
+}
+
 function safeUrlHostname(url: string): string | null {
   try {
     return new URL(url).hostname;
