@@ -1,5 +1,11 @@
 # SPICE Walkthrough
 
+## v1.0.175
+
+- [Spice.Connect main] Gate remote media per device: account holders mint one token per device (shown once, stored hashed, verified on every media request with no cache), so revoking a device cuts it off immediately. The token only reaches media routes and never creates a cloud session.
+- [Spice.Music main] Say why a song cannot play: when every resolve client comes back empty, the runtime does one extra playability lookup and surfaces YouTube's own status and reason (for example per-video LOGIN_REQUIRED gating) instead of a generic "no audio streams" failure.
+- [Spice.Selfhost main] Harden self-hosted streaming: internal API calls loop back instead of hairpinning through the public proxy, redirects and signed URLs use the client-facing origin rather than the container bind address, and the apex domain serves the hub while the music subdomain serves the player directly.
+
 ## v1.0.174
 
 - [Spice.Selfhost main] Run the whole stack on your own box: new `selfhost` runtime target serves the full web UI, media routes, and cloud routes together behind one origin. The database layer uses Neon SQL-over-HTTP on Neon URLs and pooled node-postgres everywhere else (self-hosted Postgres replaces Neon; Spice Connect LISTEN works natively there). Public-host media calls require same-origin requests or a bearer media token; the Docker image takes a build-time target, ships migrations with an entrypoint that applies them, and `deploy/` adds a Compose stack (app + Postgres + Caddy auto-HTTPS).
