@@ -182,6 +182,22 @@ async function pruneLocalPackage(root) {
     'apps/backend/db',
     'node_modules/@neondatabase',
     'node_modules/drizzle-orm',
+    // Self-host-only Postgres driver (db/index.ts picks it for non-Neon
+    // URLs). The offline runtime must not ship database clients at all.
+    'node_modules/pg',
+    'node_modules/pg-cloudflare',
+    'node_modules/pg-connection-string',
+    'node_modules/pg-int8',
+    'node_modules/pg-numeric',
+    'node_modules/pg-pool',
+    'node_modules/pg-protocol',
+    'node_modules/pg-types',
+    'node_modules/pgpass',
+    'node_modules/postgres-array',
+    'node_modules/postgres-bytea',
+    'node_modules/postgres-date',
+    'node_modules/postgres-interval',
+    'node_modules/postgres-range',
   ];
 
   for (const target of deleteTargets) {

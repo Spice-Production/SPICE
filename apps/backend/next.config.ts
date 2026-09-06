@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
-const runtimeTarget = process.env.SPICE_RUNTIME_TARGET === "vercel" ? "vercel" : "local";
-const useStandaloneOutput = runtimeTarget === "local" || process.env.SPICE_STANDALONE_OUTPUT === "1";
+type BuildTarget = 'local' | 'vercel' | 'selfhost';
+const configuredTarget = process.env.SPICE_RUNTIME_TARGET?.trim().toLowerCase();
+const runtimeTarget: BuildTarget =
+  configuredTarget === 'vercel' || configuredTarget === 'selfhost' ? configuredTarget : 'local';
+const useStandaloneOutput = runtimeTarget !== 'vercel' || process.env.SPICE_STANDALONE_OUTPUT === '1';
 const cloudApiOrigin =
   process.env.SPICE_CLOUD_API_ORIGIN ||
   process.env.NEXT_PUBLIC_SPICE_CLOUD_API_ORIGIN ||

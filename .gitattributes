@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings everywhere: a CRLF shebang line breaks
+# Linux containers and phones (#!/bin/sh\r). This bit us on the self-host
+# entrypoint, which Docker COPYs straight into the image.
+*.sh text eol=lf

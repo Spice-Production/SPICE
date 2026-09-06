@@ -8,10 +8,20 @@ const dockerignoreUrl = new URL('../../../.dockerignore', import.meta.url);
 test('backend Docker image starts the hosted standalone runtime', async () => {
   const dockerfile = await readFile(dockerfileUrl, 'utf8');
 
-  assert.match(dockerfile, /^ENV SPICE_RUNTIME_TARGET=vercel$/m);
-  assert.match(dockerfile, /^ENV NEXT_PUBLIC_SPICE_RUNTIME_TARGET=vercel$/m);
+  assert.match(dockerfile, /^ARG SPICE_RUNTIME_TARGET=vercel$/m);
+  assert.match(dockerfile, /^ENV SPICE_RUNTIME_TARGET=\$\{SPICE_RUNTIME_TARGET\}$/m);
+  assert.match(dockerfile, /^ENV NEXT_PUBLIC_SPICE_RUNTIME_TARGET=\$\{SPICE_RUNTIME_TARGET\}$/m);
   assert.match(dockerfile, /^WORKDIR \/app\/apps\/backend$/m);
+  assert.match(dockerfile, /^ENTRYPOINT \["\.\/docker-entrypoint\.sh"\]$/m);
   assert.match(dockerfile, /^CMD \["node", "server\.js"\]$/m);
+});
+
+test('backend Docker image ships migrations for self-hosted boots', async () => {
+  const dockerfile = await readFile(dockerfileUrl, 'utf8');
+
+  assert.match(dockerfile, /db\/migrations/);
+  assert.match(dockerfile, /migrate-selfhost\.mjs/);
+  assert.match(dockerfile, /SPICE_RUN_MIGRATIONS/);
 });
 
 test('backend Docker context excludes unrelated workspaces and generated output', async () => {

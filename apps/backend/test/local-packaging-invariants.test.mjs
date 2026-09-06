@@ -119,6 +119,25 @@ test('local schema stub covers every exported table in schema.ts', async () => {
   );
 });
 
+test('local packager prunes self-host-only database drivers', async () => {
+  // db/index.ts picks pooled node-postgres for non-Neon URLs, which drags
+  // the pg family into the standalone trace. The offline runtime must not
+  // ship database clients — this tripped CI the moment pg was added.
+  const scriptText = await readBackend('scripts/package-local-windows.mjs');
+  for (const entry of [
+    'node_modules/pg',
+    'node_modules/pg-connection-string',
+    'node_modules/pg-pool',
+    'node_modules/pg-types',
+    'node_modules/pgpass',
+  ]) {
+    assert.ok(
+      scriptText.includes(`'${entry}'`),
+      `pruneLocalPackage.deleteTargets must drop ${entry}`,
+    );
+  }
+});
+
 test('backend sources are pure UTF-8', async () => {
   const { walk } = await import('./helpers/walk-source-files.mjs');
   const bad = [];
