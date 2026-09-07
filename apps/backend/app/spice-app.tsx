@@ -2921,6 +2921,8 @@ export default function SpiceApp() {
   const [authLoading, setAuthLoading] = useState(false);
   const [emailVerification, setEmailVerification] = useState<{ registrationId: string; email: string } | null>(null);
   const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [authForgotMode, setAuthForgotMode] = useState(false);
+  const [authForgotSent, setAuthForgotSent] = useState(false);
 
   // Dynamic Home Page Queries
   const [homeTrending, setHomeTrending] = useState<Track[]>([]);
@@ -5681,6 +5683,27 @@ export default function SpiceApp() {
       console.error(err);
       logDebug('error', `Authentication attempt failed: ${err.message || err}`);
       setAuthError(err.message || 'Server authentication failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      const res = await fetch(spiceApiUrl('cloud', '/auth/spice/forgot'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail }),
+      });
+      await res.json().catch(() => ({}));
+      // Always-200 by design (no account oracle): same confirmation either way.
+      setAuthForgotSent(true);
+      logDebug('auth', 'Password reset link requested.');
+    } catch {
+      setAuthForgotSent(true);
     } finally {
       setAuthLoading(false);
     }
@@ -16211,6 +16234,52 @@ const getMaskedEmail = (email: string) => {
                             Switch to {authMode === 'login' ? 'Register' : 'Login'}
                           </button>
                         </form>
+                        )}
+                        {authMode === 'login' && !emailVerification && !authForgotMode && (
+                          <button
+                            type="button"
+                            onClick={() => { setAuthForgotMode(true); setAuthForgotSent(false); setAuthError(null); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-pink, #c084fc)', fontSize: '0.8rem', cursor: 'pointer', padding: '4px 0 12px', textAlign: 'left' }}
+                          >
+                            Forgot password?
+                          </button>
+                        )}
+                        {authMode === 'login' && authForgotMode && (
+                          <form onSubmit={handleForgotSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '500px', marginBottom: '16px' }}>
+                            <p style={{ gridColumn: 'span 2', fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+                              {authForgotSent
+                                ? 'If that address has an account, a reset link is on its way. Check your inbox.'
+                                : 'Enter your account email and we will send a reset link.'}
+                            </p>
+                            {!authForgotSent && (
+                              <>
+                                <input
+                                  type="email"
+                                  placeholder="Email address"
+                                  value={authEmail}
+                                  onChange={(e) => setAuthEmail(e.target.value)}
+                                  style={{ gridColumn: 'span 2', padding: '10px 14px', background: '#0a0a0a', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
+                                  required
+                                />
+                                <button
+                                  type="submit"
+                                  className="btn btn--primary"
+                                  disabled={authLoading}
+                                  style={{ padding: '10px', fontSize: '0.85rem' }}
+                                >
+                                  {authLoading ? 'Please wait...' : 'Send reset link'}
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn--ghost"
+                              onClick={() => { setAuthForgotMode(false); setAuthForgotSent(false); setAuthError(null); }}
+                              style={{ padding: '10px', fontSize: '0.85rem', background: 'rgba(255,255,255,0.02)' }}
+                            >
+                              Back to sign in
+                            </button>
+                          </form>
                         )}
                       </div>
                     )}
