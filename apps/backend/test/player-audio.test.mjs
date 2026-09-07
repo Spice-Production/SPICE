@@ -103,3 +103,43 @@ test('volume boost on a playing YouTube embed switches to the proxy path immedia
   );
 });
 
+test('volume-boost handoff publishes its resume position where the restart reads it', () => {
+  // Regression: the handoff captured the embed position into
+  // boostResumeSecondsRef, but the proxy restart consumes
+  // pendingProxyStartSecondsRef — nothing connected them, so every boost
+  // past 100% restarted the song from zero.
+  assert.match(
+    spiceAppSource,
+    /pendingProxyStartSecondsRef\.current = boostResumeSecondsRef\.current/,
+    'the handoff must publish the captured position to the pending-proxy ref',
+  );
+});
+
+test('embed rescues for unplayable tracks ignore the boost level', () => {
+  // Regression: both same-track embed rescues (resolve failure and
+  // post-resolution playback error) were gated on volume <= 100, so with
+  // Volume Boost on, gated videos died instead of playing in the embed
+  // transport (which clamps to 100% itself).
+  assert.doesNotMatch(
+    spiceAppSource,
+    /streamProtocolRef\.current !== 'embed'\s*\n\s*&& volumeRef\.current <= 100/,
+    'no embed rescue may be gated on the volume level',
+  );
+});
+
+test('volume touches never drag embed-rescued tracks back to the proxy', () => {
+  // Regression: every volume change past 100% on an embed-rescued track
+  // re-fired the proxy handoff (resolve flash, then failure, then rescue).
+  // The handoff must skip tracks whose proxy resolution already failed.
+  assert.match(
+    spiceAppSource,
+    /proxyUnresolvableRef\.current\.has\(activeTrackKey\)/,
+    'the boost handoff must consult the unresolvable-track set',
+  );
+  assert.match(
+    spiceAppSource,
+    /proxyUnresolvableRef\.current\.add\(trackKey\)/,
+    'the embed rescues must record unresolvable tracks',
+  );
+});
+

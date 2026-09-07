@@ -1,5 +1,10 @@
 # SPICE Walkthrough
 
+## v1.0.175
+
+- [Spice.Music main] Actually unlock gated videos: the video-bound PO token is now sent inside the player request YouTube gates with LOGIN_REQUIRED, instead of only being stapled onto stream URLs afterwards. Videos that failed every client while others resolved fine now attest non-bot on the exact request that was rejecting them.
+- [Spice.Music main] Stop Volume Boost from restarting the song: pushing volume past 100% on an embed restarts the track through the gain-capable proxy path, and the captured embed position is now published where the restart reads it, so playback resumes at the same second instead of from zero. Unresolvable tracks now also reach the same-track embed rescue at any volume (the embed clamps to 100% by itself) instead of dying with a resolve error the moment Boost is on. And volume touches on an embed-rescued track no longer drag it back into a doomed proxy re-resolve — Boost stays on the embed path for tracks the proxy already failed.
+
 ## v1.0.174
 
 - [Spice.Selfhost main] Run the whole stack on your own box: new `selfhost` runtime target serves the full web UI, media routes, and cloud routes together behind one origin. The database layer uses Neon SQL-over-HTTP on Neon URLs and pooled node-postgres everywhere else (self-hosted Postgres replaces Neon; Spice Connect LISTEN works natively there). Public-host media calls require same-origin requests or a bearer media token; the Docker image takes a build-time target, ships migrations with an entrypoint that applies them, and `deploy/` adds a Compose stack (app + Postgres + Caddy auto-HTTPS).
