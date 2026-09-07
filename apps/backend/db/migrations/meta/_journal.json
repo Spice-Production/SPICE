@@ -127,6 +127,13 @@
       "when": 1788724931430,
       "tag": "0017_remote-media-devices",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788816017000,
+      "tag": "0018_password_reset",
+      "breakpoints": true
     }
   ]
 }

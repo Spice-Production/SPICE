@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.176
+
+- [Spice.Accounts main] Add password reset: request a link from the sign-in form, get a single-use 30-minute link by email, set a signup-grade password, and land straight back in a signed session. Requests never reveal whether an address has an account, and guessing is capped.
+
 ## v1.0.175
 
 - [Spice.Music main] Actually unlock gated videos: the video-bound PO token is now sent inside the player request YouTube gates with LOGIN_REQUIRED, instead of only being stapled onto stream URLs afterwards. Videos that failed every client while others resolved fine now attest non-bot on the exact request that was rejecting them.

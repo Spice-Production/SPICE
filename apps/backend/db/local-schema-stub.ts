@@ -10,6 +10,7 @@ const tableStub = new Proxy(
 export const users = tableStub;
 export const emailVerificationChallenges = tableStub;
 export const emailVerificationRateLimits = tableStub;
+export const passwordResetChallenges = tableStub;
 export const accountSubscriptions = tableStub;
 export const oauthLinks = tableStub;
 export const playlists = tableStub;
