@@ -84,6 +84,15 @@ export default function HubPage() {
           </a>
         </div>
         <div style={cardStyle}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Movies</h2>
+          <p style={{ margin: 0, color: TEXT_DIM, fontSize: '0.9rem', lineHeight: 1.5 }}>
+            Search the catalog and watch right here in the browser. Nothing to install.
+          </p>
+          <a href={MUSIC_ORIGIN + '/movie'} style={buttonStyle}>
+            Browse Movies
+          </a>
+        </div>
+        <div style={cardStyle}>
           <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Local Runtime</h2>
           <p style={{ margin: 0, color: TEXT_DIM, fontSize: '0.9rem', lineHeight: 1.5 }}>
             The full PC app: local playback, downloads, mini player, and offline updates.
