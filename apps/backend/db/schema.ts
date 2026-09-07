@@ -54,6 +54,28 @@ export const emailVerificationRateLimits = pgTable(
   ],
 );
 
+export const passwordResetChallenges = pgTable(
+  'password_reset_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    sendCount: integer('send_count').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSentAt: timestamp('last_sent_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('password_reset_email_created_idx').on(t.email, t.createdAt),
+    index('password_reset_expiry_idx').on(t.expiresAt),
+  ],
+);
+
 export const accountSubscriptions = pgTable(
   'account_subscriptions',
   {
