@@ -49,6 +49,7 @@ services:
       LASTFM_SHARED_SECRET: ${LASTFM_SHARED_SECRET:-}
       SPICE_CORS_ORIGINS: ${SPICE_CORS_ORIGINS:-}
       SPICE_MOVIE_PROVIDER_BASE_URL: ${SPICE_MOVIE_PROVIDER_BASE_URL:-}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
       PORT: 3000
       # Docker injects HOSTNAME=<container id>, which would bind the Next
       # standalone server to the container IP only. Bind all interfaces so
