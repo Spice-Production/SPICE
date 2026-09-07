@@ -3218,6 +3218,10 @@ export default function SpiceApp() {
   const suppressRemotePlaybackUntilRef = useRef(0);
   const directEmbedRetryRef = useRef<Set<string>>(new Set());
   const embedProxyRetryRef = useRef<Set<string>>(new Set());
+  // Tracks whose proxy resolution failed and are playing via the embed
+  // rescue. The Volume Boost handoff consults this so a volume touch never
+  // drags them back into a doomed proxy re-resolve.
+  const proxyUnresolvableRef = useRef<Set<string>>(new Set());
   const playbackFallbackAttemptedRef = useRef<Set<string>>(new Set());
   const boostProtocolHandoffRef = useRef(false);
   const boostResumeSecondsRef = useRef<{ trackKey: string; seconds: number } | null>(null);
@@ -6146,6 +6150,7 @@ export default function SpiceApp() {
       // the embed clamps to 100% itself, so boosted listeners still get the
       // song instead of a playback error.
       directEmbedRetryRef.current.add(activeTrackKey);
+      proxyUnresolvableRef.current.add(activeTrackKey);
       setError('Direct audio failed. Falling back to the YouTube embedded player...');
       logDebug('diagnostics', 'Direct audio playback failed after stream resolution. Retrying this track in the YouTube embed transport.');
       setStreamProtocol('embed');
@@ -6804,6 +6809,7 @@ export default function SpiceApp() {
       playbackRetryCountsRef.current.delete(trackKey);
       directEmbedRetryRef.current.delete(trackKey);
       embedProxyRetryRef.current.delete(trackKey);
+      proxyUnresolvableRef.current.delete(trackKey);
       playbackFallbackAttemptedRef.current.delete(trackKey);
       playbackTelemetryRecordedRef.current.delete(trackKey);
     }
@@ -7069,6 +7075,7 @@ export default function SpiceApp() {
         // unplayable the moment Volume Boost was on.
         cancelPreparedCrossfade();
         logDebug('diagnostics', `Direct stream resolution failed. Retrying this track in the YouTube Embedded Player...`);
+        proxyUnresolvableRef.current.add(trackKey);
         const shouldStartNow = shouldAutoPlayRef.current;
         setStreamProtocol('embed');
         streamProtocolRef.current = 'embed';
@@ -11578,6 +11585,15 @@ export default function SpiceApp() {
 
     if (shouldUseProxyForBoost(safeVolume, streamProtocolRef.current)) {
       const activeTrack = currentTrackRef.current;
+      const activeTrackKey = activeTrack ? playbackTrackKey(activeTrack) : null;
+      if (activeTrackKey && proxyUnresolvableRef.current.has(activeTrackKey)) {
+        // This track is on the embed transport because proxy resolution
+        // already failed for it — switching back would just re-resolve and
+        // fail again (the "resolving" flash on every volume touch). Stay on
+        // the embed, which clamps to 100% by itself.
+        logDebug('player', 'Volume Boost staying on the YouTube embed path: proxy resolution already failed for this track.');
+        return;
+      }
       const embedIsActive = streamUrlRef.current === 'youtube-embed-active';
       if (isPlayingRef.current && embedIsActive && activeTrack && activeTrack.id !== 'placeholder') {
         // The YouTube embed iframe caps its audio at 100% and exposes no gain

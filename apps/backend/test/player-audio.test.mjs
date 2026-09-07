@@ -127,3 +127,19 @@ test('embed rescues for unplayable tracks ignore the boost level', () => {
   );
 });
 
+test('volume touches never drag embed-rescued tracks back to the proxy', () => {
+  // Regression: every volume change past 100% on an embed-rescued track
+  // re-fired the proxy handoff (resolve flash, then failure, then rescue).
+  // The handoff must skip tracks whose proxy resolution already failed.
+  assert.match(
+    spiceAppSource,
+    /proxyUnresolvableRef\.current\.has\(activeTrackKey\)/,
+    'the boost handoff must consult the unresolvable-track set',
+  );
+  assert.match(
+    spiceAppSource,
+    /proxyUnresolvableRef\.current\.add\(trackKey\)/,
+    'the embed rescues must record unresolvable tracks',
+  );
+});
+
