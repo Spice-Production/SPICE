@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const main = fs.readFileSync(path.join(repoRoot, "main.js"), "utf8");
 const preload = fs.readFileSync(path.join(repoRoot, "preload.js"), "utf8");
 const startNative = fs.readFileSync(path.join(repoRoot, "scripts", "start-native.js"), "utf8");
+const settingsUi = fs.readFileSync(path.join(repoRoot, "index.html"), "utf8");
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -177,6 +178,8 @@ test("preload exposes runtime IPC and nothing else new", () => {
     assert.ok(preload.includes(channel), `preload.js must expose ${channel}`);
   }
   assert.match(preload, /testConnection:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("spice:runtime:test-connection"\)/);
+  assert.match(preload, /getMode:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("spice:runtime:get"\)/);
+  assert.match(preload, /setMode:\s*\(patch\)\s*=>\s*ipcRenderer\.invoke\("spice:runtime:set", patch\)/);
 });
 
 test("renderer sees only a hasToken boolean, never the plaintext token", () => {
@@ -255,4 +258,15 @@ test("start-native launches the shared main process and duplicates no runtime li
   assert.doesNotMatch(startNative, /spiceRuntimeManager/);
   assert.doesNotMatch(startNative, /installOrUpdate/);
   assert.doesNotMatch(startNative, /ensureBundledRuntimeInstalled/);
+});
+
+test("desktop settings never trap the user in cloud mode", () => {
+  // Regression: the local-runtime card showed "Not installed" with a dead
+  // Install button in remote mode and offered no way back — cloud mode was
+  // a trap door. The card must name the cloud state and offer the return.
+  assert.match(settingsUi, /runtimeStatus && runtimeStatus\.skipped/);
+  assert.match(settingsUi, /Using SPICE Cloud — local runtime paused/);
+  assert.match(settingsUi, /Switch back to Local PC/);
+  assert.match(settingsUi, /spiceRuntimeSetMode/);
+  assert.match(settingsUi, /callApi\('spiceRuntimeSetMode', \{ mode: 'local' \}\)/);
 });
