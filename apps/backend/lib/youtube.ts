@@ -251,7 +251,11 @@ async function resolveWithClient(
   poToken?: string | null,
 ): Promise<SpiceTrackDetails> {
   // Use the top-level getInfo (not music.getInfo) so we can specify client.
-  const info = await yt.getInfo(id, { client });
+  // The video-bound pot MUST ride in the player request
+  // (serviceIntegrityDimensions) — that is the request YouTube gates with
+  // LOGIN_REQUIRED. Stapling ?pot= onto stream URLs afterwards only fixes
+  // the ~1 MB truncation, never playability.
+  const info = await yt.getInfo(id, { client, po_token: poToken ?? undefined });
   const formats = info.streaming_data?.adaptive_formats ?? [];
   // allSettled: one throwing decipher must not discard every other playable
   // format and force a needless fallback to the next InnerTube client.
