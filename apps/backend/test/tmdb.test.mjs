@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { searchMovies, tmdbApiKey } from '../lib/tmdb.ts';
+import { browseMovies, getMovieDetails, searchMovies, tmdbApiKey } from '../lib/tmdb.ts';
 
 const okFetch = (payload) => async () => ({
   ok: true,
@@ -44,6 +44,7 @@ test('search maps TMDB rows and drops malformed ones', async () => {
     title: 'Dune',
     year: '2021',
     posterUrl: 'https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg',
+    backdropUrl: null,
     overview: 'Spice must flow.',
   });
   assert.equal(hits[1].posterUrl, null);
@@ -53,4 +54,41 @@ test('search maps TMDB rows and drops malformed ones', async () => {
 test('search failures surface the upstream status', async () => {
   const err = await searchMovies('Dune', 12, async () => ({ ok: false, status: 429 }), 'key').catch((e) => e);
   assert.match(err.message, /tmdb search failed \(429\)/);
+});
+
+test('browse hits the list endpoint and maps the same shape', async () => {
+  let seenUrl = '';
+  const hits = await browseMovies(
+    'trending',
+    12,
+    async (url) => {
+      seenUrl = String(url);
+      return okFetch({ results: [{ id: 1, title: 'Hit', release_date: '2024-01-01', poster_path: '/p.jpg', backdrop_path: '/b.jpg', overview: 'x' }] })();
+    },
+    'key',
+  );
+  assert.match(seenUrl, /\/3\/trending\/movie\/week/);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].backdropUrl, 'https://image.tmdb.org/t/p/w780/b.jpg');
+});
+
+test('browse rejects unknown lists and missing keys', async () => {
+  await assert.rejects(browseMovies('nope', 12, okFetch({ results: [] }), 'key'));
+  const err = await browseMovies('popular', 12, okFetch({ results: [] }), null).catch((e) => e);
+  assert.equal(err.code, 'tmdb_key_missing');
+});
+
+test('details return full meta, null for unknown or bad ids', async () => {
+  const details = await getMovieDetails(
+    '438631',
+    okFetch({ id: 438631, title: 'Dune', release_date: '2021-09-15', poster_path: '/p.jpg', backdrop_path: '/b.jpg', overview: 'Spice.', runtime: 155, genres: [{ name: 'Sci-Fi' }, { name: 'Adventure' }, 7], tagline: '  Beyond fear.  ' }),
+    'key',
+  );
+  assert.equal(details.title, 'Dune');
+  assert.equal(details.runtimeMinutes, 155);
+  assert.deepEqual(details.genres, ['Sci-Fi', 'Adventure']);
+  assert.equal(details.tagline, 'Beyond fear.');
+  assert.equal(await getMovieDetails('abc', okFetch({}), 'key'), null);
+  const missing = await getMovieDetails('999999999', async () => ({ ok: false, status: 404 }), 'key');
+  assert.equal(missing, null);
 });
