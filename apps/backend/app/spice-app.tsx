@@ -11590,6 +11590,10 @@ export default function SpiceApp() {
           trackKey: playbackTrackKey(activeTrack),
           seconds: resumeSeconds,
         };
+        // The proxy restart consumes pendingProxyStartSecondsRef (not the
+        // boost ref) for its resume-seek — publish the position there too,
+        // otherwise every boost handoff restarts the song from zero.
+        pendingProxyStartSecondsRef.current = boostResumeSecondsRef.current;
         boostProtocolHandoffRef.current = false;
         streamProtocolRef.current = 'proxy';
         setStreamProtocol('proxy');

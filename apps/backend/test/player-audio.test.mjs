@@ -103,3 +103,15 @@ test('volume boost on a playing YouTube embed switches to the proxy path immedia
   );
 });
 
+test('volume-boost handoff publishes its resume position where the restart reads it', () => {
+  // Regression: the handoff captured the embed position into
+  // boostResumeSecondsRef, but the proxy restart consumes
+  // pendingProxyStartSecondsRef — nothing connected them, so every boost
+  // past 100% restarted the song from zero.
+  assert.match(
+    spiceAppSource,
+    /pendingProxyStartSecondsRef\.current = boostResumeSecondsRef\.current/,
+    'the handoff must publish the captured position to the pending-proxy ref',
+  );
+});
+

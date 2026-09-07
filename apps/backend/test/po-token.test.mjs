@@ -146,3 +146,15 @@ test('release notes document the PO token playback restoration', () => {
     'the entry must describe the ~1 MB truncation fix',
   );
 });
+
+test('the video-bound pot rides in the player request, not just stream URLs', async () => {
+  const youtubeSource = await readFile(new URL('../lib/youtube.ts', import.meta.url), 'utf8');
+  // Regression: we minted the pot but only stapled ?pot= onto stream URLs,
+  // never sending it in the playability request YouTube gates with
+  // LOGIN_REQUIRED — so gated videos stayed unplayable with a token in hand.
+  assert.match(
+    youtubeSource,
+    /await yt\.getInfo\(id, \{ client, po_token: poToken/,
+    'resolveWithClient must forward the pot into the player request',
+  );
+});
