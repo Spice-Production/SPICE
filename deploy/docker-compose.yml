@@ -37,6 +37,8 @@ services:
       SPICE_SELFHOST_MEDIA_TOKEN: ${SPICE_SELFHOST_MEDIA_TOKEN:-}
       SPICE_CLOUD_API_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_LOCAL_UPDATE_MANIFEST_URL: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}/api/updates/local-windows
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SPICE_EMAIL_FROM: ${SPICE_EMAIL_FROM:-}
       PORT: 3000
       # Docker injects HOSTNAME=<container id>, which would bind the Next
       # standalone server to the container IP only. Bind all interfaces so
