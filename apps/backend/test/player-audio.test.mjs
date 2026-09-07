@@ -115,3 +115,15 @@ test('volume-boost handoff publishes its resume position where the restart reads
   );
 });
 
+test('embed rescues for unplayable tracks ignore the boost level', () => {
+  // Regression: both same-track embed rescues (resolve failure and
+  // post-resolution playback error) were gated on volume <= 100, so with
+  // Volume Boost on, gated videos died instead of playing in the embed
+  // transport (which clamps to 100% itself).
+  assert.doesNotMatch(
+    spiceAppSource,
+    /streamProtocolRef\.current !== 'embed'\s*\n\s*&& volumeRef\.current <= 100/,
+    'no embed rescue may be gated on the volume level',
+  );
+});
+

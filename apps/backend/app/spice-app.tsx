@@ -6140,9 +6140,11 @@ export default function SpiceApp() {
       activeTrack.id !== 'placeholder'
       && isYouTubeTrack(activeTrack)
       && streamProtocolRef.current !== 'embed'
-      && volumeRef.current <= 100
       && !directEmbedRetryRef.current.has(activeTrackKey)
     ) {
+      // NOTE: intentionally no volume gate (see the resolve-failure rescue):
+      // the embed clamps to 100% itself, so boosted listeners still get the
+      // song instead of a playback error.
       directEmbedRetryRef.current.add(activeTrackKey);
       setError('Direct audio failed. Falling back to the YouTube embedded player...');
       logDebug('diagnostics', 'Direct audio playback failed after stream resolution. Retrying this track in the YouTube embed transport.');
@@ -7059,8 +7061,12 @@ export default function SpiceApp() {
       if (
         isYouTubeTrack(track)
         && streamProtocolRef.current !== 'embed'
-        && volumeRef.current <= 100
       ) {
+        // NOTE: no volume gate here. The embed player clamps to 100% by
+        // itself (see the volume sync effect), so a boosted listener still
+        // gets the song at full embed volume instead of a resolve error.
+        // Gating this on volume <= 100 used to make every gated video
+        // unplayable the moment Volume Boost was on.
         cancelPreparedCrossfade();
         logDebug('diagnostics', `Direct stream resolution failed. Retrying this track in the YouTube Embedded Player...`);
         const shouldStartNow = shouldAutoPlayRef.current;

@@ -3,7 +3,7 @@
 ## v1.0.175
 
 - [Spice.Music main] Actually unlock gated videos: the video-bound PO token is now sent inside the player request YouTube gates with LOGIN_REQUIRED, instead of only being stapled onto stream URLs afterwards. Videos that failed every client while others resolved fine now attest non-bot on the exact request that was rejecting them.
-- [Spice.Music main] Stop Volume Boost from restarting the song: pushing volume past 100% on an embed restarts the track through the gain-capable proxy path, and the captured embed position is now published where the restart reads it, so playback resumes at the same second instead of from zero.
+- [Spice.Music main] Stop Volume Boost from restarting the song: pushing volume past 100% on an embed restarts the track through the gain-capable proxy path, and the captured embed position is now published where the restart reads it, so playback resumes at the same second instead of from zero. Unresolvable tracks now also reach the same-track embed rescue at any volume (the embed clamps to 100% by itself) instead of dying with a resolve error the moment Boost is on.
 
 ## v1.0.174
 
