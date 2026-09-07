@@ -56,8 +56,8 @@ test('public-host media calls need same-origin or a bearer token', () => {
   );
   assert.match(
     runtimeTargetSource,
-    /if \(publicHost && \(originHost === publicHost \|\| refererHost === publicHost\)\) return null;/,
-    'browsers on the site pass via Origin/Referer',
+    /trustedHosts\.includes\(originHost/,
+    'browsers on any trusted box name pass via Origin/Referer',
   );
   assert.match(
     runtimeTargetSource,

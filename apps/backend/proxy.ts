@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getProxySystemSettings } from '@/lib/proxy-system-settings';
-import { effectiveRequestHost, shouldServeHub } from '@/lib/request-host';
+import { effectiveRequestHost, shouldServeHub, shouldServeMovies } from '@/lib/request-host';
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -11,6 +11,13 @@ export async function proxy(request: NextRequest) {
   // the address bar keeps showing the apex domain.
   if (shouldServeHub(effectiveRequestHost(request), url.pathname, process.env.SPICE_APEX_DOMAIN)) {
     return NextResponse.rewrite(new URL('/hub', request.url));
+  }
+
+  // Movies front door: the bare movies domain serves the movies landing
+  // page the same way. Every other path on every host passes through, so
+  // /movie, the player, and all API routes work on all three names.
+  if (shouldServeMovies(effectiveRequestHost(request), url.pathname, process.env.SPICE_MOVIE_DOMAIN)) {
+    return NextResponse.rewrite(new URL('/movie', request.url));
   }
 
   // Keep admin bootstrap and management APIs reachable so operators can

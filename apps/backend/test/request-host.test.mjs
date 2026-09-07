@@ -102,3 +102,33 @@ test('shouldServeHub matches only the bare apex path on the apex domain', async 
   assert.equal(shouldServeHub('spice-app.xyz', '/', null), false);
   assert.equal(shouldServeHub('spice-app.xyz', '/', ''), false);
 });
+
+test('shouldServeMovies matches only the bare path on the movies domain', async () => {
+  const { shouldServeMovies } = await import('../lib/request-host.ts');
+  assert.equal(shouldServeMovies('movie.spice-app.xyz', '/', 'movie.spice-app.xyz'), true);
+  assert.equal(shouldServeMovies('MOVIE.SPICE-APP.XYZ', '/', 'movie.spice-app.xyz'), true);
+  assert.equal(shouldServeMovies('music.spice-app.xyz', '/', 'movie.spice-app.xyz'), false);
+  assert.equal(shouldServeMovies('spice-app.xyz', '/', 'movie.spice-app.xyz'), false);
+  assert.equal(shouldServeMovies('movie.spice-app.xyz', '/movie/watch/1', 'movie.spice-app.xyz'), false);
+  assert.equal(shouldServeMovies('movie.spice-app.xyz', '/api/movies/search', 'movie.spice-app.xyz'), false);
+  assert.equal(shouldServeMovies('movie.spice-app.xyz', '/', null), false);
+  assert.equal(shouldServeMovies('movie.spice-app.xyz', '/', ''), false);
+});
+
+test('selfhostTrustedHosts collects every configured public name', async () => {
+  const { selfhostTrustedHosts } = await import('../lib/request-host.ts');
+  assert.deepEqual(
+    selfhostTrustedHosts({
+      SPICE_PUBLIC_ORIGIN: 'https://music.spice-app.xyz',
+      SPICE_APEX_DOMAIN: 'spice-app.xyz',
+      SPICE_MOVIE_DOMAIN: 'movie.spice-app.xyz',
+    }),
+    ['music.spice-app.xyz', 'spice-app.xyz', 'movie.spice-app.xyz'],
+  );
+  // Bare domains, missing entries, and duplicates all behave.
+  assert.deepEqual(selfhostTrustedHosts({}), []);
+  assert.deepEqual(
+    selfhostTrustedHosts({ SPICE_PUBLIC_ORIGIN: 'https://music.spice-app.xyz', SPICE_MOVIE_DOMAIN: 'music.spice-app.xyz' }),
+    ['music.spice-app.xyz'],
+  );
+});

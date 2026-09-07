@@ -88,7 +88,7 @@ export default function HubPage() {
           <p style={{ margin: 0, color: TEXT_DIM, fontSize: '0.9rem', lineHeight: 1.5 }}>
             Search the catalog and watch right here in the browser. Nothing to install.
           </p>
-          <a href={MUSIC_ORIGIN + '/movie'} style={buttonStyle}>
+          <a href="/movie" style={buttonStyle}>
             Browse Movies
           </a>
         </div>
