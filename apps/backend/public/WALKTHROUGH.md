@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.177
+
+- [Spice.Movies main] Revive Spice Movies: search the TMDB catalog from a new movies page (key stays server-side via `TMDB_API_KEY`) and watch through the embedded provider on a dedicated watch route that only accepts numeric TMDB ids.
+
 ## v1.0.176
 
 - [Spice.Accounts main] Add password reset: request a link from the sign-in form, get a single-use 30-minute link by email, set a signup-grade password, and land straight back in a signed session. Requests never reveal whether an address has an account, and guessing is capped.
