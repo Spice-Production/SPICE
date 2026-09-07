@@ -153,6 +153,7 @@
                 case 'spiceRuntimeInstall': return window.api.spiceRuntime && window.api.spiceRuntime.install();
                 case 'spiceRuntimeStart': return window.api.spiceRuntime && window.api.spiceRuntime.start();
                 case 'spiceRuntimeStop': return window.api.spiceRuntime && window.api.spiceRuntime.stop();
+                case 'spiceRuntimeSetMode': return window.api.spiceRuntime && window.api.spiceRuntime.setMode(args[0]);
                 case 'nativeAppStatus': return window.api.native && window.api.native.getStatus();
                 case 'nativePrepareRuntime': return window.api.native && window.api.native.prepareRuntime();
                 case 'nativeAuth': return window.api.native && window.api.native.auth(args[0]);
@@ -323,7 +324,22 @@
             }
         }
 
+        async function switchRuntimeToLocal() {
+            setRuntimeBusy(true);
+            setRuntimeMessage('Switching back to the Local PC runtime...');
+            try {
+                await callApi('spiceRuntimeSetMode', { mode: 'local' });
+                setRuntimeMessage('Local PC runtime selected. Local controls are available again.');
+            } catch (err) {
+                setRuntimeMessage(err && err.message ? err.message : 'Could not switch runtime mode.');
+            } finally {
+                setRuntimeBusy(false);
+                refreshRuntimeStatus();
+            }
+        }
+
         function runtimeLabel() {
+            if (runtimeStatus && runtimeStatus.skipped) return 'Using SPICE Cloud — local runtime paused';
             if (!runtimeStatus) return 'Checking local runtime';
             if (!runtimeStatus.supported) return 'Managed install is unavailable on this platform';
             var architectures = Array.isArray(runtimeStatus.architectures) ? runtimeStatus.architectures : [];
@@ -660,11 +676,18 @@
                             </button>
                         </div>
                         <div class="flex flex-wrap gap-2">
+                            ${runtimeStatus && runtimeStatus.skipped ? html`
+                            <button class="theme-primary-btn rounded-full px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
+                                    disabled=${runtimeBusy}
+                                    onClick=${switchRuntimeToLocal}>
+                                Switch back to Local PC
+                            </button>` : html`
                             <button class="theme-primary-btn rounded-full px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
                                     disabled=${runtimeBusy || (runtimeStatus && (!runtimeStatus.supported || runtimeStatus.running))}
                                     onClick=${function() { runRuntimeAction('spiceRuntimeInstall'); }}>
                                 Install / update
-                            </button>
+                            </button>`}
+                            ${!(runtimeStatus && runtimeStatus.skipped) ? html`
                             <button class="theme-outline-btn rounded-full border px-4 py-2 text-[12px] font-semibold disabled:opacity-40"
                                     disabled=${runtimeBusy || !runtimeStatus || !runtimeStatus.installed || runtimeStatus.running}
                                     onClick=${function() { runRuntimeAction('spiceRuntimeStart'); }}>
@@ -674,7 +697,7 @@
                                     disabled=${runtimeBusy || !runtimeStatus || !runtimeStatus.running}
                                     onClick=${function() { runRuntimeAction('spiceRuntimeStop'); }}>
                                 Stop
-                            </button>
+                            </button>` : ''}
                             <button class="rounded-full border border-white/10 px-4 py-2 text-[12px] font-semibold text-gray-300 hover:bg-white/5"
                                     onClick=${function() { callApi('loadUrl', 'https://install.spice-app.xyz/'); }}>
                                 Install guide

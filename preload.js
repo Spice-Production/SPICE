@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("api", {
     install: () => ipcRenderer.invoke("spice-runtime-install"),
     start: () => ipcRenderer.invoke("spice-runtime-start"),
     stop: () => ipcRenderer.invoke("spice-runtime-stop"),
+    getMode: () => ipcRenderer.invoke("spice:runtime:get"),
+    setMode: (patch) => ipcRenderer.invoke("spice:runtime:set", patch),
     onStatus: (callback) => {
       const listener = (event, status) => callback(status);
       ipcRenderer.on("spice-runtime-status", listener);
