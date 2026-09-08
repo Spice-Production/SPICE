@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { buildShowEmbedUrl } from '@/lib/movie-provider';
+import { DEFAULT_STREAM_PROVIDER_ID, streamProviders } from '@/lib/movie-provider';
+
+import { loadPreferredProvider, ProviderTabs, savePreferredProvider, WatchFrame } from '../../../watch-frame';
 
 interface SeasonSummary {
   seasonNumber: number;
@@ -31,7 +33,6 @@ export default function ShowPlayer({ tmdbId, title, seasons }: ShowPlayerProps) 
   const [episode, setEpisode] = useState(1);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [playerReady, setPlayerReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,43 +64,38 @@ export default function ShowPlayer({ tmdbId, title, seasons }: ShowPlayerProps) 
 
   const pickEpisode = useCallback((next: number) => {
     setEpisode(next);
-    setPlayerReady(false);
   }, []);
 
   const current = episodes.find((e) => e.episodeNumber === episode);
-  const embedUrl = buildShowEmbedUrl(tmdbId, season, episode);
+  const providerUrls = useMemo(
+    () =>
+      streamProviders()
+        .map((provider) => ({ id: provider.id, label: provider.label, url: provider.tvUrl(tmdbId, season, episode) }))
+        .filter((entry) => entry.url !== null),
+    [tmdbId, season, episode],
+  );
+  const [providerId, setProviderId] = useState(() => {
+    const stored = loadPreferredProvider(DEFAULT_STREAM_PROVIDER_ID);
+    return providerUrls.some((entry) => entry.id === stored) ? stored : (providerUrls[0]?.id ?? DEFAULT_STREAM_PROVIDER_ID);
+  });
+  const activeUrl = providerUrls.find((entry) => entry.id === providerId)?.url ?? providerUrls[0]?.url ?? null;
   const hasNext = episodes.some((e) => e.episodeNumber === episode + 1);
 
   return (
     <div>
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          aspectRatio: '16 / 9',
-          background: '#000',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          border: '1px solid rgba(255,255,255,0.1)',
+      <ProviderTabs
+        sources={providerUrls.map((entry) => ({ ...entry, disabled: false }))}
+        activeId={providerId}
+        onPick={(id) => {
+          setProviderId(id);
+          savePreferredProvider(id);
         }}
-      >
-        {!playerReady && (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
-            Loading S{season} E{episode}…
-          </div>
-        )}
-        {embedUrl && (
-          <iframe
-            key={`${season}:${episode}`}
-            src={embedUrl}
-            title={`${title} S${season} E${episode} player`}
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            onLoad={() => setPlayerReady(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-          />
-        )}
-      </div>
+      />
+      {activeUrl ? (
+        <WatchFrame key={`${providerId}:${season}:${episode}`} src={activeUrl} title={`${title} S${season} E${episode} player`} frameKey={`${providerId}:${season}:${episode}`} />
+      ) : (
+        <p style={{ color: '#94a3b8' }}>No source carries this episode — try another provider.</p>
+      )}
 
       {current && (
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '14px', flexWrap: 'wrap' }}>

@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { buildMovieEmbedUrl, normalizeTmdbMovieId } from '@/lib/movie-provider';
 import { getMovieDetails } from '@/lib/tmdb';
 
+import MoviePlayer from './movie-player';
+
 interface WatchParams {
   tmdbId: string;
 }
@@ -67,25 +69,7 @@ export default async function MovieWatchPage({ params }: { params: Promise<Watch
             {details.overview}
           </p>
         )}
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            aspectRatio: '16 / 9',
-            background: '#000',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }}
-        >
-          <iframe
-            src={embedUrl}
-            title={details ? `${details.title} player` : 'Spice movie player'}
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-          />
-        </div>
+        <MoviePlayer tmdbId={tmdbId} title={details?.title ?? `Movie ${tmdbId}`} />
       </div>
     </main>
   );
