@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DEFAULT_STREAM_PROVIDER_ID, streamProviders } from '@/lib/movie-provider';
+import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
-import { loadPreferredProvider, ProviderTabs, savePreferredProvider, WatchFrame } from '../../../watch-frame';
+import { ProviderTabs, WatchFrame } from '../../../watch-frame';
 import WatchSync from '../../../watch-sync';
 
 interface SeasonSummary {
