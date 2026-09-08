@@ -228,30 +228,10 @@ function ProfileMenu({
                     )}
                   </div>
                 </div>
-                <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>
-                  Default source
-                  <select
-                    value={source}
-                    onChange={(e) => {
-                      setSource(e.target.value);
-                      savePreferredProvider(e.target.value);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      borderRadius: '10px',
-                      color: '#e2e8f0',
-                      padding: '8px 10px',
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    {streamProviders().map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>Default source</span>
+                  <SourcePicker current={source} onPick={(id) => setSource(id)} />
+                </div>
                 <a href={MUSIC_HOME} style={{ color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MusicIcon size={15} /> Open SPICE Music
                 </a>
@@ -274,6 +254,110 @@ function ProfileMenu({
                 </button>
               </>
             )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Default-source picker as real buttons instead of a native select element.
+ * Native option popups ignore the dark theme (white box, washed-out rows),
+ * so this renders the same list inside the themed menu.
+ */
+function SourcePicker({ current, onPick }: { current: string; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const providers = streamProviders();
+  const active = providers.find((provider) => provider.id === current) ?? providers[0];
+
+  function pick(id: string) {
+    savePreferredProvider(id);
+    onPick(id);
+    setOpen(false);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-label={`Default source: ${active?.label ?? current}`}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: '10px',
+          color: '#e2e8f0',
+          cursor: 'pointer',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          padding: '8px 10px',
+        }}
+      >
+        <span>{active?.label ?? current}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease' }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div aria-hidden onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 42, background: 'transparent' }} />
+          <div
+            role="listbox"
+            aria-label="Default source"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 'calc(100% + 6px)',
+              background: '#1b1b24',
+              border: '1px solid rgba(255,255,255,0.14)',
+              borderRadius: '10px',
+              boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
+              overflow: 'hidden',
+              zIndex: 43,
+              padding: '4px',
+              display: 'grid',
+              gap: '2px',
+            }}
+          >
+            {providers.map((provider) => {
+              const selected = provider.id === active?.id;
+              return (
+                <button
+                  key={provider.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => pick(provider.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    width: '100%',
+                    background: selected ? 'rgba(124,58,237,0.28)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '7px',
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: selected ? 700 : 500,
+                    padding: '8px 10px',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span>{provider.label}</span>
+                  {selected && <span aria-hidden style={{ color: '#c084fc' }}>✓</span>}
+                </button>
+              );
+            })}
           </div>
         </>
       )}

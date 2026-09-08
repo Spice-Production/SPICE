@@ -88,6 +88,8 @@ test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async (
   assert.match(chrome, /spice-movies-icon\.svg/, 'sidebar brand wears the Movies mark');
   assert.match(chrome, /fetchAccountProfile/, 'profile menu loads the synced music profile');
   assert.match(chrome, /profile\?\.avatarUrl/, 'profile button and menu render the synced PFP with an initial-letter fallback');
+  assert.match(chrome, /function SourcePicker/, 'default source uses a themed picker, not a native select');
+  assert.doesNotMatch(chrome, /<select/, 'no native select left to render washed-out options');
   const client = await read('app/watch-client.ts');
   assert.match(client, /\/api\/sync\/profiles/, 'avatars resolve from the synced profiles endpoint');
   assert.match(client, /spice_cloud_profile_id/, 'the active music profile wins, first profile otherwise');
