@@ -3,6 +3,7 @@
 ## v1.0.177
 
 - [Spice.Movies main] Revive Spice Movies: search the TMDB catalog from a new movies page (key stays server-side via `TMDB_API_KEY`) and watch through the embedded provider on a dedicated watch route that only accepts numeric TMDB ids.
+- [Spice.Shows main] Add TV series: trend/search shelves, per-show season and episode pickers with stills and runtimes, next-episode flow, and a loading-aware player on series embeds.
 - [Spice.Selfhost main] Give movies its own front door: `movie.` serves the movies landing while every route keeps working on every name, and the media gates trust all configured public names (player, apex, movies) for same-origin calls.
 
 ## v1.0.176

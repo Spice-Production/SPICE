@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildMovieEmbedUrl,
+  buildShowEmbedUrl,
   getMovieProviderBaseUrl,
   normalizeTmdbMovieId,
 } from '../lib/movie-provider.ts';
@@ -32,4 +33,13 @@ test('movie provider rejects unsafe configured origins', () => {
     getMovieProviderBaseUrl('https://user:password@player.example.test').toString(),
     'https://vidsrc.sbs/',
   );
+});
+
+test('show provider builds series embed URLs and refuses bad seasons', () => {
+  assert.equal(buildShowEmbedUrl('1396', 1, 1), 'https://vidsrc.sbs/embed/tv/1396/1/1');
+  assert.equal(buildShowEmbedUrl('1396', '2', '10'), 'https://vidsrc.sbs/embed/tv/1396/2/10');
+  assert.equal(buildShowEmbedUrl('abc', 1, 1), null);
+  assert.equal(buildShowEmbedUrl('1396', 0, 1), null);
+  assert.equal(buildShowEmbedUrl('1396', 1, 100), null);
+  assert.equal(buildShowEmbedUrl('1396', 1.5, 1), null);
 });

@@ -49,3 +49,31 @@ export function getMovieProviderHomeUrl(
 ) {
   return getMovieProviderBaseUrl(configuredBaseUrl).toString();
 }
+
+function normalizeSeasonEpisode(value: unknown): number | null {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(num) || num < 1 || num > 99) return null;
+  return num;
+}
+
+/**
+ * Series embed URL: provider path embed/tv/{id}/{season}/{episode}.
+ * Season/episode must be sane positive integers; anything else refuses
+ * rather than building a dead player URL.
+ */
+export function buildShowEmbedUrl(
+  tmdbShowId: unknown,
+  season: unknown,
+  episode: unknown,
+  configuredBaseUrl = process.env.SPICE_MOVIE_PROVIDER_BASE_URL,
+) {
+  const normalizedId = normalizeTmdbMovieId(tmdbShowId);
+  const normalizedSeason = normalizeSeasonEpisode(season);
+  const normalizedEpisode = normalizeSeasonEpisode(episode);
+  if (!normalizedId || !normalizedSeason || !normalizedEpisode) return null;
+
+  return new URL(
+    `embed/tv/${normalizedId}/${normalizedSeason}/${normalizedEpisode}`,
+    getMovieProviderBaseUrl(configuredBaseUrl),
+  ).toString();
+}

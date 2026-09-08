@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { browseMovies, getMovieDetails, searchMovies, tmdbApiKey } from '../lib/tmdb.ts';
+import { browseMovies, browseShows, getMovieDetails, getSeasonEpisodes, getShowDetails, searchMovies, searchShows, tmdbApiKey } from '../lib/tmdb.ts';
 
 const okFetch = (payload) => async () => ({
   ok: true,
@@ -91,4 +91,64 @@ test('details return full meta, null for unknown or bad ids', async () => {
   assert.equal(await getMovieDetails('abc', okFetch({}), 'key'), null);
   const missing = await getMovieDetails('999999999', async () => ({ ok: false, status: 404 }), 'key');
   assert.equal(missing, null);
+});
+
+test('series search maps TV rows and drops malformed ones', async () => {
+  let seenUrl = '';
+  const hits = await searchShows(
+    'Breaking',
+    12,
+    async (url) => {
+      seenUrl = String(url);
+      return okFetch({ results: [
+        { id: 1396, name: 'Breaking Bad', first_air_date: '2008-01-20', poster_path: '/p.jpg', backdrop_path: '/b.jpg', overview: 'Chemistry.' },
+        { id: -1, name: 'Bad', first_air_date: '', poster_path: null, backdrop_path: null, overview: '' },
+      ] })();
+    },
+    'key',
+  );
+  assert.match(seenUrl, /\/3\/search\/tv/);
+  assert.equal(hits.length, 1);
+  assert.deepEqual(hits[0], {
+    tmdbId: '1396',
+    title: 'Breaking Bad',
+    year: '2008',
+    posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
+    backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
+    overview: 'Chemistry.',
+  });
+  await assert.rejects(searchShows('  ', 12, okFetch({ results: [] }), 'key'));
+});
+
+test('series browse and details expose seasons', async () => {
+  const hits = await browseShows('top_rated', 5, okFetch({ results: [{ id: 1396, name: 'Breaking Bad', first_air_date: '2008', poster_path: '/p.jpg', backdrop_path: null, overview: '' }] }), 'key');
+  assert.equal(hits.length, 1);
+  const details = await getShowDetails(
+    '1396',
+    okFetch({ id: 1396, name: 'Breaking Bad', first_air_date: '2008-01-20', poster_path: '/p.jpg', backdrop_path: '/b.jpg', overview: 'Chemistry.', genres: [{ name: 'Drama' }], tagline: null, status: 'Ended', number_of_seasons: 5, seasons: [
+      { season_number: 0, name: 'Specials', episode_count: 3, overview: '' },
+      { season_number: 1, name: 'Season 1', episode_count: 7, overview: '' },
+      { season_number: 'x', name: 'Bogus', episode_count: 1, overview: '' },
+    ] }),
+    'key',
+  );
+  assert.equal(details.status, 'Ended');
+  assert.deepEqual(details.seasons.map((s) => s.seasonNumber), [1]);
+  assert.equal(await getShowDetails('abc', okFetch({}), 'key'), null);
+});
+
+test('season episodes map with stills and runtimes', async () => {
+  const eps = await getSeasonEpisodes(
+    '1396',
+    1,
+    okFetch({ episodes: [
+      { episode_number: 1, name: 'Pilot', overview: 'Begins.', still_path: '/s.jpg', runtime: 58 },
+      { episode_number: 'x', name: 'Bogus', overview: '', still_path: null, runtime: null },
+    ] }),
+    'key',
+  );
+  assert.equal(eps.length, 1);
+  assert.deepEqual(eps[0], { episodeNumber: 1, name: 'Pilot', overview: 'Begins.', stillUrl: 'https://image.tmdb.org/t/p/w780/s.jpg', runtimeMinutes: 58 });
+  assert.deepEqual(await getSeasonEpisodes('1396', 0, okFetch({}), 'key'), []);
+  assert.deepEqual(await getSeasonEpisodes('abc', 1, okFetch({}), 'key'), []);
 });
