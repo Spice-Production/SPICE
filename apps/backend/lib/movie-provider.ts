@@ -111,6 +111,26 @@ export function streamProviders(
 
 export const DEFAULT_STREAM_PROVIDER_ID = 'vidsrc';
 
+const STREAM_PROVIDER_STORAGE_KEY = 'spice-stream-provider';
+
+/** Remembered default source, shared by the players and the profile menu. */
+export function loadPreferredProvider(defaultId: string): string {
+  if (typeof window === 'undefined') return defaultId;
+  try {
+    return window.localStorage.getItem(STREAM_PROVIDER_STORAGE_KEY) || defaultId;
+  } catch {
+    return defaultId;
+  }
+}
+
+export function savePreferredProvider(id: string): void {
+  try {
+    window.localStorage.setItem(STREAM_PROVIDER_STORAGE_KEY, id);
+  } catch {
+    /* private mode: the choice lasts this visit */
+  }
+}
+
 export function streamProviderById(
   id: string | null | undefined,
   configuredBaseUrl = process.env.SPICE_MOVIE_PROVIDER_BASE_URL,

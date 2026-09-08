@@ -8,26 +8,6 @@ export interface WatchSource {
   url: string | null;
 }
 
-const STORAGE_KEY = 'spice-stream-provider';
-
-/** Remembered source choice, shared by the movie and series players. */
-export function loadPreferredProvider(defaultId: string): string {
-  if (typeof window === 'undefined') return defaultId;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) || defaultId;
-  } catch {
-    return defaultId;
-  }
-}
-
-export function savePreferredProvider(id: string): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    // Private mode etc. — the default source still plays.
-  }
-}
-
 export function ProviderTabs({
   sources,
   activeId,

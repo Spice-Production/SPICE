@@ -33,6 +33,30 @@ test('progress tracks episode granularity and refuses season numbers on movies',
   assert.match(source, /update\(watchProgress\)/, 'repeat visits update, not duplicate');
 });
 
+test('browse surfaces share a sidebar frame, profile menu, and billboard hero', async () => {
+  const chrome = await read('app/media-chrome.tsx');
+  assert.match(chrome, /TV Series/, 'sidebar links to series');
+  assert.match(chrome, /href="\/movie"/, 'sidebar links to movies');
+  assert.match(chrome, /spice_cloud_user/, 'profile menu shows the account');
+  assert.match(chrome, /Sign out/, 'profile menu signs out');
+  assert.match(chrome, /removeItem\('spice_cloud_token'\)/, 'sign-out clears the token');
+  assert.match(chrome, /Default source/, 'default watch source lives in the profile menu');
+  assert.match(chrome, /savePreferredProvider/, 'source choice is remembered');
+  assert.match(chrome, /MediaSignIn/, 'signed-out visitors sign in from the menu');
+  const hero = await read('app/media-hero.tsx');
+  assert.match(hero, /setInterval/, 'trending scrolls by itself');
+  assert.match(hero, /Watch now/, 'hero plays the spotlight title');
+  assert.match(hero, /My List/, 'hero toggles the list without leaving the page');
+  const moviePage = await read('app/movie/page.tsx');
+  assert.match(moviePage, /<MediaChrome active="movies"/, 'movies home sits in the frame');
+  assert.match(moviePage, /<MediaHero/, 'movies home scrolls trending behind the header');
+  assert.match(moviePage, /spotlight/, 'movies home spotlights TV series');
+  assert.match(moviePage, /Explore all series/, 'spotlight links into shows');
+  const showsPage = await read('app/shows/page.tsx');
+  assert.match(showsPage, /<MediaChrome active="shows"/, 'shows home sits in the frame');
+  assert.match(showsPage, /<MediaHero/, 'shows home gets the same billboard');
+});
+
 test('browse shelves and players share one client and one toggle island', async () => {
   const client = await read('app/watch-client.ts');
   assert.match(client, /spice_cloud_token/, 'same token the music player stores — no second login per page');
