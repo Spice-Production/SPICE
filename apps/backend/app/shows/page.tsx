@@ -3,28 +3,31 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import MediaSignIn from '../media-signin';
-import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
+import MediaChrome from '../media-chrome';
+import MediaHero from '../media-hero';
+import { TvIcon } from '../media-icons';
+import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
 interface ShowHit {
   tmdbId: string;
   title: string;
   year: string | null;
+  releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
 }
 
-type ShelfKey = 'trending' | 'popular' | 'top_rated';
+type ShelfKey = 'trending' | 'popular' | 'top_rated' | 'airing';
 
 const SHELVES: { key: ShelfKey; title: string }[] = [
   { key: 'trending', title: 'Trending series' },
   { key: 'popular', title: 'Popular now' },
   { key: 'top_rated', title: 'Top rated' },
+  { key: 'airing', title: 'Airing now' },
 ];
 
-const BG = '#050509';
 const CARD_BG = 'rgba(255,255,255,0.04)';
 const CARD_BORDER = '1px solid rgba(255,255,255,0.08)';
 const DIM = '#94a3b8';
@@ -46,13 +49,13 @@ function PosterCard({ hit }: { hit: ShowHit }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={hit.posterUrl} alt={`${hit.title} poster`} style={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} loading="lazy" />
         ) : (
-          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', fontSize: '2rem' }}>
-            ♪
+          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd' }}>
+            <TvIcon size={34} />
           </div>
         )}
         <div style={{ padding: '8px 10px' }}>
           <div style={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hit.title}</div>
-          {hit.year && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{hit.year}</div>}
+          {(hit.releaseDate || hit.year) && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{formatReleaseDate(hit.releaseDate) ?? hit.year}</div>}
         </div>
       </div>
     </Link>
@@ -80,6 +83,16 @@ export default function ShowsPage() {
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
   const [watchState, setWatchState] = useState<WatchState | null>(null);
+
+  function refreshWatchState(next: string) {
+    setToken(next);
+    fetchWatchState(next).then(setWatchState).catch(() => null);
+  }
+
+  function clearWatchState() {
+    setToken(null);
+    setWatchState(null);
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -133,38 +146,40 @@ export default function ShowsPage() {
     }
   };
 
-  const hero = shelves.trending?.find((hit) => hit.backdropUrl) ?? shelves.trending?.[0];
+  const heroItems = (shelves.trending ?? []).filter((hit) => hit.backdropUrl).slice(0, 5);
+  const savedShowIds = new Set(
+    (watchState?.watchlist ?? []).filter((entry) => entry.kind === 'show').map((entry) => entry.tmdbId),
+  );
+
+  function onHeroListChange(tmdbId: string, saved: boolean, title: string) {
+    setWatchState((prev) => {
+      if (!prev) return prev;
+      if (saved) {
+        if (prev.watchlist.some((entry) => entry.kind === 'show' && entry.tmdbId === tmdbId)) return prev;
+        return {
+          ...prev,
+          watchlist: [{ kind: 'show', tmdbId, title, posterUrl: null, year: null, addedAt: new Date().toISOString() }, ...prev.watchlist],
+        };
+      }
+      return { ...prev, watchlist: prev.watchlist.filter((entry) => !(entry.kind === 'show' && entry.tmdbId === tmdbId)) };
+    });
+  }
 
   return (
-    <main style={{ minHeight: '100vh', background: BG, color: 'var(--text-primary, #f1f5f9)', fontFamily: 'var(--font-geist-sans), Inter, sans-serif', paddingBottom: '64px' }}>
-      {hero && !searched && (
-        <section style={{ position: 'relative', overflow: 'hidden' }}>
-          {hero.backdropUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={hero.backdropUrl} alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
-          )}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #050509 4%, rgba(5,5,9,0.55) 55%, rgba(5,5,9,0.25))' }} />
-          <div style={{ position: 'relative', maxWidth: '1080px', margin: '0 auto', padding: '88px 24px 56px' }}>
-            <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: '0 0 10px 0', letterSpacing: '0.08em' }}>
-              SPICE SHOWS · TRENDING
-            </p>
-            <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.2rem)', lineHeight: 1.05, margin: '0 0 10px 0', maxWidth: '640px' }}>
-              {hero.title}
-            </h1>
-            {hero.overview && (
-              <p style={{ color: '#d4d4d8', fontSize: '0.95rem', lineHeight: 1.6, margin: '0 0 22px 0', maxWidth: '560px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {hero.overview}
-              </p>
-            )}
-            <Link href={`/shows/watch/${hero.tmdbId}`} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}>
-              ▶ Watch now
-            </Link>
-          </div>
-        </section>
+    <MediaChrome active="shows" section="SPICE TV SERIES" token={token} watchState={watchState} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
+      {!searched && heroItems.length > 0 && (
+        <MediaHero
+          kicker="SPICE SHOWS · TRENDING"
+          items={heroItems}
+          kind="show"
+          token={token}
+          savedIds={savedShowIds}
+          onListChange={onHeroListChange}
+        />
       )}
 
-      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: searched || !hero ? '48px 24px 0' : '8px 24px 0' }}>
-        {!hero && !searched && (
+      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: searched || heroItems.length > 0 ? '8px 24px 0' : '48px 24px 0', width: '100%' }}>
+        {heroItems.length === 0 && !searched && (
           <>
             <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: 0, letterSpacing: '0.08em' }}>
               SPICE SHOWS
@@ -218,14 +233,7 @@ export default function ShowsPage() {
           </>
         ) : (
           <>
-            {!token ? (
-              <div style={{ marginBottom: '1.75rem' }}>
-                <MediaSignIn onSignedIn={(next) => { setToken(next); fetchWatchState(next).then(setWatchState).catch(() => null); }} />
-                <p style={{ color: DIM, fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
-                  Sign in with your SPICE account to sync your list and pick up where you left off, on any device.
-                </p>
-              </div>
-            ) : watchState ? (
+            {token && watchState && (
               <WatchShelves
                 kind="show"
                 token={token}
@@ -236,7 +244,7 @@ export default function ShowsPage() {
                   )
                 }
               />
-            ) : null}
+            )}
             {shelvesLoading && (
               <>
                 <div style={{ height: '20px', width: '180px', borderRadius: '6px', background: 'rgba(255,255,255,0.07)', marginBottom: '14px' }} />
@@ -265,6 +273,7 @@ export default function ShowsPage() {
           </>
         )}
       </div>
-    </main>
+      <div style={{ height: '64px' }} />
+    </MediaChrome>
   );
 }

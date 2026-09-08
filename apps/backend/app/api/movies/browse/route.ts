@@ -4,7 +4,7 @@ import { jsonResponse, optionsResponse } from '@/lib/cors';
 import { requireLocalMediaNamespace } from '@/lib/runtime-target';
 import { browseMovies, type TmdbBrowseList } from '@/lib/tmdb';
 
-const LISTS: TmdbBrowseList[] = ['trending', 'popular', 'top_rated'];
+const LISTS: TmdbBrowseList[] = ['trending', 'popular', 'top_rated', 'upcoming'];
 
 /**
  * Browser proof: curated TMDB shelves (trending / popular / top rated) for
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const list = request.nextUrl.searchParams.get('list') ?? 'trending';
   if (!(LISTS as string[]).includes(list)) {
-    return jsonResponse({ error: 'unknown_list', message: 'Pick trending, popular, or top_rated.' }, { status: 400 }, request);
+    return jsonResponse({ error: 'unknown_list', message: 'Pick trending, popular, top_rated, or upcoming.' }, { status: 400 }, request);
   }
 
   const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '12');

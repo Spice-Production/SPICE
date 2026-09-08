@@ -1,11 +1,23 @@
 'use client';
 
-import { toggleWatchlist, watchPageHref, type ContinueEntry, type WatchEntry, type WatchKind } from './watch-client';
+import {
+  WATCH_LIST_STATUS_LABELS,
+  WATCH_LIST_STATUS_ORDER,
+  toggleWatchlist,
+  watchPageHref,
+  type ContinueEntry,
+  type WatchEntry,
+  type WatchKind,
+  type WatchListStatus,
+} from './watch-client';
+
+import { PlayIcon } from './media-icons';
 
 /**
  * Synced shelves shared by movies, shows, and later anime: one
- * continue-watching rail plus one watchlist rail, fed by a single
- * /api/watch/state call. Cards link straight into the right player.
+ * continue-watching rail plus the list grouped into Watching / Watch
+ * Later / Completed / Dropped, fed by a single /api/watch/state call.
+ * Cards link straight into the right player.
  */
 export function WatchShelves({
   kind,
@@ -21,6 +33,11 @@ export function WatchShelves({
   const list = state.watchlist.filter((entry) => entry.kind === kind);
   const resume = state.continueWatching.filter((entry) => entry.kind === kind);
   if (list.length === 0 && resume.length === 0) return null;
+
+  const shelfOf = (entry: WatchEntry): WatchListStatus => {
+    const status = entry.status as WatchListStatus | null | undefined;
+    return status && (WATCH_LIST_STATUS_ORDER as string[]).includes(status) ? status : 'watch_later';
+  };
 
   return (
     <div style={{ display: 'grid', gap: '1.25rem', marginBottom: '1.75rem' }}>
@@ -38,42 +55,48 @@ export function WatchShelves({
                   title={entry.title}
                   posterUrl={entry.posterUrl}
                   subtitle={entry.season > 0 || entry.episode > 0 ? `S${entry.season} E${entry.episode}` : 'Resume'}
-                  badge="▶"
+                  badge={<PlayIcon size={10} />}
                 />
               </a>
             ))}
           </ShelfRow>
         </section>
       )}
-      {list.length > 0 && (
-        <section aria-label="My list">
-          <ShelfTitle>My List</ShelfTitle>
-          <ShelfRow>
-            {list.map((entry) => (
-              <div key={entry.tmdbId} style={{ position: 'relative' }}>
-                <a href={watchPageHref(entry)} style={cardLinkStyle}>
-                  <ShelfCard title={entry.title} posterUrl={entry.posterUrl} subtitle={entry.year ?? undefined} />
-                </a>
-                <button
-                  type="button"
-                  aria-label={`Remove ${entry.title} from your list`}
-                  title="Remove from My List"
-                  onClick={() => {
-                    void toggleWatchlist(
-                      token,
-                      { kind, tmdbId: entry.tmdbId, title: entry.title },
-                      true,
-                    ).then(() => onToggle(entry.tmdbId, false));
-                  }}
-                  style={removeStyle}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </ShelfRow>
-        </section>
-      )}
+      {WATCH_LIST_STATUS_ORDER.map((status) => {
+        const items = list.filter((entry) => shelfOf(entry) === status);
+        if (items.length === 0) return null;
+        return (
+          <section key={status} aria-label={WATCH_LIST_STATUS_LABELS[status]}>
+            <ShelfTitle>
+              {WATCH_LIST_STATUS_LABELS[status]} <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.85rem' }}>{items.length}</span>
+            </ShelfTitle>
+            <ShelfRow>
+              {items.map((entry) => (
+                <div key={entry.tmdbId} style={{ position: 'relative', opacity: status === 'dropped' ? 0.55 : 1 }}>
+                  <a href={watchPageHref(entry)} style={cardLinkStyle}>
+                    <ShelfCard title={entry.title} posterUrl={entry.posterUrl} subtitle={entry.year ?? undefined} />
+                  </a>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${entry.title} from your list`}
+                    title="Remove from My List"
+                    onClick={() => {
+                      void toggleWatchlist(
+                        token,
+                        { kind, tmdbId: entry.tmdbId, title: entry.title },
+                        true,
+                      ).then(() => onToggle(entry.tmdbId, false));
+                    }}
+                    style={removeStyle}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </ShelfRow>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -97,7 +120,7 @@ function ShelfCard({
   title: string;
   posterUrl: string | null;
   subtitle?: string;
-  badge?: string;
+  badge?: React.ReactNode;
 }) {
   return (
     <div style={cardStyle} title={title}>
@@ -119,7 +142,10 @@ function ShelfCard({
             borderRadius: '999px',
             color: '#fff',
             fontSize: '0.7rem',
-            padding: '0.1rem 0.5rem',
+            padding: '0.15rem 0.5rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.3rem',
           }}
         >
           {badge} {subtitle}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="spice-movies-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded squircle matching the SPICE brand family (music uses a note, movies a clapperboard) -->
+  <rect x="32" y="32" width="448" height="448" rx="100" fill="url(#spice-movies-gradient)" />
+  <!-- Clapper slate, tilted -->
+  <g transform="rotate(-12 256 178)">
+    <rect x="118" y="140" width="276" height="62" rx="16" fill="#ffffff" />
+    <polygon points="150,140 178,140 164,202 136,202" fill="#7c3aed" />
+    <polygon points="206,140 234,140 220,202 192,202" fill="#7c3aed" />
+    <polygon points="262,140 290,140 276,202 248,202" fill="#7c3aed" />
+    <polygon points="318,140 346,140 332,202 304,202" fill="#7c3aed" />
+  </g>
+  <!-- Board with reel holes -->
+  <rect x="118" y="222" width="276" height="150" rx="26" fill="#ffffff" />
+  <circle cx="176" cy="297" r="22" fill="#7c3aed" />
+  <circle cx="336" cy="297" r="22" fill="#7c3aed" />
+</svg>

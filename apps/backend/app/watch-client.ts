@@ -9,12 +9,25 @@
 
 export type WatchKind = 'movie' | 'show' | 'anime';
 
+export type WatchListStatus = 'watch_later' | 'watching' | 'completed' | 'dropped';
+
+export const WATCH_LIST_STATUS_LABELS: Record<WatchListStatus, string> = {
+  watching: 'Watching',
+  watch_later: 'Watch Later',
+  completed: 'Completed',
+  dropped: 'Dropped',
+};
+
+export const WATCH_LIST_STATUS_ORDER: WatchListStatus[] = ['watching', 'watch_later', 'completed', 'dropped'];
+
 export interface WatchEntry {
   kind: string;
   tmdbId: string;
   title: string;
   posterUrl: string | null;
   year?: string | null;
+  status?: string | null;
+  releaseDate?: string | null;
   addedAt?: string;
 }
 
@@ -43,6 +56,43 @@ export function readAccountToken(): string | null {
   }
 }
 
+export interface AccountProfile {
+  avatarUrl: string | null;
+  displayName: string | null;
+  username: string | null;
+}
+
+/**
+ * The music player's profile (avatar included), resolved the same way
+ * everywhere: the stored active profile first, otherwise the first synced
+ * profile. Server-sourced, so a PFP change follows the account.
+ */
+export async function fetchAccountProfile(token: string): Promise<AccountProfile | null> {
+  let storedId: string | null = null;
+  try {
+    storedId = window.localStorage.getItem('spice_cloud_profile_id');
+  } catch {
+    storedId = null;
+  }
+  const res = await fetch('/api/sync/profiles', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) throw new Error('signed-out');
+  if (!res.ok) throw new Error(`request failed (${res.status})`);
+  const data = (await res.json().catch(() => null)) as {
+    profiles?: { id?: unknown; avatarUrl?: unknown; displayName?: unknown; username?: unknown }[];
+  } | null;
+  const list = Array.isArray(data?.profiles) ? data.profiles : [];
+  const match =
+    (storedId && list.find((p) => p.id === storedId)) ?? list[0] ?? null;
+  if (!match) return null;
+  return {
+    avatarUrl: typeof match.avatarUrl === 'string' && match.avatarUrl ? match.avatarUrl : null,
+    displayName: typeof match.displayName === 'string' && match.displayName ? match.displayName : null,
+    username: typeof match.username === 'string' && match.username ? match.username : null,
+  };
+}
+
 async function watchFetch(token: string, path: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(path, {
     ...init,
@@ -60,13 +110,47 @@ export async function fetchWatchState(token: string): Promise<WatchState> {
 
 export async function toggleWatchlist(
   token: string,
-  entry: { kind: WatchKind; tmdbId: string; title: string; posterUrl?: string | null; year?: string | null },
+  entry: { kind: WatchKind; tmdbId: string; title: string; posterUrl?: string | null; year?: string | null; releaseDate?: string | null },
   saved: boolean,
+  status?: WatchListStatus,
 ): Promise<void> {
   await watchFetch(token, '/api/watch/watchlist', {
     method: 'POST',
-    body: JSON.stringify({ ...entry, action: saved ? 'remove' : 'add' }),
+    body: JSON.stringify({ ...entry, status: saved ? undefined : (status ?? 'watch_later'), action: saved ? 'remove' : 'add' }),
   });
+}
+
+export async function setWatchListStatus(
+  token: string,
+  entry: { kind: WatchKind; tmdbId: string; status: WatchListStatus },
+): Promise<void> {
+  await watchFetch(token, '/api/watch/watchlist', {
+    method: 'POST',
+    body: JSON.stringify({ kind: entry.kind, tmdbId: entry.tmdbId, status: entry.status, action: 'set-status' }),
+  });
+}
+
+export function formatReleaseDate(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Days since release; null when unknown or unreleased. */
+export function daysSinceRelease(value: string | null | undefined, now = new Date()): number | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const diff = Math.floor((now.getTime() - date.getTime()) / 86_400_000);
+  return diff >= 0 ? diff : null;
+}
+
+/** Recently released (past 30 days) and not filed as done — bell material. */
+export function isFreshRelease(entry: { status?: string | null; releaseDate?: string | null }, now = new Date()): boolean {
+  if (entry.status === 'completed' || entry.status === 'dropped') return false;
+  const age = daysSinceRelease(entry.releaseDate, now);
+  return age !== null && age <= 30;
 }
 
 export async function reportProgress(

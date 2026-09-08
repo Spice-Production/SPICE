@@ -88,6 +88,10 @@ export const passwordResetChallenges = pgTable(
 export const WATCH_KINDS = ['movie', 'show', 'anime'] as const;
 export type WatchKind = (typeof WATCH_KINDS)[number];
 
+/** List shelves: later → watching → done, or dropped. One status per title. */
+export const WATCH_LIST_STATUSES = ['watch_later', 'watching', 'completed', 'dropped'] as const;
+export type WatchListStatus = (typeof WATCH_LIST_STATUSES)[number];
+
 export const watchlistItems = pgTable(
   'watchlist_items',
   {
@@ -100,10 +104,13 @@ export const watchlistItems = pgTable(
     title: text('title').notNull(),
     posterUrl: text('poster_url'),
     year: text('year'),
+    status: text('status').notNull().default('watch_later'),
+    releaseDate: text('release_date'),
     addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('watchlist_user_added_idx').on(t.userId, t.addedAt),
+    index('watchlist_user_status_idx').on(t.userId, t.status),
   ],
 );
 

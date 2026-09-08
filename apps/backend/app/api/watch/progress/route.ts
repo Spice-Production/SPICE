@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { db } from '@/db';
 import { verifySession } from '@/lib/auth';
 import { jsonResponse, optionsResponse } from '@/lib/cors';
-import { WATCH_KINDS, watchProgress, type WatchKind } from '@/db/schema';
+import { WATCH_KINDS, watchlistItems, watchProgress, type WatchKind } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
@@ -96,6 +96,22 @@ export async function POST(request: NextRequest) {
     await db.update(watchProgress).set(row).where(where);
   } else {
     await db.insert(watchProgress).values({ userId, kind, tmdbId, season: seasonNum, episode: episodeNum, ...row });
+  }
+  // Keep the list shelf truthful without asking: finishing moves the title
+  // to completed, and starting a watch-later title moves it to watching.
+  // Only existing rows flip — progress never creates list entries.
+  const listWhere = and(
+    eq(watchlistItems.userId, userId),
+    eq(watchlistItems.kind, kind),
+    eq(watchlistItems.tmdbId, tmdbId),
+  );
+  if (completed === true) {
+    await db.update(watchlistItems).set({ status: 'completed' }).where(listWhere);
+  } else {
+    await db
+      .update(watchlistItems)
+      .set({ status: 'watching' })
+      .where(and(listWhere, eq(watchlistItems.status, 'watch_later')));
   }
   return jsonResponse({ ok: true });
 }

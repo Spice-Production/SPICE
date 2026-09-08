@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DEFAULT_STREAM_PROVIDER_ID, streamProviders } from '@/lib/movie-provider';
+import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
-import { loadPreferredProvider, ProviderTabs, savePreferredProvider, WatchFrame } from '../../../watch-frame';
+import { ProviderTabs, WatchFrame } from '../../../watch-frame';
 import WatchSync from '../../../watch-sync';
 
 interface SeasonSummary {
@@ -24,14 +24,15 @@ interface Episode {
 interface ShowPlayerProps {
   tmdbId: string;
   title: string;
-  posterUrl: string | null;
-  year: string | null;
+  posterUrl?: string | null;
+  year?: string | null;
+  releaseDate?: string | null;
   seasons: SeasonSummary[];
   initialSeason?: number;
   initialEpisode?: number;
 }
 
-export default function ShowPlayer({ tmdbId, title, posterUrl, year, seasons, initialSeason, initialEpisode }: ShowPlayerProps) {
+export default function ShowPlayer({ tmdbId, title, posterUrl, year, releaseDate, seasons, initialSeason, initialEpisode }: ShowPlayerProps) {
   const available = seasons.filter((s) => s.seasonNumber > 0 && s.episodeCount > 0);
   const [season, setSeason] = useState(
     initialSeason && available.some((s) => s.seasonNumber === initialSeason) ? initialSeason : (available[0]?.seasonNumber ?? 1),
@@ -96,6 +97,7 @@ export default function ShowPlayer({ tmdbId, title, posterUrl, year, seasons, in
         title={title}
         posterUrl={posterUrl}
         year={year}
+        releaseDate={releaseDate}
         season={season}
         episode={episode}
         episodeLabel={`S${season} E${episode} watched`}

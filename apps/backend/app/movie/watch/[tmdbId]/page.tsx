@@ -76,6 +76,7 @@ export default async function MovieWatchPage({ params }: { params: Promise<Watch
           title={details?.title ?? `Movie ${tmdbId}`}
           posterUrl={details?.posterUrl ?? null}
           year={details?.year ?? null}
+          releaseDate={details?.releaseDate ?? null}
         />
         <MoviePlayer tmdbId={tmdbId} title={details?.title ?? `Movie ${tmdbId}`} />
       </div>

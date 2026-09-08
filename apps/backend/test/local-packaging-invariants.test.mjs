@@ -119,6 +119,22 @@ test('local schema stub covers every exported table in schema.ts', async () => {
   );
 });
 
+test('local schema stub covers every exported const and type in schema.ts', async () => {
+  // Values like WATCH_LIST_STATUSES break the offline build when the stub
+  // lacks them — Turbopack resolves the named export and fails. Types ride
+  // along so future verbatim-module-syntax imports stay safe.
+  const schemaText = await readBackend('db/schema.ts');
+  const stubText = await readBackend('db/local-schema-stub.ts');
+
+  const names = [...schemaText.matchAll(/export (?:const|type) (\w+)/g)].map((m) => m[1]);
+  const missing = names.filter((name) => !new RegExp(`export (?:const|type) ${name}\\b`).test(stubText));
+  assert.deepEqual(
+    missing,
+    [],
+    `exports missing from db/local-schema-stub.ts (local builds alias @/db/schema to it): ${missing.join(', ')}`,
+  );
+});
+
 test('local packager prunes self-host-only database drivers', async () => {
   // db/index.ts picks pooled node-postgres for non-Neon URLs, which drags
   // the pg family into the standalone trace. The offline runtime must not

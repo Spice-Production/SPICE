@@ -77,7 +77,7 @@ export default async function ShowWatchPage({
             {details.overview}
           </p>
         )}
-        <ShowPlayer tmdbId={details.tmdbId} title={details.title} posterUrl={details.posterUrl} year={details.year} seasons={details.seasons} initialSeason={initialSeason} initialEpisode={initialEpisode} />
+        <ShowPlayer tmdbId={details.tmdbId} title={details.title} posterUrl={details.posterUrl} year={details.year} releaseDate={details.releaseDate} seasons={details.seasons} initialSeason={initialSeason} initialEpisode={initialEpisode} />
       </div>
     </main>
   );

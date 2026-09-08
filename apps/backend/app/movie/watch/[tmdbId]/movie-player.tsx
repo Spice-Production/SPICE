@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 
-import { DEFAULT_STREAM_PROVIDER_ID, streamProviders } from '@/lib/movie-provider';
+import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
-import { loadPreferredProvider, ProviderTabs, savePreferredProvider, WatchFrame } from '../../../watch-frame';
+import { ProviderTabs, WatchFrame } from '../../../watch-frame';
 
 /** Movie player island: source tabs over a loading-aware frame. */
 export default function MoviePlayer({ tmdbId, title }: { tmdbId: string; title: string }) {
