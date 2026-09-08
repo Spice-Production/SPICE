@@ -7,7 +7,7 @@ import MediaSignIn from '../media-signin';
 import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
-interface MovieHit {
+interface ShowHit {
   tmdbId: string;
   title: string;
   year: string | null;
@@ -19,7 +19,7 @@ interface MovieHit {
 type ShelfKey = 'trending' | 'popular' | 'top_rated';
 
 const SHELVES: { key: ShelfKey; title: string }[] = [
-  { key: 'trending', title: 'Trending this week' },
+  { key: 'trending', title: 'Trending series' },
   { key: 'popular', title: 'Popular now' },
   { key: 'top_rated', title: 'Top rated' },
 ];
@@ -29,18 +29,18 @@ const CARD_BG = 'rgba(255,255,255,0.04)';
 const CARD_BORDER = '1px solid rgba(255,255,255,0.08)';
 const DIM = '#94a3b8';
 
-async function fetchShelf(key: ShelfKey): Promise<MovieHit[]> {
-  const res = await fetch(`/api/movies/browse?list=${key}&limit=10`, {
+async function fetchShelf(key: ShelfKey): Promise<ShowHit[]> {
+  const res = await fetch(`/api/shows/browse?list=${key}&limit=10`, {
     headers: { 'x-spice-api-namespace': 'local' },
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || 'Browse failed.');
-  return Array.isArray(data.movies) ? data.movies : [];
+  return Array.isArray(data.shows) ? data.shows : [];
 }
 
-function PosterCard({ hit }: { hit: MovieHit }) {
+function PosterCard({ hit }: { hit: ShowHit }) {
   return (
-    <Link href={`/movie/watch/${hit.tmdbId}`} style={{ textDecoration: 'none', color: 'inherit', minWidth: '150px', maxWidth: '150px' }}>
+    <Link href={`/shows/watch/${hit.tmdbId}`} style={{ textDecoration: 'none', color: 'inherit', minWidth: '150px', maxWidth: '150px' }}>
       <div style={{ background: CARD_BG, border: CARD_BORDER, borderRadius: '14px', overflow: 'hidden' }}>
         {hit.posterUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -69,13 +69,13 @@ function ShelfSkeleton() {
   );
 }
 
-export default function MoviePage() {
+export default function ShowsPage() {
   const [query, setQuery] = useState('');
-  const [hits, setHits] = useState<MovieHit[]>([]);
+  const [hits, setHits] = useState<ShowHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const [shelves, setShelves] = useState<Partial<Record<ShelfKey, MovieHit[]>>>({});
+  const [shelves, setShelves] = useState<Partial<Record<ShelfKey, ShowHit[]>>>({});
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
@@ -92,7 +92,7 @@ export default function MoviePage() {
       try {
         const settled = await Promise.allSettled(SHELVES.map((s) => fetchShelf(s.key)));
         if (cancelled) return;
-        const next: Partial<Record<ShelfKey, MovieHit[]>> = {};
+        const next: Partial<Record<ShelfKey, ShowHit[]>> = {};
         let failed = 0;
         settled.forEach((result, i) => {
           if (result.status === 'fulfilled') next[SHELVES[i].key] = result.value;
@@ -119,14 +119,14 @@ export default function MoviePage() {
     setError(null);
     setSearched(true);
     try {
-      const res = await fetch(`/api/movies/search?q=${encodeURIComponent(q)}&limit=12`, {
+      const res = await fetch(`/api/shows/search?q=${encodeURIComponent(q)}&limit=12`, {
         headers: { 'x-spice-api-namespace': 'local' },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Movie search failed.');
-      setHits(Array.isArray(data.movies) ? data.movies : []);
+      if (!res.ok) throw new Error(data.message || 'Show search failed.');
+      setHits(Array.isArray(data.shows) ? data.shows : []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Movie search failed.');
+      setError(err instanceof Error ? err.message : 'Show search failed.');
       setHits([]);
     } finally {
       setLoading(false);
@@ -146,7 +146,7 @@ export default function MoviePage() {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #050509 4%, rgba(5,5,9,0.55) 55%, rgba(5,5,9,0.25))' }} />
           <div style={{ position: 'relative', maxWidth: '1080px', margin: '0 auto', padding: '88px 24px 56px' }}>
             <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: '0 0 10px 0', letterSpacing: '0.08em' }}>
-              SPICE MOVIES · TRENDING
+              SPICE SHOWS · TRENDING
             </p>
             <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.2rem)', lineHeight: 1.05, margin: '0 0 10px 0', maxWidth: '640px' }}>
               {hero.title}
@@ -156,7 +156,7 @@ export default function MoviePage() {
                 {hero.overview}
               </p>
             )}
-            <Link href={`/movie/watch/${hero.tmdbId}`} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}>
+            <Link href={`/shows/watch/${hero.tmdbId}`} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}>
               ▶ Watch now
             </Link>
           </div>
@@ -167,10 +167,10 @@ export default function MoviePage() {
         {!hero && !searched && (
           <>
             <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: 0, letterSpacing: '0.08em' }}>
-              SPICE MOVIES
+              SPICE SHOWS
             </p>
             <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.05, margin: '10px 0 8px' }}>
-              Find a movie, press play.
+              Find a series, press play.
             </h1>
           </>
         )}
@@ -179,8 +179,8 @@ export default function MoviePage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search movies…"
-            aria-label="Search movies"
+            placeholder="Search series…"
+            aria-label="Search series"
             style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: 'inherit', padding: '12px 16px', fontSize: '1rem', outline: 'none' }}
           />
           <button
@@ -200,7 +200,7 @@ export default function MoviePage() {
 
         {searched ? (
           <>
-            {hits.length === 0 && !loading && !error && <p style={{ color: DIM }}>No movies found. Try another title.</p>}
+            {hits.length === 0 && !loading && !error && <p style={{ color: DIM }}>No series found. Try another title.</p>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
               {hits.map((hit) => (
                 <div key={hit.tmdbId} style={{ minWidth: 0 }}>
@@ -227,7 +227,7 @@ export default function MoviePage() {
               </div>
             ) : watchState ? (
               <WatchShelves
-                kind="movie"
+                kind="show"
                 token={token}
                 state={watchState}
                 onToggle={(tmdbId) =>

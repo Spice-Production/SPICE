@@ -34,6 +34,7 @@ services:
       SPICE_STREAM_HMAC_SECRET: ${SPICE_STREAM_HMAC_SECRET:?set SPICE_STREAM_HMAC_SECRET in deploy/.env}
       SPICE_PUBLIC_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_APEX_DOMAIN: ${SPICE_APEX_DOMAIN:?set SPICE_APEX_DOMAIN in deploy/.env}
+      SPICE_MOVIE_DOMAIN: ${SPICE_MOVIE_DOMAIN:?set SPICE_MOVIE_DOMAIN in deploy/.env}
       SPICE_SELFHOST_MEDIA_TOKEN: ${SPICE_SELFHOST_MEDIA_TOKEN:-}
       SPICE_CLOUD_API_ORIGIN: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_LOCAL_UPDATE_MANIFEST_URL: https://${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}/api/updates/local-windows
@@ -49,6 +50,7 @@ services:
       LASTFM_SHARED_SECRET: ${LASTFM_SHARED_SECRET:-}
       SPICE_CORS_ORIGINS: ${SPICE_CORS_ORIGINS:-}
       SPICE_MOVIE_PROVIDER_BASE_URL: ${SPICE_MOVIE_PROVIDER_BASE_URL:-}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
       PORT: 3000
       # Docker injects HOSTNAME=<container id>, which would bind the Next
       # standalone server to the container IP only. Bind all interfaces so
@@ -72,6 +74,7 @@ services:
     environment:
       SPICE_DOMAIN: ${SPICE_DOMAIN:?set SPICE_DOMAIN in deploy/.env}
       SPICE_APEX_DOMAIN: ${SPICE_APEX_DOMAIN:?set SPICE_APEX_DOMAIN in deploy/.env}
+      SPICE_MOVIE_DOMAIN: ${SPICE_MOVIE_DOMAIN:?set SPICE_MOVIE_DOMAIN in deploy/.env}
 
 volumes:
   pgdata:

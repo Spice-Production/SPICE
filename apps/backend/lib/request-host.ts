@@ -92,6 +92,44 @@ export function shouldServeHub(hostname: string, pathname: string, apexDomain: s
   return hostname.toLowerCase() === apex && (pathname === '/' || pathname === '');
 }
 
+/**
+ * Whether this request should serve the movies landing: only the bare path
+ * on the configured movies domain (e.g. movie.spice-app.xyz/). Mirrors the
+ * apex hub rewrite so each public name has a pretty front door while every
+ * route stays served on every host.
+ */
+export function shouldServeMovies(hostname: string, pathname: string, movieDomain: string | null | undefined): boolean {
+  const movie = movieDomain?.trim().toLowerCase();
+  if (!movie) return false;
+  return hostname.toLowerCase() === movie && (pathname === '/' || pathname === '');
+}
+
+/**
+ * Every public hostname this box answers as: the player origin plus the
+ * apex and movies names when configured. Same-origin checks accept any of
+ * them so one login-free box can serve several front doors without per-host
+ * bearer plumbing. Pass a record in tests; defaults to process.env.
+ */
+export function selfhostTrustedHosts(env: Record<string, string | undefined> = process.env): string[] {
+  const hosts: string[] = [];
+  for (const key of ['SPICE_PUBLIC_ORIGIN', 'SPICE_APEX_DOMAIN', 'SPICE_MOVIE_DOMAIN'] as const) {
+    const raw = env[key]?.trim();
+    if (!raw) continue;
+    // Origins parse as URLs; bare domains (apex/movie config style) parse
+    // once a scheme is assumed.
+    for (const candidate of [raw, `https://${raw}`]) {
+      try {
+        const host = new URL(candidate).hostname.toLowerCase();
+        if (host && !hosts.includes(host)) hosts.push(host);
+        break;
+      } catch {
+        // Try the next candidate form.
+      }
+    }
+  }
+  return hosts;
+}
+
 function safeUrlHostname(url: string): string | null {
   try {
     return new URL(url).hostname;

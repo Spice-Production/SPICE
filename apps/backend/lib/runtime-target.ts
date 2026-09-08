@@ -1,7 +1,7 @@
 import { jsonResponse } from '@/lib/cors';
 import { currentLocalRuntimeVersion, localUpdateManifestUrl } from '@/lib/local-updates';
 import { isRegisteredRemoteMediaDeviceToken } from './remote-media-devices.ts';
-import { effectiveRequestHost, isLoopbackHost } from './request-host.ts';
+import { effectiveRequestHost, isLoopbackHost, selfhostTrustedHosts } from './request-host.ts';
 
 export type SpiceRuntimeTarget = 'local' | 'vercel' | 'selfhost';
 
@@ -107,10 +107,15 @@ export async function requireSelfhostMediaAuth(request: Request) {
 
   if (isLoopbackHost(effectiveRequestHost(request))) return null;
 
-  const publicHost = selfhostPublicHost();
+  const trustedHosts = selfhostTrustedHosts();
   const originHost = hostOfHeader(request.headers.get('origin'));
   const refererHost = hostOfHeader(request.headers.get('referer'));
-  if (publicHost && (originHost === publicHost || refererHost === publicHost)) return null;
+  if (
+    trustedHosts.length > 0 &&
+    ((originHost && trustedHosts.includes(originHost)) || (refererHost && trustedHosts.includes(refererHost)))
+  ) {
+    return null;
+  }
 
   const token = process.env.SPICE_SELFHOST_MEDIA_TOKEN?.trim();
   if (token && request.headers.get('authorization')?.trim() === `Bearer ${token}`) return null;
@@ -140,8 +145,7 @@ export function selfhostPublicHost(): string | null {
 }
 
 export function isSelfhostPublicHost(hostname: string): boolean {
-  const publicHost = selfhostPublicHost();
-  return Boolean(publicHost) && hostname.toLowerCase() === publicHost;
+  return selfhostTrustedHosts().includes(hostname.toLowerCase());
 }
 
 function hostOfHeader(value: string | null): string | null {

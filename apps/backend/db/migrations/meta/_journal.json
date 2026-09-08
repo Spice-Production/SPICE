@@ -134,6 +134,13 @@
       "when": 1788816017000,
       "tag": "0018_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788900000000,
+      "tag": "0019_watch_state",
+      "breakpoints": true
     }
   ]
 }

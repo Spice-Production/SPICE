@@ -76,6 +76,58 @@ export const passwordResetChallenges = pgTable(
   ],
 );
 
+/**
+ * Watchlist + continue-watching, synced to the SPICE account (keyed by
+ * user, so every device sees the same rows). `kind` is an open string on
+ * purpose: movies and shows today, anime tomorrow, no enum migration when
+ * the next library arrives. Embeds report no playback position, so
+ * progress tracks episode granularity (what the player can know
+ * truthfully): the last opened episode per series, started movies, and
+ * explicit completions.
+ */
+export const WATCH_KINDS = ['movie', 'show', 'anime'] as const;
+export type WatchKind = (typeof WATCH_KINDS)[number];
+
+export const watchlistItems = pgTable(
+  'watchlist_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    tmdbId: text('tmdb_id').notNull(),
+    title: text('title').notNull(),
+    posterUrl: text('poster_url'),
+    year: text('year'),
+    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('watchlist_user_added_idx').on(t.userId, t.addedAt),
+  ],
+);
+
+export const watchProgress = pgTable(
+  'watch_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    tmdbId: text('tmdb_id').notNull(),
+    season: integer('season').notNull().default(0),
+    episode: integer('episode').notNull().default(0),
+    title: text('title').notNull(),
+    posterUrl: text('poster_url'),
+    completed: boolean('completed').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('watch_progress_user_updated_idx').on(t.userId, t.updatedAt),
+  ],
+);
+
 export const accountSubscriptions = pgTable(
   'account_subscriptions',
   {
