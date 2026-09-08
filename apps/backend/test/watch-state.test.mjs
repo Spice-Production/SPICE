@@ -20,9 +20,50 @@ test('watchlist toggle validates input and add/remove both succeed idempotently'
   assert.match(source, /verifySession\(auth\.substring\(7\)\)/, 'account Bearer session required');
   assert.match(source, /kind must be movie, show, or anime/, 'anime rides the same endpoint later');
   assert.match(source, /tmdbId must be a numeric id/, 'id shape validated');
-  assert.match(source, /action must be add or remove/, 'action validated');
+  assert.match(source, /action must be add, remove, or set-status/, 'actions validated');
   assert.match(source, /onConflictDoNothing/, 'double-tap add stays a 200');
   assert.match(source, /Removing a missing row still succeeds/, 'remove is idempotent');
+});
+
+test('watchlist rows carry a status shelf and a release date', async () => {
+  const route = await read('app/api/watch/watchlist/route.ts');
+  assert.match(route, /status must be watch_later, watching, completed, or dropped/, 'status validated');
+  assert.match(route, /releaseDate must be YYYY-MM-DD/, 'date shape validated');
+  assert.match(route, /not_found/, 're-shelving a missing title 404s instead of inventing a row');
+  const state = await read('app/api/watch/state/route.ts');
+  assert.match(state, /status: watchlistItems\.status/, 'state feeds the shelves');
+  assert.match(state, /releaseDate: watchlistItems\.releaseDate/, 'state feeds the bell');
+  const progress = await read('app/api/watch/progress/route.ts');
+  assert.match(progress, /set\(\{ status: 'completed' \}\)/, 'finishing files the title as completed');
+  assert.match(progress, /set\(\{ status: 'watching' \}\)/, 'starting moves watch-later into watching');
+  assert.match(progress, /never creates list entries/, 'progress only flips rows the user saved');
+  const schema = await read('db/schema.ts');
+  assert.match(schema, /WATCH_LIST_STATUSES/, 'statuses live next to kinds for anime to reuse');
+});
+
+test('release timeline: dates flow from TMDB to cards, shelves, and the bell', async () => {
+  const tmdb = await read('lib/tmdb.ts');
+  assert.match(tmdb, /releaseDate: string \| null/, 'hits carry full dates');
+  assert.match(tmdb, /upcoming: '\/3\/movie\/upcoming'/, 'movies timeline source');
+  assert.match(tmdb, /airing: '\/3\/tv\/on_the_air'/, 'series timeline source');
+  const moviesBrowse = await read('app/api/movies/browse/route.ts');
+  assert.match(moviesBrowse, /'upcoming'/, 'upcoming shelf served');
+  const showsBrowse = await read('app/api/shows/browse/route.ts');
+  assert.match(showsBrowse, /'airing'/, 'airing shelf served');
+  const moviePage = await read('app/movie/page.tsx');
+  assert.match(moviePage, /Coming soon/, 'movies home runs the timeline shelf');
+  const showsPage = await read('app/shows/page.tsx');
+  assert.match(showsPage, /Airing now/, 'shows home runs the airing shelf');
+  const client = await read('app/watch-client.ts');
+  assert.match(client, /isFreshRelease/, 'bell rule: out within 30 days and not filed done');
+  assert.match(client, /formatReleaseDate/, 'dates render MMM d, yyyy');
+  const chrome = await read('app/media-chrome.tsx');
+  assert.match(chrome, /ReleaseBell/, 'bell lives in the shared topbar');
+  assert.match(chrome, /OUT NOW/, 'bell panel lists fresh drops with links');
+  const shelves = await read('app/watch-shelves.tsx');
+  assert.match(shelves, /WATCH_LIST_STATUS_ORDER/, 'one section per status, empty ones skipped');
+  const sync = await read('app/watch-sync.tsx');
+  assert.match(sync, /setWatchListStatus/, 'watch pages re-shelve without leaving the player');
 });
 
 test('progress tracks episode granularity and refuses season numbers on movies', async () => {

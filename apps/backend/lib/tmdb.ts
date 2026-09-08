@@ -10,6 +10,8 @@ export interface TmdbMovieHit {
   tmdbId: string;
   title: string;
   year: string | null;
+  /** Full YYYY-MM-DD release date when TMDB knows it — powers the timeline and release alerts. */
+  releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
@@ -23,6 +25,7 @@ const TMDB_BROWSE_PATHS = {
   trending: '/3/trending/movie/week',
   popular: '/3/movie/popular',
   top_rated: '/3/movie/top_rated',
+  upcoming: '/3/movie/upcoming',
 } as const;
 
 export type TmdbBrowseList = keyof typeof TMDB_BROWSE_PATHS;
@@ -49,6 +52,7 @@ function toHit(item: TmdbSearchItem): TmdbMovieHit | null {
   if (!id || !title) return null;
   const release = typeof item.release_date === 'string' ? item.release_date : '';
   const year = /^\d{4}/.test(release) ? release.slice(0, 4) : null;
+  const releaseDate = /^\d{4}-\d{2}-\d{2}$/.test(release) ? release : null;
   const poster = typeof item.poster_path === 'string' && item.poster_path.startsWith('/')
     ? `${TMDB_POSTER_BASE}${item.poster_path}`
     : null;
@@ -59,6 +63,7 @@ function toHit(item: TmdbSearchItem): TmdbMovieHit | null {
     tmdbId: id,
     title,
     year,
+    releaseDate,
     posterUrl: poster,
     backdropUrl: backdrop,
     overview: typeof item.overview === 'string' ? item.overview : '',
@@ -192,6 +197,8 @@ export interface TmdbShowHit {
   tmdbId: string;
   title: string;
   year: string | null;
+  /** Full YYYY-MM-DD first-air date when TMDB knows it — powers the timeline and release alerts. */
+  releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
@@ -215,6 +222,7 @@ function toShowHit(item: TmdbShowItem): TmdbShowHit | null {
     tmdbId: id,
     title,
     year: /^\d{4}/.test(aired) ? aired.slice(0, 4) : null,
+    releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(aired) ? aired : null,
     posterUrl: typeof item.poster_path === 'string' && item.poster_path.startsWith('/') ? `${TMDB_POSTER_BASE}${item.poster_path}` : null,
     backdropUrl: typeof item.backdrop_path === 'string' && item.backdrop_path.startsWith('/') ? `${TMDB_BACKDROP_BASE}${item.backdrop_path}` : null,
     overview: typeof item.overview === 'string' ? item.overview : '',
@@ -225,6 +233,7 @@ const TMDB_SHOW_BROWSE_PATHS = {
   trending: '/3/trending/tv/week',
   popular: '/3/tv/popular',
   top_rated: '/3/tv/top_rated',
+  airing: '/3/tv/on_the_air',
 } as const;
 
 export type TmdbShowBrowseList = keyof typeof TMDB_SHOW_BROWSE_PATHS;

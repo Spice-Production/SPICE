@@ -6,24 +6,26 @@ import { useEffect, useState } from 'react';
 import MediaChrome from '../media-chrome';
 import MediaHero from '../media-hero';
 import { TvIcon } from '../media-icons';
-import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
+import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
 interface ShowHit {
   tmdbId: string;
   title: string;
   year: string | null;
+  releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
 }
 
-type ShelfKey = 'trending' | 'popular' | 'top_rated';
+type ShelfKey = 'trending' | 'popular' | 'top_rated' | 'airing';
 
 const SHELVES: { key: ShelfKey; title: string }[] = [
   { key: 'trending', title: 'Trending series' },
   { key: 'popular', title: 'Popular now' },
   { key: 'top_rated', title: 'Top rated' },
+  { key: 'airing', title: 'Airing now' },
 ];
 
 const CARD_BG = 'rgba(255,255,255,0.04)';
@@ -53,7 +55,7 @@ function PosterCard({ hit }: { hit: ShowHit }) {
         )}
         <div style={{ padding: '8px 10px' }}>
           <div style={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hit.title}</div>
-          {hit.year && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{hit.year}</div>}
+          {(hit.releaseDate || hit.year) && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{formatReleaseDate(hit.releaseDate) ?? hit.year}</div>}
         </div>
       </div>
     </Link>
@@ -164,7 +166,7 @@ export default function ShowsPage() {
   }
 
   return (
-    <MediaChrome active="shows" section="SPICE TV SERIES" token={token} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
+    <MediaChrome active="shows" section="SPICE TV SERIES" token={token} watchState={watchState} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
       {!searched && heroItems.length > 0 && (
         <MediaHero
           kicker="SPICE SHOWS · TRENDING"

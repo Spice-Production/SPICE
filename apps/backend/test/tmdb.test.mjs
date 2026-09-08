@@ -43,12 +43,14 @@ test('search maps TMDB rows and drops malformed ones', async () => {
     tmdbId: '438631',
     title: 'Dune',
     year: '2021',
+    releaseDate: '2021-09-15',
     posterUrl: 'https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg',
     backdropUrl: null,
     overview: 'Spice must flow.',
   });
   assert.equal(hits[1].posterUrl, null);
   assert.equal(hits[1].year, null);
+  assert.equal(hits[1].releaseDate, null);
 });
 
 test('search failures surface the upstream status', async () => {
@@ -113,6 +115,7 @@ test('series search maps TV rows and drops malformed ones', async () => {
     tmdbId: '1396',
     title: 'Breaking Bad',
     year: '2008',
+    releaseDate: '2008-01-20',
     posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
     backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     overview: 'Chemistry.',

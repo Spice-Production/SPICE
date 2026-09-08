@@ -9,12 +9,25 @@
 
 export type WatchKind = 'movie' | 'show' | 'anime';
 
+export type WatchListStatus = 'watch_later' | 'watching' | 'completed' | 'dropped';
+
+export const WATCH_LIST_STATUS_LABELS: Record<WatchListStatus, string> = {
+  watching: 'Watching',
+  watch_later: 'Watch Later',
+  completed: 'Completed',
+  dropped: 'Dropped',
+};
+
+export const WATCH_LIST_STATUS_ORDER: WatchListStatus[] = ['watching', 'watch_later', 'completed', 'dropped'];
+
 export interface WatchEntry {
   kind: string;
   tmdbId: string;
   title: string;
   posterUrl: string | null;
   year?: string | null;
+  status?: string | null;
+  releaseDate?: string | null;
   addedAt?: string;
 }
 
@@ -97,13 +110,47 @@ export async function fetchWatchState(token: string): Promise<WatchState> {
 
 export async function toggleWatchlist(
   token: string,
-  entry: { kind: WatchKind; tmdbId: string; title: string; posterUrl?: string | null; year?: string | null },
+  entry: { kind: WatchKind; tmdbId: string; title: string; posterUrl?: string | null; year?: string | null; releaseDate?: string | null },
   saved: boolean,
+  status?: WatchListStatus,
 ): Promise<void> {
   await watchFetch(token, '/api/watch/watchlist', {
     method: 'POST',
-    body: JSON.stringify({ ...entry, action: saved ? 'remove' : 'add' }),
+    body: JSON.stringify({ ...entry, status: saved ? undefined : (status ?? 'watch_later'), action: saved ? 'remove' : 'add' }),
   });
+}
+
+export async function setWatchListStatus(
+  token: string,
+  entry: { kind: WatchKind; tmdbId: string; status: WatchListStatus },
+): Promise<void> {
+  await watchFetch(token, '/api/watch/watchlist', {
+    method: 'POST',
+    body: JSON.stringify({ kind: entry.kind, tmdbId: entry.tmdbId, status: entry.status, action: 'set-status' }),
+  });
+}
+
+export function formatReleaseDate(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Days since release; null when unknown or unreleased. */
+export function daysSinceRelease(value: string | null | undefined, now = new Date()): number | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const diff = Math.floor((now.getTime() - date.getTime()) / 86_400_000);
+  return diff >= 0 ? diff : null;
+}
+
+/** Recently released (past 30 days) and not filed as done — bell material. */
+export function isFreshRelease(entry: { status?: string | null; releaseDate?: string | null }, now = new Date()): boolean {
+  if (entry.status === 'completed' || entry.status === 'dropped') return false;
+  const age = daysSinceRelease(entry.releaseDate, now);
+  return age !== null && age <= 30;
 }
 
 export async function reportProgress(

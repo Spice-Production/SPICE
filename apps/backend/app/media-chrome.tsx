@@ -5,9 +5,16 @@ import { useEffect, useState } from 'react';
 
 import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
-import { FilmIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
+import { FilmIcon, BellIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
 import MediaSignIn from './media-signin';
-import { fetchAccountProfile, type AccountProfile } from './watch-client';
+import {
+  fetchAccountProfile,
+  formatReleaseDate,
+  isFreshRelease,
+  watchPageHref,
+  type AccountProfile,
+  type WatchState,
+} from './watch-client';
 
 const MUSIC_HOME = 'https://music.spice-app.xyz/';
 
@@ -22,6 +29,7 @@ export default function MediaChrome({
   active,
   section,
   token,
+  watchState,
   onSignedIn,
   onSignOut,
   children,
@@ -29,6 +37,7 @@ export default function MediaChrome({
   active: 'movies' | 'shows';
   section: string;
   token: string | null;
+  watchState?: WatchState | null;
   onSignedIn: (token: string) => void;
   onSignOut: () => void;
   children: React.ReactNode;
@@ -71,7 +80,10 @@ export default function MediaChrome({
       <div className="media-main">
         <header className="media-top">
           <span style={{ color: '#c084fc', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.1em' }}>{section}</span>
-          <ProfileMenu token={token} onSignedIn={onSignedIn} onSignOut={onSignOut} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {token && <ReleaseBell watchState={watchState ?? null} />}
+            <ProfileMenu token={token} onSignedIn={onSignedIn} onSignOut={onSignOut} />
+          </div>
         </header>
         {children}
       </div>
@@ -254,6 +266,118 @@ function ProfileMenu({
                 </button>
               </>
             )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Release bell: titles on your list that dropped in the past 30 days and
+ * aren't filed as done. Computed from the synced state at render — no
+ * scheduler, no push, nothing to dismiss; items age out or clear when you
+ * complete or drop them.
+ */
+function ReleaseBell({ watchState }: { watchState: WatchState | null }) {
+  const [open, setOpen] = useState(false);
+  const fresh = (watchState?.watchlist ?? []).filter((entry) => isFreshRelease(entry));
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label={fresh.length > 0 ? `${fresh.length} new releases from your list` : 'No new releases from your list'}
+        aria-expanded={open}
+        title="New releases"
+        style={{
+          width: '38px',
+          height: '38px',
+          borderRadius: '999px',
+          border: '1px solid rgba(255,255,255,0.25)',
+          background: 'rgba(255,255,255,0.08)',
+          color: '#fff',
+          cursor: 'pointer',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 0,
+        }}
+      >
+        <BellIcon size={18} />
+        {fresh.length > 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              minWidth: '18px',
+              height: '18px',
+              borderRadius: '999px',
+              background: '#e11d48',
+              color: '#fff',
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              display: 'grid',
+              placeItems: 'center',
+              padding: '0 4px',
+            }}
+          >
+            {fresh.length > 9 ? '9+' : fresh.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div aria-hidden onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'transparent' }} />
+          <div
+            role="menu"
+            aria-label="New releases from your list"
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 'calc(100% + 10px)',
+              width: '300px',
+              maxHeight: '380px',
+              overflowY: 'auto',
+              background: '#121218',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '14px',
+              boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
+              padding: '12px',
+              zIndex: 41,
+              display: 'grid',
+              gap: '4px',
+            }}
+          >
+            <p style={{ margin: '0 0 6px', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.06em', color: '#94a3b8' }}>
+              OUT NOW · FROM YOUR LIST
+            </p>
+            {fresh.length === 0 && (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#cbd5e1' }}>All caught up — nothing on your list dropped recently.</p>
+            )}
+            {fresh.map((entry) => (
+              <a
+                key={`${entry.kind}:${entry.tmdbId}`}
+                href={watchPageHref(entry)}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', padding: '8px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)' }}
+              >
+                {entry.posterUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entry.posterUrl} alt="" width={34} height={51} style={{ width: '34px', height: '51px', borderRadius: '6px', objectFit: 'cover', flex: 'none' }} />
+                ) : (
+                  <span style={{ width: '34px', height: '51px', borderRadius: '6px', background: 'rgba(124,58,237,0.25)', flex: 'none' }} />
+                )}
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {entry.title}
+                  </span>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#86efac' }}>
+                    {formatReleaseDate(entry.releaseDate) ?? 'Recently released'}
+                  </span>
+                </span>
+              </a>
+            ))}
           </div>
         </>
       )}

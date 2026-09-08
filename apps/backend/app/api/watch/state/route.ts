@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       title: watchlistItems.title,
       posterUrl: watchlistItems.posterUrl,
       year: watchlistItems.year,
+      status: watchlistItems.status,
+      releaseDate: watchlistItems.releaseDate,
       addedAt: watchlistItems.addedAt,
     })
     .from(watchlistItems)

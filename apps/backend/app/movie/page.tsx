@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import MediaChrome from '../media-chrome';
 import MediaHero from '../media-hero';
 import { FilmIcon, TvIcon } from '../media-icons';
-import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
+import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
 interface ShowSpotlight {
@@ -20,17 +20,19 @@ interface MovieHit {
   tmdbId: string;
   title: string;
   year: string | null;
+  releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   overview: string;
 }
 
-type ShelfKey = 'trending' | 'popular' | 'top_rated';
+type ShelfKey = 'trending' | 'popular' | 'top_rated' | 'upcoming';
 
 const SHELVES: { key: ShelfKey; title: string }[] = [
   { key: 'trending', title: 'Trending this week' },
   { key: 'popular', title: 'Popular now' },
   { key: 'top_rated', title: 'Top rated' },
+  { key: 'upcoming', title: 'Coming soon' },
 ];
 
 const CARD_BG = 'rgba(255,255,255,0.04)';
@@ -60,7 +62,7 @@ function PosterCard({ hit }: { hit: MovieHit }) {
         )}
         <div style={{ padding: '8px 10px' }}>
           <div style={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hit.title}</div>
-          {hit.year && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{hit.year}</div>}
+          {(hit.releaseDate || hit.year) && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{formatReleaseDate(hit.releaseDate) ?? hit.year}</div>}
         </div>
       </div>
     </Link>
@@ -190,7 +192,7 @@ export default function MoviePage() {
   }
 
   return (
-    <MediaChrome active="movies" section="SPICE MOVIES" token={token} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
+    <MediaChrome active="movies" section="SPICE MOVIES" token={token} watchState={watchState} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
       {!searched && heroItems.length > 0 && (
         <MediaHero
           kicker="SPICE MOVIES · TRENDING"

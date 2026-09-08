@@ -141,6 +141,13 @@
       "when": 1788900000000,
       "tag": "0019_watch_state",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788900000001,
+      "tag": "0020_watchlist_status",
+      "breakpoints": true
     }
   ]
 }

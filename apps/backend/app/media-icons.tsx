@@ -77,3 +77,12 @@ export function PlayIcon({ size, style }: { size?: number; style?: React.CSSProp
     </Base>
   );
 }
+
+export function BellIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5h-15C4.5 15 6 13.5 6 9.5z" />
+      <path d="M10 19a2.2 2.2 0 0 0 4 0" />
+    </Base>
+  );
+}
