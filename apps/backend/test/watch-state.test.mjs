@@ -57,6 +57,48 @@ test('browse surfaces share a sidebar frame, profile menu, and billboard hero', 
   assert.match(showsPage, /<MediaHero/, 'shows home gets the same billboard');
 });
 
+test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async () => {
+  const files = [
+    'app/media-chrome.tsx',
+    'app/media-hero.tsx',
+    'app/media-icons.tsx',
+    'app/media-signin.tsx',
+    'app/watch-client.ts',
+    'app/watch-shelves.tsx',
+    'app/watch-sync.tsx',
+    'app/movie/page.tsx',
+    'app/movie/watch/[tmdbId]/page.tsx',
+    'app/movie/watch/[tmdbId]/movie-player.tsx',
+    'app/shows/page.tsx',
+    'app/shows/watch/[id]/page.tsx',
+    'app/shows/watch/[id]/show-player.tsx',
+  ];
+  const pictographic = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+  const allowedTypography = /[✓×→←+]/g;
+  for (const file of files) {
+    const source = (await read(file)).replace(allowedTypography, '');
+    assert.doesNotMatch(source, pictographic, `${file} must use SVG icons, not emoji`);
+  }
+  const icons = await read('app/media-icons.tsx');
+  for (const name of ['FilmIcon', 'TvIcon', 'MusicIcon', 'UserIcon', 'PlayIcon']) {
+    assert.match(icons, new RegExp(`export function ${name}`), `${name} lives in the shared set`);
+  }
+  const chrome = await read('app/media-chrome.tsx');
+  assert.match(chrome, /FilmIcon/, 'sidebar movies icon is SVG');
+  assert.match(chrome, /spice-movies-icon\.svg/, 'sidebar brand wears the Movies mark');
+});
+
+test('movies and shows wear their own clapperboard favicon, not the music note', async () => {
+  for (const route of ['app/movie/icon.svg', 'app/shows/icon.svg']) {
+    const icon = await read(route);
+    assert.match(icon, /<svg/, `${route} is an SVG favicon`);
+    assert.match(icon, /spice-movies-gradient/, `${route} carries the Movies mark`);
+  }
+  const source = await read('public/spice-movies-icon.svg');
+  assert.match(source, /<rect[^>]*fill="#ffffff"/, 'white clapperboard on the brand squircle');
+  assert.doesNotMatch(source, /id="gradient"/, 'gradient id is namespaced so it never clashes with the music icon');
+});
+
 test('browse shelves and players share one client and one toggle island', async () => {
   const client = await read('app/watch-client.ts');
   assert.match(client, /spice_cloud_token/, 'same token the music player stores — no second login per page');

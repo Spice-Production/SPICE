@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 
 import { toggleWatchlist, type WatchKind } from './watch-client';
 
+import { PlayIcon } from './media-icons';
+
 export interface HeroItem {
   tmdbId: string;
   title: string;
@@ -99,8 +101,8 @@ export default function MediaHero({
           </p>
         )}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link href={watchHref} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}>
-            ▶ Watch now
+          <Link href={watchHref} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <PlayIcon size={16} /> Watch now
           </Link>
           {token && (
             <button type="button" onClick={() => void onToggle()} disabled={busy} style={listStyle}>

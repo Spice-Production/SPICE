@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import MediaChrome from '../media-chrome';
 import MediaHero from '../media-hero';
+import { FilmIcon, TvIcon } from '../media-icons';
 import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
@@ -53,8 +54,8 @@ function PosterCard({ hit }: { hit: MovieHit }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={hit.posterUrl} alt={`${hit.title} poster`} style={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} loading="lazy" />
         ) : (
-          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', fontSize: '2rem' }}>
-            ♪
+          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd' }}>
+            <FilmIcon size={34} />
           </div>
         )}
         <div style={{ padding: '8px 10px' }}>
@@ -282,7 +283,7 @@ export default function MoviePage() {
             {spotlight.length > 0 && (
               <section style={{ marginBottom: '32px' }} aria-label="TV series spotlight">
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
-                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>TV series spotlight 📺</h2>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><TvIcon size={19} /> TV series spotlight</h2>
                   <Link href="/shows" style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>
                     Explore all series →
                   </Link>
@@ -295,8 +296,8 @@ export default function MoviePage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={show.posterUrl} alt={`${show.title} poster`} style={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} loading="lazy" />
                         ) : (
-                          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', fontSize: '2rem' }}>
-                            📺
+                          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd' }}>
+                            <FilmIcon size={34} />
                           </div>
                         )}
                         <div style={{ padding: '8px 10px' }}>

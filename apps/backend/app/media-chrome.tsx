@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
+import { FilmIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
 import MediaSignIn from './media-signin';
 
 const MUSIC_HOME = 'https://music.spice-app.xyz/';
@@ -50,18 +51,19 @@ export default function MediaChrome({
       `}</style>
       <aside className="media-side" aria-label="Browse">
         <Link href="/movie" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: '#fff', padding: '4px 12px 16px' }}>
-          <span style={{ width: '30px', height: '30px', borderRadius: '9px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', display: 'grid', placeItems: 'center', fontWeight: 900 }}>S</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/spice-movies-icon.svg" alt="Spice Movies" width={30} height={30} style={{ borderRadius: '9px', display: 'block' }} />
           <span style={{ fontWeight: 800, letterSpacing: '0.02em' }}>SPICE</span>
         </Link>
         <Link className="media-navlink" data-on={active === 'movies'} href="/movie">
-          <span aria-hidden>🎬</span> Movies
+          <FilmIcon size={17} /> Movies
         </Link>
         <Link className="media-navlink" data-on={active === 'shows'} href="/shows">
-          <span aria-hidden>📺</span> TV Series
+          <TvIcon size={17} /> TV Series
         </Link>
         <div className="side-foot" style={{ marginTop: 'auto', display: 'grid', gap: '6px' }}>
           <a className="media-navlink" href={MUSIC_HOME} style={{ fontSize: '0.85rem' }}>
-            <span aria-hidden>🎵</span> SPICE Music
+            <MusicIcon size={16} /> SPICE Music
           </a>
         </div>
       </aside>
@@ -134,7 +136,7 @@ function ProfileMenu({
           cursor: 'pointer',
         }}
       >
-        {token ? initial : '👤'}
+        {token ? initial : <UserIcon size={19} />}
       </button>
       {open && (
         <>
@@ -201,8 +203,8 @@ function ProfileMenu({
                     ))}
                   </select>
                 </label>
-                <a href={MUSIC_HOME} style={{ color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>
-                  🎵 Open SPICE Music
+                <a href={MUSIC_HOME} style={{ color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MusicIcon size={15} /> Open SPICE Music
                 </a>
                 <button
                   type="button"

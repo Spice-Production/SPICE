@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import MediaChrome from '../media-chrome';
 import MediaHero from '../media-hero';
+import { TvIcon } from '../media-icons';
 import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
 
@@ -46,8 +47,8 @@ function PosterCard({ hit }: { hit: ShowHit }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={hit.posterUrl} alt={`${hit.title} poster`} style={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} loading="lazy" />
         ) : (
-          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd', fontSize: '2rem' }}>
-            ♪
+          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd' }}>
+            <TvIcon size={34} />
           </div>
         )}
         <div style={{ padding: '8px 10px' }}>
