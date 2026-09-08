@@ -86,6 +86,11 @@ test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async (
   const chrome = await read('app/media-chrome.tsx');
   assert.match(chrome, /FilmIcon/, 'sidebar movies icon is SVG');
   assert.match(chrome, /spice-movies-icon\.svg/, 'sidebar brand wears the Movies mark');
+  assert.match(chrome, /fetchAccountProfile/, 'profile menu loads the synced music profile');
+  assert.match(chrome, /profile\?\.avatarUrl/, 'profile button and menu render the synced PFP with an initial-letter fallback');
+  const client = await read('app/watch-client.ts');
+  assert.match(client, /\/api\/sync\/profiles/, 'avatars resolve from the synced profiles endpoint');
+  assert.match(client, /spice_cloud_profile_id/, 'the active music profile wins, first profile otherwise');
 });
 
 test('movies and shows wear their own clapperboard favicon, not the music note', async () => {

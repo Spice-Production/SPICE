@@ -43,6 +43,43 @@ export function readAccountToken(): string | null {
   }
 }
 
+export interface AccountProfile {
+  avatarUrl: string | null;
+  displayName: string | null;
+  username: string | null;
+}
+
+/**
+ * The music player's profile (avatar included), resolved the same way
+ * everywhere: the stored active profile first, otherwise the first synced
+ * profile. Server-sourced, so a PFP change follows the account.
+ */
+export async function fetchAccountProfile(token: string): Promise<AccountProfile | null> {
+  let storedId: string | null = null;
+  try {
+    storedId = window.localStorage.getItem('spice_cloud_profile_id');
+  } catch {
+    storedId = null;
+  }
+  const res = await fetch('/api/sync/profiles', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) throw new Error('signed-out');
+  if (!res.ok) throw new Error(`request failed (${res.status})`);
+  const data = (await res.json().catch(() => null)) as {
+    profiles?: { id?: unknown; avatarUrl?: unknown; displayName?: unknown; username?: unknown }[];
+  } | null;
+  const list = Array.isArray(data?.profiles) ? data.profiles : [];
+  const match =
+    (storedId && list.find((p) => p.id === storedId)) ?? list[0] ?? null;
+  if (!match) return null;
+  return {
+    avatarUrl: typeof match.avatarUrl === 'string' && match.avatarUrl ? match.avatarUrl : null,
+    displayName: typeof match.displayName === 'string' && match.displayName ? match.displayName : null,
+    username: typeof match.username === 'string' && match.username ? match.username : null,
+  };
+}
+
 async function watchFetch(token: string, path: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(path, {
     ...init,

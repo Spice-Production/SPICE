@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
 import { FilmIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
 import MediaSignIn from './media-signin';
+import { fetchAccountProfile, type AccountProfile } from './watch-client';
 
 const MUSIC_HOME = 'https://music.spice-app.xyz/';
 
@@ -101,8 +102,26 @@ function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [source, setSource] = useState(() => loadPreferredProvider(DEFAULT_STREAM_PROVIDER_ID));
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
   const email = token ? readAccountEmail() : null;
-  const initial = (email ?? 'S').trim().charAt(0).toUpperCase() || 'S';
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    fetchAccountProfile(token)
+      .then((next) => {
+        if (!cancelled) setProfile(next);
+      })
+      .catch(() => {
+        /* avatar is decorative: the initial letter covers failures */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const displayName = profile?.displayName ?? profile?.username ?? null;
+  const initial = ((displayName ?? email ?? 'S').trim().charAt(0).toUpperCase() || 'S');
 
   function signOut() {
     try {
@@ -121,22 +140,35 @@ function ProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        aria-label={token ? `Account${email ? ` (${email})` : ''}` : 'Sign in'}
+        aria-label={token ? `Account${displayName ? ` (${displayName})` : ''}` : 'Sign in'}
         aria-expanded={open}
-        title={token ? (email ?? 'Account') : 'Sign in'}
+        title={token ? (displayName ?? email ?? 'Account') : 'Sign in'}
         style={{
           width: '38px',
           height: '38px',
           borderRadius: '999px',
           border: token ? '2px solid #7c3aed' : '1px solid rgba(255,255,255,0.25)',
-          background: token ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : 'rgba(255,255,255,0.08)',
+          background: token && !profile?.avatarUrl ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : 'rgba(255,255,255,0.08)',
           color: '#fff',
           fontWeight: 800,
           fontSize: '1rem',
           cursor: 'pointer',
+          overflow: 'hidden',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 0,
         }}
       >
-        {token ? initial : <UserIcon size={19} />}
+        {token ? (
+          profile?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.avatarUrl} alt="" width={38} height={38} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ) : (
+            initial
+          )
+        ) : (
+          <UserIcon size={19} />
+        )}
       </button>
       {open && (
         <>
@@ -176,9 +208,26 @@ function ProfileMenu({
               </>
             ) : (
               <>
-                <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {email ?? 'SPICE account'}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {profile?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatarUrl} alt="" width={40} height={40} style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover', flex: 'none' }} />
+                  ) : (
+                    <span style={{ width: '40px', height: '40px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', display: 'grid', placeItems: 'center', fontWeight: 800, flex: 'none' }}>
+                      {initial}
+                    </span>
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {displayName ?? 'SPICE account'}
+                    </p>
+                    {email && displayName && (
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {email}
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <label style={{ display: 'grid', gap: '6px', fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>
                   Default source
                   <select
