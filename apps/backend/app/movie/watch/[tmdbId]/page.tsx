@@ -5,6 +5,7 @@ import { buildMovieEmbedUrl, normalizeTmdbMovieId } from '@/lib/movie-provider';
 import { getMovieDetails } from '@/lib/tmdb';
 
 import MoviePlayer from './movie-player';
+import WatchSync from '../../../watch-sync';
 
 interface WatchParams {
   tmdbId: string;
@@ -69,6 +70,13 @@ export default async function MovieWatchPage({ params }: { params: Promise<Watch
             {details.overview}
           </p>
         )}
+        <WatchSync
+          kind="movie"
+          tmdbId={tmdbId}
+          title={details?.title ?? `Movie ${tmdbId}`}
+          posterUrl={details?.posterUrl ?? null}
+          year={details?.year ?? null}
+        />
         <MoviePlayer tmdbId={tmdbId} title={details?.title ?? `Movie ${tmdbId}`} />
       </div>
     </main>

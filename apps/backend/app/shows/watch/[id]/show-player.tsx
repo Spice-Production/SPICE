@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_STREAM_PROVIDER_ID, streamProviders } from '@/lib/movie-provider';
 
 import { loadPreferredProvider, ProviderTabs, savePreferredProvider, WatchFrame } from '../../../watch-frame';
+import WatchSync from '../../../watch-sync';
 
 interface SeasonSummary {
   seasonNumber: number;
@@ -23,14 +24,20 @@ interface Episode {
 interface ShowPlayerProps {
   tmdbId: string;
   title: string;
+  posterUrl: string | null;
+  year: string | null;
   seasons: SeasonSummary[];
+  initialSeason?: number;
+  initialEpisode?: number;
 }
 
-export default function ShowPlayer({ tmdbId, title, seasons }: ShowPlayerProps) {
+export default function ShowPlayer({ tmdbId, title, posterUrl, year, seasons, initialSeason, initialEpisode }: ShowPlayerProps) {
   const available = seasons.filter((s) => s.seasonNumber > 0 && s.episodeCount > 0);
-  const [season, setSeason] = useState(available[0]?.seasonNumber ?? 1);
+  const [season, setSeason] = useState(
+    initialSeason && available.some((s) => s.seasonNumber === initialSeason) ? initialSeason : (available[0]?.seasonNumber ?? 1),
+  );
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [episode, setEpisode] = useState(1);
+  const [episode, setEpisode] = useState(initialEpisode && initialEpisode >= 1 ? initialEpisode : 1);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -83,6 +90,16 @@ export default function ShowPlayer({ tmdbId, title, seasons }: ShowPlayerProps) 
 
   return (
     <div>
+      <WatchSync
+        kind="show"
+        tmdbId={tmdbId}
+        title={title}
+        posterUrl={posterUrl}
+        year={year}
+        season={season}
+        episode={episode}
+        episodeLabel={`S${season} E${episode} watched`}
+      />
       <ProviderTabs
         sources={providerUrls.map((entry) => ({ ...entry, disabled: false }))}
         activeId={providerId}

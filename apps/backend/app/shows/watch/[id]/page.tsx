@@ -17,11 +17,28 @@ export async function generateMetadata({ params }: { params: Promise<WatchParams
   return { title: details ? `${details.title} - Spice Shows` : 'Spice Shows' };
 }
 
-export default async function ShowWatchPage({ params }: { params: Promise<WatchParams> }) {
+export default async function ShowWatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<WatchParams>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
   if (!normalizeTmdbMovieId(id)) notFound();
   const details = await getShowDetails(id).catch(() => null);
   if (!details) notFound();
+
+  // Continue-watching links land here with ?s=&e= — resume that episode.
+  const query = (await searchParams?.catch(() => undefined)) ?? {};
+  const asPositiveInt = (value: string | string[] | undefined): number | undefined => {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (!raw || !/^\d{1,4}$/.test(raw.trim())) return undefined;
+    const num = Number(raw.trim());
+    return num >= 1 && num <= 5000 ? num : undefined;
+  };
+  const initialSeason = asPositiveInt(query.s);
+  const initialEpisode = asPositiveInt(query.e);
 
   const meta = [details.year, details.status, ...details.genres].filter(Boolean).join(' · ');
 
@@ -60,7 +77,7 @@ export default async function ShowWatchPage({ params }: { params: Promise<WatchP
             {details.overview}
           </p>
         )}
-        <ShowPlayer tmdbId={details.tmdbId} title={details.title} seasons={details.seasons} />
+        <ShowPlayer tmdbId={details.tmdbId} title={details.title} posterUrl={details.posterUrl} year={details.year} seasons={details.seasons} initialSeason={initialSeason} initialEpisode={initialEpisode} />
       </div>
     </main>
   );

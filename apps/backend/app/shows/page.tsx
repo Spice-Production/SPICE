@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import MediaSignIn from '../media-signin';
+import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
+import { WatchShelves } from '../watch-shelves';
+
 interface ShowHit {
   tmdbId: string;
   title: string;
@@ -74,6 +78,13 @@ export default function ShowsPage() {
   const [shelves, setShelves] = useState<Partial<Record<ShelfKey, ShowHit[]>>>({});
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => readAccountToken());
+  const [watchState, setWatchState] = useState<WatchState | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchWatchState(token).then(setWatchState).catch(() => setToken(null));
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,6 +218,25 @@ export default function ShowsPage() {
           </>
         ) : (
           <>
+            {!token ? (
+              <div style={{ marginBottom: '1.75rem' }}>
+                <MediaSignIn onSignedIn={(next) => { setToken(next); fetchWatchState(next).then(setWatchState).catch(() => null); }} />
+                <p style={{ color: DIM, fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
+                  Sign in with your SPICE account to sync your list and pick up where you left off, on any device.
+                </p>
+              </div>
+            ) : watchState ? (
+              <WatchShelves
+                kind="show"
+                token={token}
+                state={watchState}
+                onToggle={(tmdbId) =>
+                  setWatchState((prev) =>
+                    prev ? { ...prev, watchlist: prev.watchlist.filter((entry) => entry.tmdbId !== tmdbId) } : prev,
+                  )
+                }
+              />
+            ) : null}
             {shelvesLoading && (
               <>
                 <div style={{ height: '20px', width: '180px', borderRadius: '6px', background: 'rgba(255,255,255,0.07)', marginBottom: '14px' }} />

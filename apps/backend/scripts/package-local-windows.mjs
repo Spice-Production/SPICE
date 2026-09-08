@@ -43,6 +43,7 @@ const cloudApiPrefixes = [
   '/api/updates',
   '/api/users',
   '/api/version',
+  '/api/watch',
 ];
 const forbiddenDbMarkers = [
   /postgres(?:ql)?:\/\//i,
@@ -182,6 +183,7 @@ async function pruneLocalPackage(root) {
     'apps/backend/.next/server/app/api/updates',
     'apps/backend/.next/server/app/api/users',
     'apps/backend/.next/server/app/api/version',
+    'apps/backend/.next/server/app/api/watch',
     'apps/backend/public/WALKTHROUGH.md',
     'apps/backend/db',
     'node_modules/@neondatabase',
