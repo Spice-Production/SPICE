@@ -3228,6 +3228,83 @@ export default function SpiceApp() {
   const boostProtocolHandoffRef = useRef(false);
   const boostResumeSecondsRef = useRef<{ trackKey: string; seconds: number } | null>(null);
   const pendingProxyStartSecondsRef = useRef<{ trackKey: string; seconds: number } | null>(null);
+
+  /**
+   * Snapshot the live position before any SAME-track restart (error flip,
+   * timed retry, exhaustion rescue) so the fresh transport resumes mid-song
+   * instead of starting from 0. Prefers the live element/iframe clock and
+   * falls back to the last timeupdate position. Reuses the boost-resume
+   * channel: both the proxy consumer (applyResumeSeek) and the embed
+   * consumer (seekEmbedToPendingResume) honor it, and the stale-track guard
+   * drops it if a different track wins the race.
+   */
+  const captureSameTrackResumeSeconds = (track: Track) => {
+    const resumeKey = playbackTrackKey(track);
+    let seconds = Math.max(0, Number(progressRef.current) || 0);
+    try {
+      if (
+        streamProtocolRef.current === 'embed'
+        && isYouTubeTrack(track)
+        && ytPlayerRef.current
+        && typeof ytPlayerRef.current.getCurrentTime === 'function'
+      ) {
+        const ytSeconds = Number(ytPlayerRef.current.getCurrentTime());
+        if (Number.isFinite(ytSeconds) && ytSeconds > 0) seconds = ytSeconds;
+      } else {
+        const slot = audioSlotRefs.current[activeAudioSlotRef.current];
+        if (
+          slot
+          && slot.dataset.spiceTrackKey === resumeKey
+          && Number.isFinite(slot.currentTime)
+          && slot.currentTime > 0
+        ) {
+          seconds = slot.currentTime;
+        }
+      }
+    } catch {
+      // Torn-down slot or unready iframe: the progressRef fallback stands.
+    }
+    if (seconds > 1) {
+      const resume = { trackKey: resumeKey, seconds };
+      boostResumeSecondsRef.current = resume;
+      pendingProxyStartSecondsRef.current = resume;
+    } else {
+      boostResumeSecondsRef.current = null;
+      pendingProxyStartSecondsRef.current = null;
+    }
+  };
+
+  /**
+   * Embed-side twin of the proxy applyResumeSeek: after a same-track restart
+   * lands in the iframe transport, jump it to the captured position once the
+   * player can take a seek instead of replaying from the top.
+   */
+  const seekEmbedToPendingResume = (resumeKey: string, requestId: number) => {
+    const pending = pendingProxyStartSecondsRef.current;
+    if (!pending || pending.trackKey !== resumeKey || !(pending.seconds > 1)) return;
+    const resumeSeconds = Math.max(0, Math.min(pending.seconds, 86_399));
+    pendingProxyStartSecondsRef.current = null;
+    boostResumeSecondsRef.current = null;
+    const applyEmbedSeek = (attempt: number) => {
+      if (playbackRequestRef.current !== requestId) return;
+      try {
+        const yt = ytPlayerRef.current;
+        if (!yt || typeof yt.seekTo !== 'function') return;
+        if (typeof yt.getPlayerState === 'function') {
+          const ytState = Number(yt.getPlayerState());
+          if (ytState === -1 || ytState === 0) {
+            if (attempt <= 0) return;
+            window.setTimeout(() => applyEmbedSeek(attempt - 1), 250);
+            return;
+          }
+        }
+        yt.seekTo(resumeSeconds, true);
+      } catch {
+        if (attempt > 0) window.setTimeout(() => applyEmbedSeek(attempt - 1), 250);
+      }
+    };
+    window.setTimeout(() => applyEmbedSeek(10), 400);
+  };
   const syncLockRef = useRef<boolean>(false);
   const scrobbleStateRef = useRef<ProfileListenDeliveryState | null>(null);
   const profileListenRetryTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -5972,6 +6049,7 @@ export default function SpiceApp() {
         streamUrlRef.current = 'youtube-embed-active';
         setIsLoadingStream(false);
         isLoadingStreamRef.current = false;
+        captureSameTrackResumeSeconds(track);
         void playTrackRef.current(track, queueSnapshot, queueIndexRef.current, isListenTogetherRetry, true);
         return true;
       }
@@ -5999,6 +6077,7 @@ export default function SpiceApp() {
     playbackRetryTimeoutRef.current = setTimeout(() => {
       playbackRetryTimeoutRef.current = null;
       if (!shouldAutoPlayRef.current && !isPlayingRef.current) return;
+      captureSameTrackResumeSeconds(track);
       void playTrackRef.current(track, queueSnapshot, undefined, isListenTogetherRetry, true);
     }, delay);
 
@@ -6180,6 +6259,7 @@ export default function SpiceApp() {
       streamProtocolRef.current = 'embed';
       setStreamUrl('youtube-embed-active');
       streamUrlRef.current = 'youtube-embed-active';
+      captureSameTrackResumeSeconds(activeTrack);
       void playTrackRef.current(activeTrack, queueRef.current, queueIndexRef.current, Boolean(listenTogetherHostSessionIdRef.current), true);
       return;
     }
@@ -6980,6 +7060,7 @@ export default function SpiceApp() {
           } else if (typeof ytPlayerRef.current.pauseVideo === 'function') {
             ytPlayerRef.current.pauseVideo();
           }
+          seekEmbedToPendingResume(trackKey, requestId);
         }
         return;
       }
@@ -7099,6 +7180,7 @@ export default function SpiceApp() {
         cancelPreparedCrossfade();
         logDebug('diagnostics', `Direct stream resolution failed. Retrying this track in the YouTube Embedded Player...`);
         proxyUnresolvableRef.current.add(trackKey);
+        captureSameTrackResumeSeconds(track);
         const shouldStartNow = shouldAutoPlayRef.current;
         setStreamProtocol('embed');
         streamProtocolRef.current = 'embed';
@@ -7122,6 +7204,7 @@ export default function SpiceApp() {
           } else if (typeof ytPlayerRef.current.pauseVideo === 'function') {
             ytPlayerRef.current.pauseVideo();
           }
+          seekEmbedToPendingResume(trackKey, requestId);
         }
         return;
       }

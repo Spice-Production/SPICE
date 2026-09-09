@@ -12,7 +12,7 @@ import {
 const spiceAppSource = readFileSync(
   new URL('../app/spice-app.tsx', import.meta.url),
   'utf8',
-);
+).replace(/\r\n/g, '\n');
 
 test('boosted player volume reaches a real ten-times gain', () => {
   assert.equal(normalizePlayerVolume(1000, true), 1000);
@@ -141,5 +141,46 @@ test('volume touches never drag embed-rescued tracks back to the proxy', () => {
     /proxyUnresolvableRef\.current\.add\(trackKey\)/,
     'the embed rescues must record unresolvable tracks',
   );
+});
+
+test('same-track restarts capture the live position before replaying', () => {
+  // Regression (Kay's report): a mid-song proxy failure flipped transports
+  // and replayed from 0 because no restart path snapshotted the position.
+  // Every same-track restart must capture first, preferring the live
+  // element/iframe clock over the last timeupdate.
+  assert.match(
+    spiceAppSource,
+    /const captureSameTrackResumeSeconds = \(track: Track\)/,
+    'a shared capture helper must exist',
+  );
+  assert.match(
+    spiceAppSource,
+    /getCurrentTime === 'function'[\s\S]{0,400}slot\.currentTime > 0/,
+    'capture must prefer the live clock with a progress fallback',
+  );
+  const captureSites = [
+    'captureSameTrackResumeSeconds(activeTrack);\n      void playTrackRef.current(activeTrack',
+    'captureSameTrackResumeSeconds(track);\n      void playTrackRef.current(track, queueSnapshot, undefined',
+    'captureSameTrackResumeSeconds(track);\n        void playTrackRef.current(track, queueSnapshot, queueIndexRef.current',
+  ];
+  for (const site of captureSites) {
+    assert.ok(
+      spiceAppSource.includes(site),
+      `restart must capture before replaying: ${site.slice(0, 60)}...`,
+    );
+  }
+});
+
+test('embed restarts consume the captured position instead of replaying from zero', () => {
+  // The proxy path already had applyResumeSeek; the iframe path had nothing,
+  // so every proxy-to-embed flip restarted the song. Both embed load sites
+  // must seek to the pending resume once the player can take it.
+  assert.match(
+    spiceAppSource,
+    /const seekEmbedToPendingResume = \(resumeKey: string, requestId: number\)/,
+    'an embed-side resume consumer must exist',
+  );
+  const consumers = spiceAppSource.match(/seekEmbedToPendingResume\(trackKey, requestId\);/g) ?? [];
+  assert.equal(consumers.length, 2, `both embed load sites must consume the resume (found ${consumers.length})`);
 });
 
