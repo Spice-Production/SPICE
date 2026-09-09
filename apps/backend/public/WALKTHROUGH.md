@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.178
+
+- [Spice.Player main] Same-track restarts resume mid-song: proxy errors, timed retries, and transport rescues snapshot the live position first (iframe clock preferred, last timeupdate as fallback), and both the proxy and embed transports seek to it instead of replaying from 0.
+
 ## v1.0.177
 
 - [Spice.Movies main] Revive Spice Movies: search the TMDB catalog from a new movies page (key stays server-side via `TMDB_API_KEY`) and watch through the embedded provider on a dedicated watch route that only accepts numeric TMDB ids.
