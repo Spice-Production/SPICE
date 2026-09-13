@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 
-import { AppShell, Button, Card, PageHeader } from '@/components/ui';
-import { V2_NAV } from '../nav';
+import { Button, Card, PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-static';
 
@@ -19,7 +18,7 @@ export const metadata: Metadata = {
  */
 export default function V2AnimePage() {
   return (
-    <AppShell items={V2_NAV} active="anime">
+    <>
       <PageHeader
         kicker="SPICE ANIME"
         title="Anime is moving in."
@@ -44,6 +43,6 @@ export default function V2AnimePage() {
           Your existing movie and show lists are untouched and keep syncing.
         </p>
       </Card>
-    </AppShell>
+    </>
   );
 }

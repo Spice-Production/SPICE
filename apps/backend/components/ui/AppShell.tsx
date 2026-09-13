@@ -14,6 +14,8 @@ export interface SpkAppShellProps {
   items: SpkNavItem[];
   active: string;
   topbar?: ReactNode;
+  /** Extra sidebar block between nav and foot (e.g. playlists). */
+  sidebarExtra?: ReactNode;
   children: ReactNode;
 }
 
@@ -22,7 +24,7 @@ export interface SpkAppShellProps {
  * collapses to a top strip on phones, sticky topbar, content below.
  * Plain <a> links keep the file copy-portable (no router import).
  */
-export function AppShell({ items, active, topbar, children }: SpkAppShellProps) {
+export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkAppShellProps) {
   return (
     <>
       <style>{`
@@ -39,8 +41,14 @@ export function AppShell({ items, active, topbar, children }: SpkAppShellProps) 
           text-decoration: none; color: var(--spk-text-2, #a3a7b5);
           font-weight: 600; font-size: 0.88rem; }
         .spk-navlink:hover { background: var(--spk-surface-2, #17171d); color: var(--spk-text, #e8eaf0); }
-        .spk-navlink[data-on="true"] { background: var(--spk-accent-soft, rgba(139,147,248,0.14));
+        .spk-navlink[data-on="true"] { background: var(--spk-accent-soft, rgba(255,255,255,0.08));
           color: var(--spk-text, #e8eaf0); }
+        .spk-side-h { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+          color: var(--spk-text-3, #71717a); padding: 14px 12px 6px; }
+        .spk-playlink { display: block; padding: 6px 12px; border-radius: var(--spk-radius-sm, 6px);
+          text-decoration: none; color: var(--spk-text-2, #a3a7b5);
+          font-size: 0.83rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .spk-playlink:hover { background: var(--spk-surface-2, #17171d); color: var(--spk-text, #e8eaf0); }
         .spk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .spk-top { display: flex; align-items: center; gap: 12px; padding: 12px 24px;
           border-bottom: 1px solid var(--spk-line, rgba(255,255,255,0.09));
@@ -65,6 +73,7 @@ export function AppShell({ items, active, topbar, children }: SpkAppShellProps) 
               {item.label}
             </a>
           ))}
+          {sidebarExtra}
           <div className="spk-side-foot">
             <ReleaseBell />
           </div>

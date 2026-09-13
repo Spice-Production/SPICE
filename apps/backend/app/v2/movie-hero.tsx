@@ -87,7 +87,7 @@ export function V2MovieHero({
         .v2-hero-dots { display: flex; gap: 8px; margin-top: 20px; }
         .v2-hero-dot { height: 8px; border-radius: 999px; border: none; cursor: pointer; padding: 0;
           width: 8px; background: rgba(255,255,255,0.3); transition: width 300ms ease, background 300ms ease; }
-        .v2-hero-dot[data-on="true"] { width: 24px; background: var(--spk-accent, #8b93f8); }
+        .v2-hero-dot[data-on="true"] { width: 24px; background: var(--spk-accent, #fafafa); }
       `}</style>
       <section className="v2-hero" aria-label={kicker}>
         {slides.map((slide, i) => (

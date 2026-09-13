@@ -8,12 +8,10 @@ import {
   normalizeListeningEvents,
   type ListeningEvent,
 } from '../listening-insights';
-import { readAccountToken } from '../watch-client';
-import { AppShell, Avatar, Button, Card, EmptyState, PosterCard, Shelf } from '@/components/ui';
-import { V2_NAV } from './nav';
+import { Avatar, Button, Card, EmptyState, PosterCard, Shelf } from '@/components/ui';
 import type { EngineTrack } from './music/engine';
-import { useMusicLibrary } from './music/library';
 import { useMusicProfiles } from './music/profiles';
+import { usePlayer } from './shell';
 
 type HomeTrack = EngineTrack & { msListened?: number };
 
@@ -33,8 +31,7 @@ const artistNames = (track: EngineTrack) => track.artists.map((artist) => artist
  * every tile routes there.
  */
 export function HomeView() {
-  const [token] = useState<string | null>(() => readAccountToken());
-  const library = useMusicLibrary(token);
+  const { token, library } = usePlayer();
   const profiles = useMusicProfiles(token);
   const [events, setEvents] = useState<ListeningEvent[]>([]);
 
@@ -63,7 +60,7 @@ export function HomeView() {
 
   if (!token) {
     return (
-      <AppShell items={V2_NAV} active="music">
+      <>
         <Card title="Welcome to SPICE">
           <p style={{ margin: '0 0 14px', fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--spk-text-2, #a3a7b5)' }}>
             Your week in music, playlists, and recent plays — once you sign in.
@@ -72,12 +69,12 @@ export function HomeView() {
             <Button variant="primary">Sign in</Button>
           </a>
         </Card>
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell items={V2_NAV} active="music">
+    <>
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ minWidth: 0 }}>
@@ -160,6 +157,6 @@ export function HomeView() {
           ))}
         </Shelf>
       )}
-    </AppShell>
+    </>
   );
 }

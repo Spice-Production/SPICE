@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 
 import InstallGuide from '../../install-guide';
-import { AppShell, PageHeader } from '@/components/ui';
-import { V2_NAV } from '../nav';
+import { PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-static';
 
@@ -17,13 +16,13 @@ export const metadata: Metadata = {
  */
 export default function V2InstallPage() {
   return (
-    <AppShell items={V2_NAV} active="home">
+    <>
       <PageHeader
         kicker="SPICE ON YOUR PC"
         title="Install SPICE Local"
         lede="The full PC app: local playback, downloads, mini player, and offline updates."
       />
       <InstallGuide />
-    </AppShell>
+    </>
   );
 }

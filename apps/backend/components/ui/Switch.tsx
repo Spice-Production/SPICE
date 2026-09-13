@@ -19,7 +19,7 @@ export function Switch({ checked, onChange, label }: SpkSwitchProps) {
         .spk-switch-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
           border-radius: var(--spk-radius-full, 9999px); background: var(--spk-text-2, #a1a1aa);
           transition: transform 150ms ease, background 150ms ease; }
-        .spk-switch[data-on="true"] .spk-switch-track { background: var(--spk-accent, #8b93f8); border-color: transparent; }
+        .spk-switch[data-on="true"] .spk-switch-track { background: var(--spk-accent, #fafafa); border-color: transparent; }
         .spk-switch[data-on="true"] .spk-switch-track::after { transform: translateX(16px); background: var(--spk-accent-ink, #0b0c12); }
         .spk-switch-label { font-size: 0.85rem; font-weight: 600; color: var(--spk-text, #fafafa); }
         .spk-switch:focus-visible { outline: none; }

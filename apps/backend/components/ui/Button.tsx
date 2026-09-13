@@ -23,7 +23,7 @@ export function Button({ variant = 'quiet', size = 'md', type = 'button', ...res
           cursor: pointer; transition: background 120ms ease, border-color 120ms ease, color 120ms ease; }
         .spk-btn[data-size="sm"] { font-size: 0.8rem; padding: 0 12px; height: 32px; }
         .spk-btn[data-size="md"] { font-size: 0.875rem; padding: 0 16px; height: 38px; }
-        .spk-btn[data-variant="primary"] { background: var(--spk-accent, #8b93f8); color: var(--spk-accent-ink, #0b0c12); }
+        .spk-btn[data-variant="primary"] { background: var(--spk-accent, #fafafa); color: var(--spk-accent-ink, #0b0c12); }
         .spk-btn[data-variant="primary"]:hover { filter: brightness(1.08); }
         .spk-btn[data-variant="quiet"] { background: var(--spk-surface-2, #18181d);
           border-color: var(--spk-line, #26262c); color: var(--spk-text, #fafafa); }

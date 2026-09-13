@@ -167,7 +167,7 @@ export function LyricsView({ track, progressMs }: { track: EngineTrack; progress
           transition: color 200ms ease; }
         .v2-lyric[data-on="true"] { color: var(--spk-text, #fafafa); }
         .v2-lyric-word { transition: color 150ms linear; }
-        .v2-lyric-word[data-sung="true"] { color: var(--spk-accent, #8b93f8); font-weight: 650; }
+        .v2-lyric-word[data-sung="true"] { color: var(--spk-accent, #fafafa); font-weight: 650; }
       `}</style>
       <div className="v2-lyrics" aria-label={`Lyrics for ${track.title}`}>
         {data.lines.map((line, i) => {

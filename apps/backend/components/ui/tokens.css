@@ -22,10 +22,11 @@
   --spk-text-2: var(--text-secondary, #a1a1aa);
   --spk-text-3: var(--text-muted, #71717a);
 
-  /* Accent — one flat hue, soft wash for selected states. */
-  --spk-accent: #8b93f8;
-  --spk-accent-ink: #0b0c12;
-  --spk-accent-soft: rgba(139, 147, 248, 0.12);
+  /* Accent — shadcn-dark primary: near-white. One flat hue, soft wash
+   * for selected states. No purple, no glow. */
+  --spk-accent: #fafafa;
+  --spk-accent-ink: #09090b;
+  --spk-accent-soft: rgba(255, 255, 255, 0.08);
 
   /* Shape — shadcn-small radii. */
   --spk-radius-sm: 6px;
@@ -34,7 +35,7 @@
   --spk-radius-full: 9999px;
 
   /* Focus ring. */
-  --spk-ring: 0 0 0 2px var(--spk-bg, #09090b), 0 0 0 4px var(--spk-accent, #8b93f8);
+  --spk-ring: 0 0 0 2px var(--spk-bg, #09090b), 0 0 0 4px var(--spk-accent, #fafafa);
 
   /* Type */
   --spk-font: var(--font-geist-sans, Inter, system-ui, sans-serif);

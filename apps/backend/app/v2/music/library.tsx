@@ -223,7 +223,7 @@ export function TrackRow({
           background: var(--spk-surface, #101014); border: 1px solid var(--spk-line, rgba(255,255,255,0.09));
           border-radius: var(--spk-radius-md, 12px); padding: 10px 12px; cursor: pointer; color: inherit; font: inherit; }
         .v2-track:hover { border-color: var(--spk-text-3, #6b6f7d); }
-        .v2-track[data-on="true"] { border-color: var(--spk-accent, #8b93f8); }
+        .v2-track[data-on="true"] { border-color: var(--spk-accent, #fafafa); }
         .v2-track-art { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none;
           background: var(--spk-surface-2, #17171d); }
         .v2-track-fallback { width: 44px; height: 44px; border-radius: 8px; flex: none; display: grid;
@@ -237,7 +237,7 @@ export function TrackRow({
         .v2-track-dur { font-size: 0.78rem; color: var(--spk-text-3, #6b6f7d); flex: none; }
         .v2-heart { border: none; background: transparent; cursor: pointer; font-size: 1rem; flex: none;
           color: var(--spk-text-3, #6b6f7d); padding: 4px; }
-        .v2-heart[data-on="true"] { color: var(--spk-accent, #8b93f8); }
+        .v2-heart[data-on="true"] { color: var(--spk-accent, #fafafa); }
       `}</style>
       <div data-on={playing ? 'true' : 'false'} className="v2-track" role="button" tabIndex={0}
         onClick={onPlay} onKeyDown={(e) => { if (e.key === 'Enter') onPlay(); }}>

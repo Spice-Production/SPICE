@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 
 import AdminDashboardView from '../../admin-dashboard/admin-dashboard-view';
-import { AppShell, PageHeader } from '@/components/ui';
-import { V2_NAV } from '../nav';
+import { PageHeader } from '@/components/ui';
 
 export const metadata: Metadata = {
   title: 'SPICE Admin Dashboard',
@@ -15,9 +14,9 @@ export const metadata: Metadata = {
  */
 export default function V2AdminDashboardPage() {
   return (
-    <AppShell items={V2_NAV} active="home">
+    <>
       <PageHeader kicker="SPICE INTERNAL" title="Admin Dashboard" lede="Account and service operations prototype." />
       <AdminDashboardView />
-    </AppShell>
+    </>
   );
 }

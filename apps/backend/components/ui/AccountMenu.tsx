@@ -71,7 +71,7 @@ export function AccountMenu({ token, name, onSignedIn, onSignOut }: SpkAccountMe
             border: 1px solid var(--spk-line, rgba(255,255,255,0.09)); border-radius: var(--spk-radius-sm, 8px);
             color: var(--spk-text, #e8eaf0); font-size: 0.82rem; padding: 8px 11px; width: 150px; }
           .spk-signin-input::placeholder { color: var(--spk-text-3, #6b6f7d); }
-          .spk-signin-input:focus { outline: none; border-color: var(--spk-accent, #8b93f8); }
+          .spk-signin-input:focus { outline: none; border-color: var(--spk-accent, #fafafa); }
           .spk-signin-error { color: #e89893; font-size: 0.78rem; }
         `}</style>
         <form className="spk-signin" onSubmit={submit} aria-label="Sign in to sync your list">

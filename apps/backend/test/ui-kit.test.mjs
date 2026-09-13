@@ -73,11 +73,11 @@ test('showcase page renders every primitive from the barrel', async () => {
   }
 });
 
-test('browse topbars link to the profile page instead of inline login', async () => {
+test('browse pages leave account chrome to the shared shell', async () => {
   for (const route of ['v2/movie/page.tsx', 'v2/shows/page.tsx', 'v2/music/page.tsx']) {
     const page = await readFile(path.join(backendRoot, 'app', route), 'utf8');
-    assert.ok(page.includes('ProfileButton'), `${route} topbar must use the profile button`);
-    assert.doesNotMatch(page, /topbar=\{<AccountMenu/, `${route} topbar must not host inline login`);
+    assert.ok(!page.includes('ProfileButton'), `${route} must not own a profile button (shell topbar has it)`);
+    assert.ok(!page.includes('topbar='), `${route} must not own a topbar (shell provides it)`);
   }
 });
 
@@ -89,7 +89,7 @@ test('v2 home is the real home screen (greeting, recap, shelves)', async () => {
   for (const token of ['Welcome back', 'Your Listening Week', 'Your Playlists', 'Recently Played', 'Forgotten Favorites']) {
     assert.ok(home.includes(token), `v2 home must render ${token}`);
   }
-  for (const token of ['buildWeeklyListeningRecap', 'buildHomeHistoryShelves', 'normalizeListeningEvents', 'spice_listening_events', 'useMusicLibrary', 'useMusicProfiles', 'PosterCard', 'Avatar']) {
+  for (const token of ['buildWeeklyListeningRecap', 'buildHomeHistoryShelves', 'normalizeListeningEvents', 'spice_listening_events', 'usePlayer', 'useMusicProfiles', 'PosterCard', 'Avatar']) {
     assert.ok(home.includes(token), `v2 home must reuse ${token}`);
   }
   assert.ok(home.includes("href=\"/v2/profile\""), 'v2 home must route sign-in to the profile surface');
@@ -103,7 +103,7 @@ test('v2 movies keeps every browse capability (hero, search, shelves, spotlight,
   }
   assert.ok(page.includes('x-spice-api-namespace'), 'v2 movies must send the namespace header');
   assert.ok(page.includes('readAccountToken'), 'v2 movies must reuse the account token key');
-  for (const symbol of ['V2MovieHero', 'V2WatchShelves', 'ProfileButton', 'PosterCard', 'Skeleton', 'ErrorNote', 'EmptyState']) {
+  for (const symbol of ['V2MovieHero', 'V2WatchShelves', 'PosterCard', 'Skeleton', 'ErrorNote', 'EmptyState']) {
     assert.ok(page.includes(symbol), `v2 movies must render ${symbol}`);
   }
   assert.ok(page.includes('/movie/watch/'), 'v2 movies must link into the movie player');
@@ -142,7 +142,7 @@ test('v2 shows keeps the series browse capabilities (hero, search, airing shelf,
   assert.ok(page.includes("'airing'"), 'v2 shows must keep the Airing now shelf');
   assert.ok(page.includes('kind="show"') || page.includes("kind='show'"), 'v2 shows must scope hero + shelves to shows');
   assert.ok(page.includes('/shows/watch/'), 'v2 shows must link into the series player');
-  assert.ok(page.includes('ProfileButton'), 'v2 shows must link account via the profile button');
+  assert.ok(!page.includes('ProfileButton'), 'v2 shows must not own account chrome (shell topbar has it)');
 });
 
 test('v2 show watch keeps resume parsing, season picking, and per-episode playback', async () => {
@@ -164,7 +164,7 @@ test('v2 show watch keeps resume parsing, season picking, and per-episode playba
 
 test('v2 anime is an honest launchpad (no fake catalog)', async () => {
   const page = await readFile(path.join(backendRoot, 'app', 'v2', 'anime', 'page.tsx'), 'utf8');
-  assert.ok(page.includes('AppShell'), 'v2 anime must render inside AppShell');
+  assert.ok(!page.includes('<AppShell'), 'v2 anime must not own a shell (layout provides it)');
   assert.ok(page.includes('/v2/movie') && page.includes('/v2/shows'), 'v2 anime must point at working libraries');
   assert.doesNotMatch(page, /api\/(movies|shows)\//, 'v2 anime must not fake a catalog it cannot verify');
 });
@@ -191,7 +191,7 @@ test('v2 system pages keep their contracts (reset, install, changelog, admin)', 
   ]) {
     const page = await readFile(path.join(backendRoot, 'app', 'v2', route, 'page.tsx'), 'utf8');
     assert.ok(page.includes(island), `v2 ${route} must reuse ${island}`);
-    assert.ok(page.includes('AppShell'), `v2 ${route} must render inside AppShell`);
+    assert.ok(!page.includes('<AppShell'), `v2 ${route} must not own a shell (layout provides it)`);
   }
   const changelog = await readFile(path.join(backendRoot, 'app', 'v2', 'changelog', 'page.tsx'), 'utf8');
   assert.ok(changelog.includes("getChangelogPayload('user')"), 'v2 changelog must load the same payload');
@@ -208,10 +208,10 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   }
   assert.ok(engine.includes('mp4a') && engine.includes('bitrate'), 'v2 variant pick must prefer AAC then bitrate');
   const page = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'page.tsx'), 'utf8');
-  for (const token of ['useMusicEngine', 'AppShell', 'Now playing', 'preview quality']) {
+  for (const token of ['usePlayer', 'Now playing', 'preview quality']) {
     assert.ok(page.includes(token), `v2 music page must render ${token}`);
   }
-  assert.ok(page.includes('useMusicLibrary') && page.includes('MusicLibraryView'), 'v2 music must wire the synced library');
+  assert.ok(page.includes('MusicLibraryView'), 'v2 music must wire the synced library view');
   const library = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'library.tsx'), 'utf8');
   for (const token of ['api/sync/likes', 'api/sync/history', 'api/sync/playlists', 'includeSnapshots', 'profileId', 'likedTracks', 'Add now playing']) {
     assert.ok(library.includes(token), `v2 music library must keep ${token}`);
@@ -279,7 +279,7 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   }
   for (const route of ['profile', 'settings']) {
     const page = await readFile(path.join(backendRoot, 'app', 'v2', route, 'page.tsx'), 'utf8');
-    assert.ok(page.includes('AppShell'), `v2 ${route} must render inside AppShell`);
+    assert.ok(!page.includes('<AppShell'), `v2 ${route} must not own a shell (layout provides it)`);
   }
   const profile = await readFile(path.join(backendRoot, 'app', 'v2', 'profile', 'page.tsx'), 'utf8');
   assert.ok(profile.includes('AccountView') && profile.includes('ProfilesView'), 'v2 profile must host account + profiles');
@@ -289,7 +289,23 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
 
 test('v2 music feeds the on-device recap the home screen reads', async () => {
   const page = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'page.tsx'), 'utf8');
-  for (const token of ['appendListeningEvent', 'normalizeListeningEvents', 'spice_listening_events', 'discovered', '30_000', 'onTrackCompleted']) {
-    assert.ok(page.includes(token), `v2 music must record ${token} for the recap`);
+  for (const token of ['usePlayer', 'searchRequest', 'Now playing']) {
+    assert.ok(page.includes(token), `v2 music must use ${token} from the shared shell`);
   }
+  assert.ok(!page.includes('<AppShell'), 'v2 music must not own a shell (layout provides it)');
+});
+
+test('v2 shell owns the persistent frame (player, playlists, search)', async () => {
+  const shell = await readFile(path.join(backendRoot, 'app', 'v2', 'shell.tsx'), 'utf8');
+  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'sidebarExtra', 'Playlists', '/v2/music?q=', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory']) {
+    assert.ok(shell.includes(token), `v2 shell must wire ${token}`);
+  }
+  const layout = await readFile(path.join(backendRoot, 'app', 'v2', 'layout.tsx'), 'utf8');
+  assert.ok(layout.includes('PlayerProvider') && layout.includes('V2Shell'), 'v2 layout must host the persistent shell');
+  for (const page of ['page', 'home', 'movie/page', 'shows/page', 'music/page', 'movie/watch/[tmdbId]/page', 'shows/watch/[id]/page', 'anime/page', 'profile/page', 'settings/page', 'admin-dashboard/page', 'changelog/page', 'install/page', 'local-runtime/page']) {
+    const src = await readFile(path.join(backendRoot, 'app', 'v2', `${page}.tsx`), 'utf8');
+    assert.ok(!src.includes('<AppShell'), `v2 ${page} must not own a shell (layout provides it)`);
+  }
+  const tokens = await readFile(path.join(backendRoot, 'components', 'ui', 'tokens.css'), 'utf8');
+  assert.ok(tokens.includes('--spk-accent: #fafafa'), 'kit accent must stay shadcn-white, never purple');
 });

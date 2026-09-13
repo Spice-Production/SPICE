@@ -1,7 +1,6 @@
 'use client';
 
-import { AppShell, Card, EmptyState } from '@/components/ui';
-import { V2_NAV } from '../nav';
+import { Card, EmptyState } from '@/components/ui';
 import { AccountHeader, AccountView, useAccount } from '../account';
 import { ProfilesView } from '../music/profiles';
 import { useMusicLibrary } from '../music/library';
@@ -16,7 +15,7 @@ export default function V2ProfilePage() {
   const library = useMusicLibrary(account.token);
 
   return (
-    <AppShell items={V2_NAV} active="profile">
+    <>
       <AccountHeader />
       <AccountView hook={account} />
       {account.token && (
@@ -35,6 +34,6 @@ export default function V2ProfilePage() {
           </Card>
         </>
       )}
-    </AppShell>
+    </>
   );
 }

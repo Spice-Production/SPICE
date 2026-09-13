@@ -3,25 +3,21 @@
 import { useEffect, useState } from 'react';
 
 import {
-  fetchAccountProfile,
   fetchWatchState,
   formatReleaseDate,
   readAccountToken,
   type WatchState,
 } from '../../watch-client';
 import {
-  AppShell,
   Button,
   EmptyState,
   ErrorNote,
   PageHeader,
   PosterCard,
-  ProfileButton,
   Shelf,
   Skeleton,
   TextField,
 } from '@/components/ui';
-import { V2_NAV } from '../nav';
 import { V2MovieHero } from '../movie-hero';
 import { V2WatchShelves } from '../watch-shelves';
 
@@ -76,7 +72,6 @@ export default function V2MoviePage() {
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
-  const [accountName, setAccountName] = useState<string | null>(null);
   const [watchState, setWatchState] = useState<WatchState | null>(null);
   const [spotlight, setSpotlight] = useState<ShowSpotlight[]>([]);
 
@@ -85,9 +80,6 @@ export default function V2MoviePage() {
     fetchWatchState(token)
       .then(setWatchState)
       .catch(() => setToken(null));
-    fetchAccountProfile(token)
-      .then((profile) => setAccountName(profile?.displayName ?? profile?.username ?? null))
-      .catch(() => null);
   }, [token]);
 
   useEffect(() => {
@@ -173,11 +165,7 @@ export default function V2MoviePage() {
   }
 
   return (
-    <AppShell
-      items={V2_NAV}
-      active="movies"
-      topbar={<ProfileButton name={accountName} signedIn={token !== null} />}
-    >
+    <>
       {!searched && heroItems.length > 0 && (
         <V2MovieHero
           kicker="SPICE MOVIES · TRENDING"
@@ -286,6 +274,6 @@ export default function V2MoviePage() {
           })}
         </>
       )}
-    </AppShell>
+    </>
   );
 }

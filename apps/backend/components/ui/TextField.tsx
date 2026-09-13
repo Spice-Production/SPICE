@@ -20,7 +20,7 @@ export function TextField({ label, hint, error, id, ...rest }: SpkTextFieldProps
           border-radius: var(--spk-radius-sm, 6px); color: var(--spk-text, #fafafa);
           font-size: 0.875rem; height: 38px; padding: 0 12px; width: 100%; box-sizing: border-box; }
         .spk-field-input::placeholder { color: var(--spk-text-3, #71717a); }
-        .spk-field-input:focus { outline: none; border-color: var(--spk-accent, #8b93f8); box-shadow: var(--spk-ring); }
+        .spk-field-input:focus { outline: none; border-color: var(--spk-accent, #fafafa); box-shadow: var(--spk-ring); }
         .spk-field-input[aria-invalid="true"] { border-color: #e0655f; }
         .spk-field-note { font-size: 0.75rem; color: var(--spk-text-3, #71717a); }
         .spk-field-note[data-error="true"] { color: #e89893; }

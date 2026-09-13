@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import InstallGuide from '../../install-guide';
-import { AppShell, PageHeader } from '@/components/ui';
-import { V2_NAV } from '../nav';
+import { PageHeader } from '@/components/ui';
 
 export const dynamic = 'force-static';
 
@@ -18,7 +17,7 @@ export const metadata: Metadata = {
  */
 export default function V2LocalRuntimePage() {
   return (
-    <AppShell items={V2_NAV} active="home">
+    <>
       <PageHeader
         kicker="SPICE ON YOUR PC"
         title="Local Runtime"
@@ -32,6 +31,6 @@ export default function V2LocalRuntimePage() {
         }
       />
       <InstallGuide />
-    </AppShell>
+    </>
   );
 }
