@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   fetchWatchState,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui';
 import { V2MovieHero } from '../movie-hero';
 import { V2WatchShelves } from '../watch-shelves';
+import { usePlayer } from '../shell';
 
 interface ShowHit {
   tmdbId: string;
@@ -64,6 +65,8 @@ export default function V2ShowsPage() {
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
+  const { searchRequest } = usePlayer();
+  const appliedSearchRef = useRef<string | null>(null);
   const [watchState, setWatchState] = useState<WatchState | null>(null);
 
   useEffect(() => {
@@ -98,10 +101,11 @@ export default function V2ShowsPage() {
     };
   }, []);
 
-  const runSearch = async (e?: React.FormEvent) => {
+  const runSearch = async (e?: React.FormEvent, override?: string) => {
     e?.preventDefault();
-    const q = query.trim();
+    const q = (override ?? query).trim();
     if (!q || loading) return;
+    if (override !== undefined) setQuery(override);
     setLoading(true);
     setError(null);
     setSearched(true);
@@ -119,6 +123,27 @@ export default function V2ShowsPage() {
       setLoading(false);
     }
   };
+
+  const applySearchRequest = (q: string) => {
+    if (!q.trim() || appliedSearchRef.current === q) return;
+    appliedSearchRef.current = q;
+    void runSearch(undefined, q);
+  };
+
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('q')?.trim();
+      if (q) applySearchRequest(q);
+    } catch {
+      /* no URL query: plain visit */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (searchRequest && searchRequest.scope === 'shows') applySearchRequest(searchRequest.q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchRequest]);
 
   const heroItems = (shelves.trending ?? []).filter((hit) => hit.backdropUrl).slice(0, 5);
   const savedShowIds = new Set(

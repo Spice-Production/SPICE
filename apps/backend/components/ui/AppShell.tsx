@@ -18,6 +18,9 @@ export interface SpkAppShellProps {
   topbar?: ReactNode;
   /** Extra sidebar block between nav and foot (e.g. playlists). */
   sidebarExtra?: ReactNode;
+  /** Collapsed icon-rail mode (state owned by the caller). */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   children: ReactNode;
 }
 
@@ -26,7 +29,7 @@ export interface SpkAppShellProps {
  * collapses to a top strip on phones, sticky topbar, content below.
  * Plain <a> links keep the file copy-portable (no router import).
  */
-export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkAppShellProps) {
+export function AppShell({ items, active, topbar, sidebarExtra, collapsed, onToggleCollapse, children }: SpkAppShellProps) {
   return (
     <>
       <style>{`
@@ -37,6 +40,17 @@ export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkA
           position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
         .spk-brand { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.14em;
           color: var(--spk-text-3, #71717a); padding: 4px 12px 14px; }
+        .spk-brandrow { display: flex; align-items: center; justify-content: space-between; }
+        .spk-collapse { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
+          border-radius: var(--spk-radius-sm, 6px); border: 1px solid transparent;
+          background: transparent; color: var(--spk-text-3, #71717a); cursor: pointer; font-size: 0.9rem; }
+        .spk-collapse:hover { color: var(--spk-text, #fafafa); border-color: var(--spk-line, #26262c); }
+        .spk-shell[data-collapsed="true"] .spk-side { width: 60px; padding: 20px 8px; }
+        .spk-shell[data-collapsed="true"] .spk-brand { display: none; }
+        .spk-shell[data-collapsed="true"] .spk-brandrow { justify-content: center; }
+        .spk-shell[data-collapsed="true"] .spk-navlink { justify-content: center; padding: 9px 0; }
+        .spk-shell[data-collapsed="true"] .spk-navlink span { display: none; }
+        .spk-shell[data-collapsed="true"] .spk-side-extra { display: none; }
         .spk-side-foot { margin-top: auto; padding-top: 12px;
           border-top: 1px solid var(--spk-line, #26262c); display: grid; gap: 4px; }
         .spk-navlink { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
@@ -76,9 +90,21 @@ export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkA
           .spk-top { position: static; }
         }
       `}</style>
-      <div className="spk-shell">
+      <div className="spk-shell" data-collapsed={collapsed ? 'true' : 'false'}>
         <nav className="spk-side" aria-label="Primary">
-          <span className="spk-brand">SPICE</span>
+          <div className="spk-brandrow">
+            <span className="spk-brand">SPICE</span>
+            {onToggleCollapse && (
+              <button
+                type="button"
+                className="spk-collapse"
+                onClick={onToggleCollapse}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {collapsed ? '›' : '‹'}
+              </button>
+            )}
+          </div>
           {items.map((item) => (
             <a key={item.id} className="spk-navlink" data-on={item.id === active ? 'true' : 'false'} href={item.href}>
               {item.icon}

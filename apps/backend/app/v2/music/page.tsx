@@ -131,7 +131,7 @@ export default function V2MusicPage() {
   }, []);
 
   useEffect(() => {
-    if (searchRequest) applySearchRequest(searchRequest.q);
+    if (searchRequest && searchRequest.scope === 'music') applySearchRequest(searchRequest.q);
   }, [searchRequest, applySearchRequest]);
 
   return (

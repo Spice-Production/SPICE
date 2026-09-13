@@ -107,6 +107,7 @@ test('v2 movies keeps every browse capability (hero, search, shelves, spotlight,
     assert.ok(page.includes(symbol), `v2 movies must render ${symbol}`);
   }
   assert.ok(page.includes('/movie/watch/'), 'v2 movies must link into the movie player');
+  assert.ok(page.includes("scope === 'movies'") && page.includes('location.search'), 'v2 movies must answer topbar + ?q= searches');
   const hero = await readFile(path.join(backendRoot, 'app', 'v2', 'movie-hero.tsx'), 'utf8');
   assert.ok(hero.includes('setInterval'), 'v2 hero must keep rotating');
 });
@@ -142,6 +143,7 @@ test('v2 shows keeps the series browse capabilities (hero, search, airing shelf,
   assert.ok(page.includes("'airing'"), 'v2 shows must keep the Airing now shelf');
   assert.ok(page.includes('kind="show"') || page.includes("kind='show'"), 'v2 shows must scope hero + shelves to shows');
   assert.ok(page.includes('/shows/watch/'), 'v2 shows must link into the series player');
+  assert.ok(page.includes("scope === 'shows'") && page.includes('location.search'), 'v2 shows must answer topbar + ?q= searches');
   assert.ok(!page.includes('ProfileButton'), 'v2 shows must not own account chrome (shell topbar has it)');
 });
 
@@ -257,6 +259,7 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   assert.ok(nav.includes("id: 'search'") && nav.includes("href: '/v2/music'"), 'v2 nav must keep a Search entry');
   assert.ok(nav.includes("id: 'library'") && nav.includes('/v2/music#library'), 'v2 nav Library must deep-link the library section');
   assert.ok(!nav.includes("id: 'home'"), 'v2 nav must not keep a separate home entry');
+  assert.ok(!nav.includes("id: 'profile'") && !nav.includes("id: 'settings'"), 'v2 nav must leave Profile/Settings to the corner control');
   assert.ok(!nav.includes('https://'), 'v2 nav must stay relative (never escape the host)');
   const accountApi = await readFile(path.join(backendRoot, 'app', 'v2', 'account.tsx'), 'utf8');
   assert.ok(accountApi.includes("RUNTIME_TARGET === 'local'"), 'v2 account must gate the absolute cloud origin on the desktop local runtime');
@@ -303,7 +306,7 @@ test('v2 shell owns the persistent frame (player, playlists, search)', async () 
     assert.ok(shellCss.includes(token), `AppShell sidebar must keep ${token}`);
   }
   const shell = await readFile(path.join(backendRoot, 'app', 'v2', 'shell.tsx'), 'utf8');
-  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', '/v2/music?q=', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on', 'V2Icon']) {
+  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', "target: '/v2/music'", '?q=${encodeURIComponent(query)}', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on', 'V2Icon', 'spice_sidebar_collapsed', 'onToggleCollapse', 'scopeFor', 'SearchScope', 'Search movies', 'Search series', 'v2-gearbtn']) {
     assert.ok(shell.includes(token), `v2 shell must wire ${token}`);
   }
   const layout = await readFile(path.join(backendRoot, 'app', 'v2', 'layout.tsx'), 'utf8');

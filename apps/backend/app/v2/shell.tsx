@@ -19,9 +19,11 @@ interface PlayerShape {
   library: ReturnType<typeof useMusicLibrary>;
   playback: ReturnType<typeof usePlaybackProfiles>;
   engine: ReturnType<typeof useMusicEngine>;
-  searchRequest: { q: string; n: number } | null;
-  requestSearch: (q: string) => void;
+  searchRequest: { scope: SearchScope; q: string; n: number } | null;
+  requestSearch: (scope: SearchScope, q: string) => void;
 }
+
+export type SearchScope = 'music' | 'movies' | 'shows';
 
 const PlayerCtx = createContext<PlayerShape | null>(null);
 
@@ -35,7 +37,7 @@ export function usePlayer(): PlayerShape {
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [token] = useState<string | null>(() => readAccountToken());
   const [accountName, setAccountName] = useState<string | null>(null);
-  const [searchRequest, setSearchRequest] = useState<{ q: string; n: number } | null>(null);
+  const [searchRequest, setSearchRequest] = useState<{ scope: SearchScope; q: string; n: number } | null>(null);
   const library = useMusicLibrary(token);
   const playback = usePlaybackProfiles();
   const recordedRef = useRef<string | null>(null);
@@ -99,8 +101,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine.current, engine.status]);
 
-  const requestSearch = useCallback((q: string) => {
-    setSearchRequest({ q, n: Date.now() });
+  const requestSearch = useCallback((scope: SearchScope, q: string) => {
+    setSearchRequest({ scope, q, n: Date.now() });
   }, []);
 
   const value = useMemo(
@@ -116,11 +118,25 @@ function activeFor(pathname: string, hash: string): string {
   if (pathname.startsWith('/v2/movie')) return 'movies';
   if (pathname.startsWith('/v2/shows')) return 'shows';
   if (pathname.startsWith('/v2/anime')) return 'anime';
-  if (pathname.startsWith('/v2/profile')) return 'profile';
-  if (pathname.startsWith('/v2/settings')) return 'settings';
   if (pathname === '/v2/music') return hash === '#library' ? 'library' : 'search';
   return 'music';
 }
+
+/** Which library the top search feeds on this route (null hides it). */
+function scopeFor(pathname: string): SearchScope | null {
+  if (pathname.startsWith('/v2/movie')) return 'movies';
+  if (pathname.startsWith('/v2/shows')) return 'shows';
+  if (pathname === '/' || pathname === '/v2' || pathname.startsWith('/v2/music')) return 'music';
+  return null;
+}
+
+const SCOPE_META: Record<SearchScope, { placeholder: string; target: string }> = {
+  music: { placeholder: 'Search YouTube + SoundCloud…', target: '/v2/music' },
+  movies: { placeholder: 'Search movies…', target: '/v2/movie' },
+  shows: { placeholder: 'Search series…', target: '/v2/shows' },
+};
+
+const SIDEBAR_KEY = 'spice_sidebar_collapsed';
 
 /**
  * The persistent frame: sidebar (nav + playlists), global search topbar,
@@ -133,6 +149,13 @@ export function V2Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [q, setQ] = useState('');
   const [hash, setHash] = useState('');
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(SIDEBAR_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     const read = () => setHash(window.location.hash);
@@ -141,14 +164,29 @@ export function V2Shell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('hashchange', read);
   }, [pathname]);
 
+  const toggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_KEY, String(next));
+      } catch {
+        /* private mode: expanded lasts the visit */
+      }
+      return next;
+    });
+  };
+
+  const scope = scopeFor(pathname);
+  const meta = scope ? SCOPE_META[scope] : null;
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = q.trim();
-    if (!query) return;
-    if (pathname === '/v2/music') {
-      requestSearch(query);
+    if (!query || !scope || !meta) return;
+    if (pathname === meta.target) {
+      requestSearch(scope, query);
     } else {
-      router.push(`/v2/music?q=${encodeURIComponent(query)}`);
+      router.push(`${meta.target}?q=${encodeURIComponent(query)}`);
     }
   };
 
@@ -186,6 +224,11 @@ export function V2Shell({ children }: { children: ReactNode }) {
         .v2-playerbar-seek input[type="range"] { flex: 1; accent-color: var(--spk-accent, #fafafa); }
         .v2-playerbar-vol { display: flex; align-items: center; gap: 8px; flex: none; width: 130px; }
         .v2-playerbar-vol input[type="range"] { width: 100%; accent-color: var(--spk-accent, #fafafa); }
+        .v2-gearbtn { display: grid; place-items: center; width: 38px; height: 38px; flex: none;
+          border-radius: var(--spk-radius-full, 9999px); border: 1px solid transparent;
+          color: var(--spk-text-2, #a1a1aa); }
+        .v2-gearbtn:hover { color: var(--spk-text, #fafafa); border-color: var(--spk-line, #26262c);
+          background: var(--spk-surface, #111114); }
         @media (max-width: 900px) {
           .v2-playerbar-meta { width: 130px; }
           .v2-playerbar-vol { display: none; }
@@ -194,22 +237,29 @@ export function V2Shell({ children }: { children: ReactNode }) {
       <AppShell
         items={V2_NAV.map((item) => ({ ...item, icon: <V2Icon name={item.id} /> }))}
         active={activeFor(pathname, hash)}
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapse}
         topbar={
           <>
-            <form className="v2-topsearch" onSubmit={submitSearch} role="search" aria-label="Search music">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search YouTube + SoundCloud…"
-                aria-label="Search music"
-              />
-            </form>
+            {meta && (
+              <form className="v2-topsearch" onSubmit={submitSearch} role="search" aria-label={meta.placeholder}>
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={meta.placeholder}
+                  aria-label={meta.placeholder}
+                />
+              </form>
+            )}
+            <a className="v2-gearbtn" href="/v2/settings" aria-label="Settings" title="Settings">
+              <V2Icon name="settings" />
+            </a>
             <ProfileButton name={accountName} signedIn={token !== null} />
           </>
         }
         sidebarExtra={
           token && library.playlists.length > 0 ? (
-            <div>
+            <div className="spk-side-extra">
               <div className="spk-side-h">
                 <span>Playlists</span>
                 <a className="spk-side-add" href="/v2/music#library" title="New playlist" aria-label="New playlist">
