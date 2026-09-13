@@ -111,12 +111,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   return <PlayerCtx.Provider value={value}>{children}</PlayerCtx.Provider>;
 }
 
-function activeFor(pathname: string): string {
+function activeFor(pathname: string, hash: string): string {
   if (pathname.startsWith('/v2/movie')) return 'movies';
   if (pathname.startsWith('/v2/shows')) return 'shows';
   if (pathname.startsWith('/v2/anime')) return 'anime';
   if (pathname.startsWith('/v2/profile')) return 'profile';
   if (pathname.startsWith('/v2/settings')) return 'settings';
+  if (pathname === '/v2/music') return hash === '#library' ? 'library' : 'search';
   return 'music';
 }
 
@@ -130,6 +131,14 @@ export function V2Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [q, setQ] = useState('');
+  const [hash, setHash] = useState('');
+
+  useEffect(() => {
+    const read = () => setHash(window.location.hash);
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
+  }, [pathname]);
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,7 +192,7 @@ export function V2Shell({ children }: { children: ReactNode }) {
       `}</style>
       <AppShell
         items={V2_NAV}
-        active={activeFor(pathname)}
+        active={activeFor(pathname, hash)}
         topbar={
           <>
             <form className="v2-topsearch" onSubmit={submitSearch} role="search" aria-label="Search music">

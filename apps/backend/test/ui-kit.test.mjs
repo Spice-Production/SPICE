@@ -254,6 +254,8 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   }
   const nav = await readFile(path.join(backendRoot, 'app', 'v2', 'nav.ts'), 'utf8');
   assert.ok(nav.includes("id: 'music'") && nav.includes("href: '/'"), 'v2 nav Music must be the music home at /');
+  assert.ok(nav.includes("id: 'search'") && nav.includes("href: '/v2/music'"), 'v2 nav must keep a Search entry');
+  assert.ok(nav.includes("id: 'library'") && nav.includes('/v2/music#library'), 'v2 nav Library must deep-link the library section');
   assert.ok(!nav.includes("id: 'home'"), 'v2 nav must not keep a separate home entry');
   assert.ok(!nav.includes('https://'), 'v2 nav must stay relative (never escape the host)');
   const accountApi = await readFile(path.join(backendRoot, 'app', 'v2', 'account.tsx'), 'utf8');
@@ -297,7 +299,7 @@ test('v2 music feeds the on-device recap the home screen reads', async () => {
 
 test('v2 shell owns the persistent frame (player, playlists, search)', async () => {
   const shell = await readFile(path.join(backendRoot, 'app', 'v2', 'shell.tsx'), 'utf8');
-  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'sidebarExtra', 'Playlists', '/v2/music?q=', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on']) {
+  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', '/v2/music?q=', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on']) {
     assert.ok(shell.includes(token), `v2 shell must wire ${token}`);
   }
   const layout = await readFile(path.join(backendRoot, 'app', 'v2', 'layout.tsx'), 'utf8');

@@ -185,13 +185,15 @@ export default function V2MusicPage() {
           </div>
         )}
 
-        <MusicLibraryView
-          library={library}
-          signedIn={token !== null}
-          currentId={engine.current?.id ?? null}
-          nowPlaying={engine.current}
-          onPlay={(track, queue) => void engine.playTrack(track, queue)}
-        />
+        <div id="library" style={{ scrollMarginTop: 76 }}>
+          <MusicLibraryView
+            library={library}
+            signedIn={token !== null}
+            currentId={engine.current?.id ?? null}
+            nowPlaying={engine.current}
+            onPlay={(track, queue) => void engine.playTrack(track, queue)}
+          />
+        </div>
 
         {engine.error && <ErrorNote message={engine.error} />}
 
