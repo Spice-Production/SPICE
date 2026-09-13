@@ -8,6 +8,8 @@ export interface SpkNavItem {
   id: string;
   label: string;
   href: string;
+  /** Optional leading glyph (sidebar icon). */
+  icon?: ReactNode;
 }
 
 export interface SpkAppShellProps {
@@ -37,9 +39,11 @@ export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkA
           color: var(--spk-text-3, #71717a); padding: 4px 12px 14px; }
         .spk-side-foot { margin-top: auto; padding-top: 12px;
           border-top: 1px solid var(--spk-line, #26262c); display: grid; gap: 4px; }
-        .spk-navlink { display: block; padding: 9px 12px; border-radius: var(--spk-radius-sm, 8px);
+        .spk-navlink { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+          border-radius: var(--spk-radius-sm, 8px);
           text-decoration: none; color: var(--spk-text-2, #a3a7b5);
           font-weight: 600; font-size: 0.88rem; }
+        .spk-navlink svg { flex: none; }
         .spk-navlink:hover { background: var(--spk-surface-2, #17171d); color: var(--spk-text, #e8eaf0); }
         .spk-navlink[data-on="true"] { background: var(--spk-accent-soft, rgba(255,255,255,0.08));
           color: var(--spk-text, #e8eaf0); }
@@ -70,7 +74,8 @@ export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkA
           <span className="spk-brand">SPICE</span>
           {items.map((item) => (
             <a key={item.id} className="spk-navlink" data-on={item.id === active ? 'true' : 'false'} href={item.href}>
-              {item.label}
+              {item.icon}
+              <span>{item.label}</span>
             </a>
           ))}
           {sidebarExtra}

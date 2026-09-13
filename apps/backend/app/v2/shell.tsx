@@ -8,6 +8,7 @@ import { appendListeningEvent, normalizeListeningEvents } from '../listening-ins
 import { fetchAccountProfile, readAccountToken } from '../watch-client';
 import { AppShell, ProfileButton } from '@/components/ui';
 import { V2_NAV } from './nav';
+import { V2Icon } from './icons';
 import { formatMs, useMusicEngine, type EngineTrack } from './music/engine';
 import { useMusicLibrary } from './music/library';
 import { usePlaybackProfiles } from './music/playback';
@@ -191,7 +192,7 @@ export function V2Shell({ children }: { children: ReactNode }) {
         }
       `}</style>
       <AppShell
-        items={V2_NAV}
+        items={V2_NAV.map((item) => ({ ...item, icon: <V2Icon name={item.id} /> }))}
         active={activeFor(pathname, hash)}
         topbar={
           <>
