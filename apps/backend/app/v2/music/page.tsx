@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { fetchAccountProfile, readAccountToken } from '../../watch-client';
+import { appendListeningEvent, normalizeListeningEvents } from '../../listening-insights';
 import { AppShell, Button, EmptyState, ErrorNote, PageHeader, Picker, ProfileButton, TextField } from '@/components/ui';
 import { V2_NAV } from '../nav';
 import { formatMs, useMusicEngine, type EngineTrack } from './engine';
@@ -30,11 +31,6 @@ const SOURCES = [
  */
 export default function V2MusicPage() {
   const playback = usePlaybackProfiles();
-  const engine = useMusicEngine({
-    crossfadeEnabled: playback.active.crossfade.enabled,
-    crossfadeMs: playback.active.crossfade.durationMs,
-    curve: playback.active.crossfade.curve,
-  });
   const [query, setQuery] = useState('');
   const [source, setSource] = useState<MusicSource>('youtube');
   const [results, setResults] = useState<EngineTrack[]>([]);
@@ -48,6 +44,55 @@ export default function V2MusicPage() {
 
   const library = useMusicLibrary(token);
   const recordedRef = useRef<string | null>(null);
+
+  const knownTrackIds = useMemo(() => {
+    const ids = new Set<string>(library.likes);
+    for (const item of library.history) ids.add(item.id);
+    for (const playlist of library.playlists) {
+      for (const item of playlist.tracks) ids.add(item.id);
+    }
+    return ids;
+  }, [library.likes, library.history, library.playlists]);
+
+  /**
+   * Feed the on-device weekly recap: completed listens (30s+ counts as
+   * meaningful, same unit as the original) persist under the same
+   * per-profile key the home screen reads. First-seen tracks count as
+   * discoveries.
+   */
+  const recordCompleted = useCallback(
+    (track: EngineTrack, listenedMs: number) => {
+      if (listenedMs < 30_000) return;
+      try {
+        const profile = window.localStorage.getItem('spice_cloud_profile_id') || 'default';
+        const key = `spice_listening_events:${profile}`;
+        const raw = window.localStorage.getItem(key);
+        const next = appendListeningEvent(
+          normalizeListeningEvents(raw ? JSON.parse(raw) : []),
+          {
+            trackId: track.id,
+            sourceId: track.sourceId ?? 'youtube_music',
+            title: track.title,
+            artistNames: track.artists.map((artist) => artist.name),
+            listenedMs,
+            completedAt: Date.now(),
+            discovered: !knownTrackIds.has(track.id),
+          },
+        );
+        window.localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        /* private mode: the recap lasts the visit */
+      }
+    },
+    [knownTrackIds],
+  );
+
+  const engine = useMusicEngine({
+    crossfadeEnabled: playback.active.crossfade.enabled,
+    crossfadeMs: playback.active.crossfade.durationMs,
+    curve: playback.active.crossfade.curve,
+    onTrackCompleted: recordCompleted,
+  });
 
   const {
     order, current: currentTrack, status: playStatus, shuffle: shuffleOn,

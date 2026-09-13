@@ -75,6 +75,13 @@ export interface EnginePlaybackSettings {
   crossfadeEnabled: boolean;
   crossfadeMs: number;
   curve: CrossfadeCurve;
+  /**
+   * Fired when the current track is left behind — natural end, manual
+   * skip, or crossfade handoff. Listened time comes from the outgoing
+   * slot's element, so skips credit partial plays. Repeat-one replays
+   * never fire: the same listen continues.
+   */
+  onTrackCompleted?: (track: EngineTrack, listenedMs: number) => void;
 }
 
 const BOOST_KEY = 'spice_volume_booster_accepted';
@@ -164,6 +171,11 @@ export function useMusicEngine(settings: EnginePlaybackSettings) {
     settingsRef.current = settings;
   }, [settings]);
 
+  const currentRef = useRef<EngineTrack | null>(null);
+  useEffect(() => {
+    currentRef.current = current;
+  }, [current]);
+
   const volumeRef = useRef(volume);
   useEffect(() => {
     volumeRef.current = volume;
@@ -252,6 +264,11 @@ export function useMusicEngine(settings: EnginePlaybackSettings) {
     const incoming = incomingRef.current;
     if (!incoming) return;
     const oldActive = activeRef.current;
+    const prev = currentRef.current;
+    if (prev && prev.id !== incoming.id) {
+      const outgoingEl = slotsRef.current[oldActive].el;
+      settingsRef.current.onTrackCompleted?.(prev, outgoingEl ? Math.floor(outgoingEl.currentTime * 1000) : 0);
+    }
     slotsRef.current[oldActive].el?.pause();
     activeRef.current = 1 - oldActive;
     incomingRef.current = null;
@@ -268,6 +285,11 @@ export function useMusicEngine(settings: EnginePlaybackSettings) {
 
   const playTrack = useCallback(
     async (track: EngineTrack, nextQueue?: EngineTrack[]) => {
+      const prev = currentRef.current;
+      if (prev && prev.id !== track.id) {
+        const active = slotsRef.current[activeRef.current]?.el;
+        settingsRef.current.onTrackCompleted?.(prev, active ? Math.floor(active.currentTime * 1000) : 0);
+      }
       if (nextQueue) {
         queueRef.current = nextQueue;
         setQueue(nextQueue);

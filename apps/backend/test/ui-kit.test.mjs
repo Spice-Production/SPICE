@@ -81,13 +81,19 @@ test('browse topbars link to the profile page instead of inline login', async ()
   }
 });
 
-test('v2 home keeps every hub destination (player, movies, runtime)', async () => {
+test('v2 home is the real home screen (greeting, recap, shelves)', async () => {
   const page = await readFile(path.join(backendRoot, 'app', 'v2', 'page.tsx'), 'utf8');
-  for (const dest of ['/v2/music', '/v2/movie', '/shows', '/anime', '/v2/local-runtime']) {
-    assert.ok(page.includes(dest), `v2 home must link to ${dest}`);
-  }
+  assert.ok(page.includes('HomeView'), 'v2 home page must render the home island');
   assert.ok(!page.includes('MUSIC_ORIGIN'), 'v2 home must not build absolute origin links (they escape the host)');
-  assert.ok(page.includes('AppShell'), 'v2 home must render inside AppShell');
+  const home = await readFile(path.join(backendRoot, 'app', 'v2', 'home.tsx'), 'utf8');
+  for (const token of ['Welcome back', 'Your Listening Week', 'Your Playlists', 'Recently Played', 'Forgotten Favorites']) {
+    assert.ok(home.includes(token), `v2 home must render ${token}`);
+  }
+  for (const token of ['buildWeeklyListeningRecap', 'buildHomeHistoryShelves', 'normalizeListeningEvents', 'spice_listening_events', 'useMusicLibrary', 'useMusicProfiles', 'PosterCard', 'Avatar']) {
+    assert.ok(home.includes(token), `v2 home must reuse ${token}`);
+  }
+  assert.ok(home.includes("href=\"/v2/profile\""), 'v2 home must route sign-in to the profile surface');
+  assert.ok(home.includes("href=\"/v2/music\""), 'v2 home tiles must stay inside the rebuild');
 });
 
 test('v2 movies keeps every browse capability (hero, search, shelves, spotlight, account)', async () => {
@@ -256,7 +262,7 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   const queue = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'queue.tsx'), 'utf8');
   assert.ok(queue.includes('playAt') || queue.includes('onPlayAt'), 'v2 queue must play from the list');
   const engineQueue = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'engine.ts'), 'utf8');
-  for (const token of ['spice_is_shuffle', 'spice_repeat_mode', 'removeFromQueue', 'clearQueue', 'autoAdvance']) {
+  for (const token of ['spice_is_shuffle', 'spice_repeat_mode', 'removeFromQueue', 'clearQueue', 'autoAdvance', 'onTrackCompleted']) {
     assert.ok(engineQueue.includes(token), `v2 engine must wire ${token}`);
   }
   const bell = await readFile(path.join(backendRoot, 'components', 'ui', 'notifications.tsx'), 'utf8');
@@ -275,4 +281,11 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   assert.ok(profile.includes('AccountView') && profile.includes('ProfilesView'), 'v2 profile must host account + profiles');
   const settings = await readFile(path.join(backendRoot, 'app', 'v2', 'settings', 'page.tsx'), 'utf8');
   assert.ok(settings.includes('PlaybackView') && settings.includes('ThemeView') && settings.includes('DiagnosticsCard'), 'v2 settings must host playback + theme + diagnostics');
+});
+
+test('v2 music feeds the on-device recap the home screen reads', async () => {
+  const page = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'page.tsx'), 'utf8');
+  for (const token of ['appendListeningEvent', 'normalizeListeningEvents', 'spice_listening_events', 'discovered', '30_000', 'onTrackCompleted']) {
+    assert.ok(page.includes(token), `v2 music must record ${token} for the recap`);
+  }
 });
