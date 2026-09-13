@@ -1,0 +1,62 @@
+# UI-lab staging stack: the TeRiRi/ui-lab rebuild running against its own
+# Postgres, reachable through the prod Caddy as lab.spice-app.xyz.
+# Lives on the VPS at ~/spice/ui-lab (branch TeRiRi/ui-lab); update with
+# ./deploy/update-lab.sh. Never merge this file to main without review:
+# the lab app + db names, volume, and external prod network are lab-only.
+name: spice-lab
+
+services:
+  lab-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spice_lab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env.lab (alphanumeric only)}
+      POSTGRES_DB: ${POSTGRES_DB:-spice_lab}
+    volumes:
+      - lab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-spice_lab}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  lab-app:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+      args:
+        SPICE_RUNTIME_TARGET: selfhost
+    restart: unless-stopped
+    depends_on:
+      lab-db:
+        condition: service_healthy
+    env_file:
+      - .env.lab
+    environment:
+      SPICE_RUNTIME_TARGET: selfhost
+      SPICE_RUN_MIGRATIONS: 1
+      DATABASE_URL: postgres://${POSTGRES_USER:-spice_lab}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env.lab}@lab-db:5432/${POSTGRES_DB:-spice_lab}
+      SPICE_PUBLIC_ORIGIN: https://lab.spice-app.xyz
+      SPICE_CLOUD_API_ORIGIN: https://lab.spice-app.xyz
+      SPICE_LOCAL_UPDATE_MANIFEST_URL: https://lab.spice-app.xyz/api/updates/local-windows
+      PORT: 3000
+      # Docker injects HOSTNAME=<container id>, which would bind the Next
+      # standalone server to the container IP only. Bind all interfaces so
+      # the prod Caddy reaches the lab app over the shared network.
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    networks:
+      default: {}
+      # Prod Caddy (spice-selfhost) reverse-proxies lab-app:3000 over this.
+      spice-selfhost_default:
+        aliases:
+          - lab-app
+
+networks:
+  spice-selfhost_default:
+    external: true
+
+volumes:
+  lab_pgdata:

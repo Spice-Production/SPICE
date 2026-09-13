@@ -1,0 +1,41 @@
+/* SPICE UI kit — design tokens, shadcn pass.
+ *
+ * Quiet zinc neutrals, small radii, ring focus, muted second lines —
+ * the shadcn look, mapped onto the app theme first so kit surfaces
+ * still follow the user's theme (including live Settings changes):
+ * theme change -> :root vars change -> kit repaints.
+ *
+ * Host pages load this file once (the /v2 layout imports it). The
+ * components carry var() fallbacks, so they render sensibly even
+ * where tokens aren't loaded.
+ */
+
+:root {
+  /* Surfaces — zinc, near-flat. Borders do the separation. */
+  --spk-bg: var(--bg-primary, #09090b);
+  --spk-surface: var(--bg-surface, #111114);
+  --spk-surface-2: var(--bg-surface-hover, #18181d);
+  --spk-line: var(--border-subtle, #26262c);
+
+  /* Text — near-white primary, zinc muted steps. */
+  --spk-text: var(--text-primary, #fafafa);
+  --spk-text-2: var(--text-secondary, #a1a1aa);
+  --spk-text-3: var(--text-muted, #71717a);
+
+  /* Accent — one flat hue, soft wash for selected states. */
+  --spk-accent: #8b93f8;
+  --spk-accent-ink: #0b0c12;
+  --spk-accent-soft: rgba(139, 147, 248, 0.12);
+
+  /* Shape — shadcn-small radii. */
+  --spk-radius-sm: 6px;
+  --spk-radius-md: 8px;
+  --spk-radius-lg: 12px;
+  --spk-radius-full: 9999px;
+
+  /* Focus ring. */
+  --spk-ring: 0 0 0 2px var(--spk-bg, #09090b), 0 0 0 4px var(--spk-accent, #8b93f8);
+
+  /* Type */
+  --spk-font: var(--font-geist-sans, Inter, system-ui, sans-serif);
+}
