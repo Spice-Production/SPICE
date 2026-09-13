@@ -210,10 +210,18 @@ export function V2Shell({ children }: { children: ReactNode }) {
         sidebarExtra={
           token && library.playlists.length > 0 ? (
             <div>
-              <div className="spk-side-h">Playlists</div>
+              <div className="spk-side-h">
+                <span>Playlists</span>
+                <a className="spk-side-add" href="/v2/music#library" title="New playlist" aria-label="New playlist">
+                  +
+                </a>
+              </div>
               {library.playlists.map((playlist) => (
-                <a key={playlist.id} className="spk-playlink" href="/v2/music" title={playlist.title}>
-                  {playlist.title}
+                <a key={playlist.id} className="spk-playlink" href="/v2/music#library" title={playlist.title}>
+                  <V2Icon name="library" />
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {playlist.title}
+                  </span>
                 </a>
               ))}
             </div>

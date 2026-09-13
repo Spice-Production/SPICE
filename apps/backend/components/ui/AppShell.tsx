@@ -48,10 +48,17 @@ export function AppShell({ items, active, topbar, sidebarExtra, children }: SpkA
         .spk-navlink[data-on="true"] { background: var(--spk-accent-soft, rgba(255,255,255,0.08));
           color: var(--spk-text, #e8eaf0); }
         .spk-side-h { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
-          color: var(--spk-text-3, #71717a); padding: 14px 12px 6px; }
-        .spk-playlink { display: block; padding: 6px 12px; border-radius: var(--spk-radius-sm, 6px);
+          color: var(--spk-text-3, #71717a); padding: 14px 12px 6px;
+          display: flex; align-items: center; justify-content: space-between; }
+        .spk-side-add { display: grid; place-items: center; width: 22px; height: 22px;
+          border-radius: var(--spk-radius-sm, 6px); border: 1px solid var(--spk-line, #26262c);
+          background: transparent; color: var(--spk-text-2, #a3a7b5); font-size: 0.85rem;
+          text-decoration: none; line-height: 1; }
+        .spk-side-add:hover { color: var(--spk-text, #fafafa); border-color: var(--spk-text-3, #71717a); }
+        .spk-playlink { display: flex; align-items: center; gap: 9px; padding: 6px 12px;
+          border-radius: var(--spk-radius-sm, 6px);
           text-decoration: none; color: var(--spk-text-2, #a3a7b5);
-          font-size: 0.83rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          font-size: 0.83rem; }
         .spk-playlink:hover { background: var(--spk-surface-2, #17171d); color: var(--spk-text, #e8eaf0); }
         .spk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .spk-top { display: flex; align-items: center; gap: 12px; padding: 12px 24px;

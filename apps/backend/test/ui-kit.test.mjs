@@ -298,6 +298,10 @@ test('v2 music feeds the on-device recap the home screen reads', async () => {
 });
 
 test('v2 shell owns the persistent frame (player, playlists, search)', async () => {
+  const shellCss = await readFile(path.join(backendRoot, 'components', 'ui', 'AppShell.tsx'), 'utf8');
+  for (const token of ['spk-side-h', 'spk-side-add', 'spk-playlink']) {
+    assert.ok(shellCss.includes(token), `AppShell sidebar must keep ${token}`);
+  }
   const shell = await readFile(path.join(backendRoot, 'app', 'v2', 'shell.tsx'), 'utf8');
   for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', '/v2/music?q=', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on', 'V2Icon']) {
     assert.ok(shell.includes(token), `v2 shell must wire ${token}`);
