@@ -63,7 +63,7 @@ export function HomeView() {
 
   if (!token) {
     return (
-      <AppShell items={V2_NAV} active="home">
+      <AppShell items={V2_NAV} active="music">
         <Card title="Welcome to SPICE">
           <p style={{ margin: '0 0 14px', fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--spk-text-2, #a3a7b5)' }}>
             Your week in music, playlists, and recent plays — once you sign in.
@@ -77,7 +77,7 @@ export function HomeView() {
   }
 
   return (
-    <AppShell items={V2_NAV} active="home">
+    <AppShell items={V2_NAV} active="music">
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ minWidth: 0 }}>

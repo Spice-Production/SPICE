@@ -6,11 +6,15 @@ import { Button, Card, EmptyState, ErrorNote, PageHeader, Picker, TextField } fr
 
 const TOKEN_KEY = 'spice_cloud_token';
 const LEGACY_TOKEN_KEY = 'spice_token';
-const RUNTIME_TARGET = process.env.NEXT_PUBLIC_SPICE_RUNTIME_TARGET === 'vercel' ? 'vercel' : 'local';
+const RUNTIME_TARGET = process.env.NEXT_PUBLIC_SPICE_RUNTIME_TARGET ?? 'selfhost';
 const CLOUD_ORIGIN = (process.env.NEXT_PUBLIC_SPICE_CLOUD_API_ORIGIN || 'https://music.spice-app.xyz').replace(/\/+$/, '');
 
 function cloudApiUrl(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
+  // Only the desktop local runtime talks to the absolute cloud origin.
+  // Every server-hosted target (selfhost, vercel) uses same-origin
+  // relative URLs — a baked prod origin would send staging browsers
+  // cross-origin and every account call would fail to fetch.
   return RUNTIME_TARGET === 'local' ? `${CLOUD_ORIGIN}/api/cloud${normalized}` : `/api${normalized}`;
 }
 

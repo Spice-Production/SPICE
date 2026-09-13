@@ -253,8 +253,12 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
     assert.ok(together.includes(token), `v2 together must keep ${token}`);
   }
   const nav = await readFile(path.join(backendRoot, 'app', 'v2', 'nav.ts'), 'utf8');
-  assert.ok(nav.includes("href: '/v2/music'"), 'v2 nav Music must stay inside the rebuild (never href /)');
-  assert.ok(!nav.includes("href: '/'"), 'v2 nav must not link the legacy root');
+  assert.ok(nav.includes("id: 'music'") && nav.includes("href: '/'"), 'v2 nav Music must be the music home at /');
+  assert.ok(!nav.includes("id: 'home'"), 'v2 nav must not keep a separate home entry');
+  assert.ok(!nav.includes('https://'), 'v2 nav must stay relative (never escape the host)');
+  const accountApi = await readFile(path.join(backendRoot, 'app', 'v2', 'account.tsx'), 'utf8');
+  assert.ok(accountApi.includes("RUNTIME_TARGET === 'local'"), 'v2 account must gate the absolute cloud origin on the desktop local runtime');
+  assert.ok(!accountApi.includes("'vercel'"), 'v2 account must not branch on vercel (server-hosted targets stay same-origin)');
   const hostLib = await readFile(path.join(backendRoot, 'lib', 'request-host.ts'), 'utf8');
   assert.ok(hostLib.includes('shouldServeLab'), 'request-host must keep the lab front-door predicate');
   const proxy = await readFile(path.join(backendRoot, 'proxy.ts'), 'utf8');
