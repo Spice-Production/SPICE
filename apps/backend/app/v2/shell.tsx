@@ -168,6 +168,7 @@ export function V2Shell({ children }: { children: ReactNode }) {
           font-size: 0.9rem; display: grid; place-items: center; }
         .v2-playerbar-btn:hover:not(:disabled) { border-color: var(--spk-text-3, #71717a); }
         .v2-playerbar-btn:disabled { opacity: 0.35; cursor: default; }
+        .v2-playerbar-on { border-color: var(--spk-accent, #fafafa) !important; }
         .v2-playerbar-btn[data-main="true"] { background: var(--spk-accent, #fafafa);
           color: var(--spk-accent-ink, #09090b); border-color: transparent; width: 40px; height: 40px; }
         .v2-playerbar-seek { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0;
@@ -217,10 +218,11 @@ export function V2Shell({ children }: { children: ReactNode }) {
 }
 
 function PlayerBar() {
-  const { engine } = usePlayer();
+  const { token, library, engine } = usePlayer();
   const track = engine.current;
   const playing = engine.status === 'playing';
   const artists = track ? track.artists.map((artist) => artist.name).join(', ') : '';
+  const liked = track && token ? library.likes.has(track.id) : false;
 
   return (
     <div className="v2-playerbar" aria-label="Now playing">
@@ -250,6 +252,36 @@ function PlayerBar() {
         <button className="v2-playerbar-btn" onClick={() => engine.next()} disabled={!track} aria-label="Next">
           ▶|
         </button>
+        <button
+          className={`v2-playerbar-btn${engine.shuffle ? ' v2-playerbar-on' : ''}`}
+          onClick={() => engine.toggleShuffle()}
+          disabled={!track}
+          aria-label="Toggle shuffle"
+          aria-pressed={engine.shuffle}
+          title="Shuffle"
+        >
+          ⇄
+        </button>
+        <button
+          className={`v2-playerbar-btn${engine.repeat !== 'none' ? ' v2-playerbar-on' : ''}`}
+          onClick={() => engine.cycleRepeat()}
+          disabled={!track}
+          aria-label={`Repeat: ${engine.repeat}`}
+          title={`Repeat: ${engine.repeat}`}
+        >
+          {engine.repeat === 'one' ? '¹' : '↻'}
+        </button>
+        {token && (
+          <button
+            className={`v2-playerbar-btn${liked ? ' v2-playerbar-on' : ''}`}
+            onClick={() => { if (track) void library.toggleLike(track); }}
+            disabled={!track}
+            aria-label="Like this track"
+            title="Like"
+          >
+            {liked ? '♥' : '♡'}
+          </button>
+        )}
       </div>
       <div className="v2-playerbar-seek">
         <span>{formatMs(engine.progressMs)}</span>

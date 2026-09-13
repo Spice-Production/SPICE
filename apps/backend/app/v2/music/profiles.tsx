@@ -90,7 +90,7 @@ export function useMusicProfiles(token: string | null) {
     const fresh = {
       id: `profile_${Date.now()}`,
       displayName: name,
-      gradient: 'linear-gradient(135deg, #8b93f8, #6d6df2)',
+      gradient: '#18181d',
       joinedAt: new Date().toISOString(),
     };
     const next = [...profiles, fresh];
