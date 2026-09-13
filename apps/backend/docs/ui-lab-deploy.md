@@ -4,7 +4,13 @@ The `/v2` rebuild + `components/ui` kit run on the VPS as an isolated
 staging stack so the new UI can be reviewed in a browser without touching
 prod (`music.spice-app.xyz`).
 
-- URL: `https://lab.spice-app.xyz/v2` (gallery: `/ui-lab`)
+- URL: `https://lab.spice-app.xyz/` (opens the rebuild; gallery: `/ui-lab`)
+- The bare lab root (`/`) rewrites to `/v2` on the lab host only
+  (`shouldServeLab` + `SPICE_LAB_DOMAIN` in `proxy.ts`/`request-host.ts`,
+  mirroring the hub/movies front doors). Empty `SPICE_LAB_DOMAIN` (prod,
+  and any future merge) disables the branch entirely — old routes stay
+  live everywhere, and every v2-internal link is relative so nothing
+  escapes back to the legacy UI.
 - VPS dir: `~/spice/ui-lab` (repo checkout, branch `TeRiRi/ui-lab`)
 - Stack: `deploy/docker-compose.lab.yml` (project `spice-lab`) — own
   `lab-app` + `lab-db` (volume `lab_pgdata`), own secrets in

@@ -105,6 +105,18 @@ export function shouldServeMovies(hostname: string, pathname: string, movieDomai
 }
 
 /**
+ * Whether this request should serve the rebuilt UI: only the bare path on
+ * the configured lab domain (e.g. lab.spice-app.xyz/). Mirrors the hub and
+ * movies rewrites so the staging host opens directly on the rebuild while
+ * every /v2 route stays served on every host.
+ */
+export function shouldServeLab(hostname: string, pathname: string, labDomain: string | null | undefined): boolean {
+  const lab = labDomain?.trim().toLowerCase();
+  if (!lab) return false;
+  return hostname.toLowerCase() === lab && (pathname === '/' || pathname === '');
+}
+
+/**
  * Every public hostname this box answers as: the player origin plus the
  * apex and movies names when configured. Same-origin checks accept any of
  * them so one login-free box can serve several front doors without per-host

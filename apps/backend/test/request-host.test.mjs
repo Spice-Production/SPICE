@@ -115,6 +115,18 @@ test('shouldServeMovies matches only the bare path on the movies domain', async 
   assert.equal(shouldServeMovies('movie.spice-app.xyz', '/', ''), false);
 });
 
+test('shouldServeLab matches only the bare path on the lab domain', async () => {
+  const { shouldServeLab } = await import('../lib/request-host.ts');
+  assert.equal(shouldServeLab('lab.spice-app.xyz', '/', 'lab.spice-app.xyz'), true);
+  assert.equal(shouldServeLab('LAB.SPICE-APP.XYZ', '/', 'lab.spice-app.xyz'), true);
+  assert.equal(shouldServeLab('music.spice-app.xyz', '/', 'lab.spice-app.xyz'), false);
+  assert.equal(shouldServeLab('spice-app.xyz', '/', 'lab.spice-app.xyz'), false);
+  assert.equal(shouldServeLab('lab.spice-app.xyz', '/v2/music', 'lab.spice-app.xyz'), false);
+  assert.equal(shouldServeLab('lab.spice-app.xyz', '/api/version', 'lab.spice-app.xyz'), false);
+  assert.equal(shouldServeLab('lab.spice-app.xyz', '/', null), false);
+  assert.equal(shouldServeLab('lab.spice-app.xyz', '/', ''), false);
+});
+
 test('selfhostTrustedHosts collects every configured public name', async () => {
   const { selfhostTrustedHosts } = await import('../lib/request-host.ts');
   assert.deepEqual(

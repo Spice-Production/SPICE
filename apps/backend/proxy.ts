@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getProxySystemSettings } from '@/lib/proxy-system-settings';
-import { effectiveRequestHost, shouldServeHub, shouldServeMovies } from '@/lib/request-host';
+import { effectiveRequestHost, shouldServeHub, shouldServeLab, shouldServeMovies } from '@/lib/request-host';
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
+
+  // Lab front door: the bare lab domain serves the rebuilt UI directly so
+  // the staging host opens on /v2 with no prefix to type. Rewrite (not
+  // redirect) keeps the clean address bar. Empty SPICE_LAB_DOMAIN (prod)
+  // disables the branch entirely.
+  if (shouldServeLab(effectiveRequestHost(request), url.pathname, process.env.SPICE_LAB_DOMAIN)) {
+    return NextResponse.rewrite(new URL('/v2', request.url));
+  }
 
   // Apex hub: the bare apex domain serves the hub landing page while the
   // music subdomain serves the player directly. Rewrite (not redirect) so

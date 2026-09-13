@@ -10,8 +10,6 @@ export const metadata: Metadata = {
   description: 'SPICE Music on the web, plus the local PC runtime. Pick where you want to listen.',
 };
 
-const MUSIC_ORIGIN = (process.env.SPICE_PUBLIC_ORIGIN || 'https://music.spice-app.xyz').replace(/\/+$/, '');
-
 export default function V2HomePage() {
   return (
     <AppShell items={V2_NAV} active="home">
@@ -21,10 +19,10 @@ export default function V2HomePage() {
         lede="Play in the browser right now, or install the full local runtime on your PC. Same account, same library."
         actions={
           <>
-            <a href={`${MUSIC_ORIGIN}/`} style={{ textDecoration: 'none' }}>
+            <a href="/v2/music" style={{ textDecoration: 'none' }}>
               <Button variant="primary">Open Player</Button>
             </a>
-            <a href={`${MUSIC_ORIGIN}/local-runtime`} style={{ textDecoration: 'none' }}>
+            <a href="/v2/local-runtime" style={{ textDecoration: 'none' }}>
               <Button>Get Local Runtime</Button>
             </a>
           </>

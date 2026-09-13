@@ -83,10 +83,10 @@ test('browse topbars link to the profile page instead of inline login', async ()
 
 test('v2 home keeps every hub destination (player, movies, runtime)', async () => {
   const page = await readFile(path.join(backendRoot, 'app', 'v2', 'page.tsx'), 'utf8');
-  assert.ok(page.includes('SPICE_PUBLIC_ORIGIN'), 'v2 home must honour the public-origin env');
-  for (const dest of ['/v2/movie', '/shows', '/anime', 'local-runtime']) {
+  for (const dest of ['/v2/music', '/v2/movie', '/shows', '/anime', '/v2/local-runtime']) {
     assert.ok(page.includes(dest), `v2 home must link to ${dest}`);
   }
+  assert.ok(!page.includes('MUSIC_ORIGIN'), 'v2 home must not build absolute origin links (they escape the host)');
   assert.ok(page.includes('AppShell'), 'v2 home must render inside AppShell');
 });
 
@@ -246,6 +246,13 @@ test('v2 music slice 1 keeps search, resolve, and transport on the local lane', 
   for (const token of ['api/listen-together/session', 'api/listen-together/sync', 'api/listen-together/invite', 'listenTogetherNeedsSeek', 'TogetherView', 'useTogether', 'Sign in to host or join']) {
     assert.ok(together.includes(token), `v2 together must keep ${token}`);
   }
+  const nav = await readFile(path.join(backendRoot, 'app', 'v2', 'nav.ts'), 'utf8');
+  assert.ok(nav.includes("href: '/v2/music'"), 'v2 nav Music must stay inside the rebuild (never href /)');
+  assert.ok(!nav.includes("href: '/'"), 'v2 nav must not link the legacy root');
+  const hostLib = await readFile(path.join(backendRoot, 'lib', 'request-host.ts'), 'utf8');
+  assert.ok(hostLib.includes('shouldServeLab'), 'request-host must keep the lab front-door predicate');
+  const proxy = await readFile(path.join(backendRoot, 'proxy.ts'), 'utf8');
+  assert.ok(proxy.includes('shouldServeLab') && proxy.includes('SPICE_LAB_DOMAIN'), 'proxy must keep the lab root rewrite');
   const queue = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'queue.tsx'), 'utf8');
   assert.ok(queue.includes('playAt') || queue.includes('onPlayAt'), 'v2 queue must play from the list');
   const engineQueue = await readFile(path.join(backendRoot, 'app', 'v2', 'music', 'engine.ts'), 'utf8');
