@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.179
+
+- [Spice.Connect main] Self-hosted realtime: the Connect events stream LISTENs over node-postgres when the database URL is not Neon, instead of failing the Neon-only handshake and degrading everything to polling.
+
 ## v1.0.178
 
 - [Spice.Player main] Same-track restarts resume mid-song: proxy errors, timed retries, and transport rescues snapshot the live position first (iframe clock preferred, last timeupdate as fallback), and both the proxy and embed transports seek to it instead of replaying from 0.

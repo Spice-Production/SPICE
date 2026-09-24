@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { corsHeadersForRequest, jsonResponse, optionsResponse } from '@/lib/cors';
-import { db } from '@/db';
+import { db, isNeonDatabaseUrl } from '@/db';
 import { remoteDeviceAuthorizations, remoteDevices } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { isSpiceConnectRemoteDeviceVisible } from '@/lib/spice-connect';
@@ -39,13 +39,13 @@ type NeonNotification = {
 };
 
 type NeonClient = {
-  connect(): Promise<void>;
-  end(): Promise<void>;
+  connect(): Promise<unknown>;
+  end(): Promise<unknown>;
   query(text: string, values?: unknown[]): Promise<unknown>;
-  on(event: 'notification', listener: (notification: NeonNotification) => void): NeonClient;
-  on(event: 'error', listener: (error: Error) => void): NeonClient;
-  removeListener(event: 'notification', listener: (notification: NeonNotification) => void): NeonClient;
-  removeListener(event: 'error', listener: (error: Error) => void): NeonClient;
+  on(event: 'notification', listener: (notification: NeonNotification) => void): unknown;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  removeListener(event: 'notification', listener: (notification: NeonNotification) => void): unknown;
+  removeListener(event: 'error', listener: (error: Error) => void): unknown;
 };
 
 export function OPTIONS(request: Request) {
@@ -217,11 +217,22 @@ export async function GET(request: Request) {
       }
     }
 
-    const { Client } = await import('@neondatabase/serverless');
-    client = new Client({
-      connectionString: spiceConnectRealtimeDatabaseUrl(databaseUrl),
-      application_name: 'spice-connect-realtime',
-    }) as unknown as NeonClient;
+    // Self-hosted Postgres speaks raw PG TCP, not Neon's wire protocol, so
+    // the Neon serverless client cannot LISTEN here. node-postgres exposes
+    // the same notification interface over a direct connection.
+    if (isNeonDatabaseUrl(databaseUrl)) {
+      const { Client } = await import('@neondatabase/serverless');
+      client = new Client({
+        connectionString: spiceConnectRealtimeDatabaseUrl(databaseUrl),
+        application_name: 'spice-connect-realtime',
+      }) as unknown as NeonClient;
+    } else {
+      const { Client: PgClient } = await import('pg');
+      client = new PgClient({
+        connectionString: databaseUrl,
+        application_name: 'spice-connect-realtime',
+      }) as unknown as NeonClient;
+    }
 
     const probeNonce = randomUUID();
     let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
