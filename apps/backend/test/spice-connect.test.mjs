@@ -544,3 +544,13 @@ test('Spice Connect command redelivery migration bounds the delivery index', asy
   assert.match(migration, /SET "paired_authorization_hash" = paired_auth\."token_hash"/i);
   assert.ok(journal.entries.some((entry) => entry.tag === '0013_blue_shooting_star'));
 });
+
+test('realtime events LISTEN over node-postgres on self-hosted databases', async () => {
+  // The VPS runs raw Postgres TCP, which the Neon serverless client cannot
+  // LISTEN on — the events route 503'd realtime_unavailable there. Non-Neon
+  // URLs must get a node-postgres client with the same interface.
+  const source = await readFile(new URL('../app/api/remote/events/route.ts', import.meta.url), 'utf8');
+  assert.match(source, /isNeonDatabaseUrl\(databaseUrl\)/, 'the events route must branch on the database driver');
+  assert.match(source, /await import\('pg'\)/, 'the self-host branch must load node-postgres lazily (offline ZIP never ships it)');
+  assert.match(source, /new PgClient\(\{\s*\n?\s*connectionString: databaseUrl,/, 'the self-host client must connect to the same database');
+});

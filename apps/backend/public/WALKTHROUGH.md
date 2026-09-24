@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.180
+
+- [Spice.Connect main] Self-hosted realtime: the Connect events stream LISTENs over node-postgres when the database URL is not Neon, instead of failing the Neon-only handshake and degrading everything to polling.
+
 ## v1.0.179
 
 - [Spice.Music main] Preview a new interface: a from-scratch minimalist redesign of the web player (new sidebar, topbar, command menu, pages, player, now-playing view, mini player, dialogs, and settings) sits behind a toggle. Classic stays the default; turn the new one on from Settings → New Interface (or a `?ui=v2` link, `?ui=classic` to go back) and switch back any time from its own Settings. Both interfaces drive the same library, playback, and sync, songs keep playing across a switch, and the new one follows your accent, surface (including Daylight), custom palette, artwork shape, motion, and density settings live.
