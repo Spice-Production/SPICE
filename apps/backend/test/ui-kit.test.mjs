@@ -300,13 +300,20 @@ test('v2 music feeds the on-device recap the home screen reads', async () => {
   assert.ok(!page.includes('<AppShell'), 'v2 music must not own a shell (layout provides it)');
 });
 
+test('corner account control opens Profile + Settings', async () => {
+  const btn = await readFile(path.join(backendRoot, 'components', 'ui', 'ProfileButton.tsx'), 'utf8');
+  for (const token of ['aria-haspopup', 'role="menu"', '/v2/profile', '/v2/settings', 'Escape']) {
+    assert.ok(btn.includes(token), `ProfileButton must keep ${token}`);
+  }
+});
+
 test('v2 shell owns the persistent frame (player, playlists, search)', async () => {
   const shellCss = await readFile(path.join(backendRoot, 'components', 'ui', 'AppShell.tsx'), 'utf8');
   for (const token of ['spk-side-h', 'spk-side-add', 'spk-playlink']) {
     assert.ok(shellCss.includes(token), `AppShell sidebar must keep ${token}`);
   }
   const shell = await readFile(path.join(backendRoot, 'app', 'v2', 'shell.tsx'), 'utf8');
-  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', "target: '/v2/music'", '?q=${encodeURIComponent(query)}', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on', 'V2Icon', 'spice_sidebar_collapsed', 'onToggleCollapse', 'scopeFor', 'SearchScope', 'Search movies', 'Search series', 'v2-gearbtn']) {
+  for (const token of ['PlayerProvider', 'usePlayer', 'V2Shell', 'PlayerBar', 'usePathname', 'hashchange', '#library', 'sidebarExtra', 'Playlists', "target: '/v2/music'", '?q=${encodeURIComponent(query)}', 'Nothing playing', 'appendListeningEvent', 'spice_listening_events', 'discovered', 'recordHistory', 'toggleShuffle', 'cycleRepeat', 'toggleLike', 'v2-playerbar-on', 'V2Icon', 'spice_sidebar_collapsed', 'onToggleCollapse', 'scopeFor', 'SearchScope', 'Search movies', 'Search series']) {
     assert.ok(shell.includes(token), `v2 shell must wire ${token}`);
   }
   const layout = await readFile(path.join(backendRoot, 'app', 'v2', 'layout.tsx'), 'utf8');

@@ -251,9 +251,6 @@ export function V2Shell({ children }: { children: ReactNode }) {
                 />
               </form>
             )}
-            <a className="v2-gearbtn" href="/v2/settings" aria-label="Settings" title="Settings">
-              <V2Icon name="settings" />
-            </a>
             <ProfileButton name={accountName} signedIn={token !== null} />
           </>
         }
