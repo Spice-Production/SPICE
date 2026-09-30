@@ -7,6 +7,7 @@ import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvide
 
 import { FilmIcon, BellIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
 import MediaSignIn from './media-signin';
+import { useSpiceUiV2 } from './ui-v2/preference-client';
 import {
   fetchAccountProfile,
   formatReleaseDate,
@@ -113,6 +114,7 @@ function ProfileMenu({
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const ui = useSpiceUiV2();
   const [source, setSource] = useState(() => loadPreferredProvider(DEFAULT_STREAM_PROVIDER_ID));
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const email = token ? readAccountEmail() : null;
@@ -266,6 +268,16 @@ function ProfileMenu({
                 </button>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                ui.setEnabled(true);
+              }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textAlign: 'left', cursor: 'pointer' }}
+            >
+              Try the new interface
+            </button>
           </div>
         </>
       )}

@@ -62,7 +62,7 @@ test('release timeline: dates flow from TMDB to cards, shelves, and the bell', a
   assert.match(chrome, /OUT NOW/, 'bell panel lists fresh drops with links');
   const shelves = await read('app/watch-shelves.tsx');
   assert.match(shelves, /WATCH_LIST_STATUS_ORDER/, 'one section per status, empty ones skipped');
-  const sync = await read('app/watch-sync.tsx');
+  const sync = await read('app/watch-sync-state.ts');
   assert.match(sync, /setWatchListStatus/, 'watch pages re-shelve without leaving the player');
 });
 
@@ -113,6 +113,14 @@ test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async (
     'app/shows/page.tsx',
     'app/shows/watch/[id]/page.tsx',
     'app/shows/watch/[id]/show-player.tsx',
+    'app/watch-sync-state.ts',
+    'app/watch-player-state.ts',
+    'app/ui-v2/watch/browse-view.tsx',
+    'app/ui-v2/watch/session.ts',
+    'app/ui-v2/watch/watch-detail.tsx',
+    'app/ui-v2/watch/watch-host.tsx',
+    'app/ui-v2/watch/watch-media.tsx',
+    'app/ui-v2/watch/watch-shell.tsx',
   ];
   const pictographic = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
   const allowedTypography = /[✓×→←+]/g;
@@ -154,8 +162,10 @@ test('browse shelves and players share one client and one toggle island', async 
   const shelves = await read('app/watch-shelves.tsx');
   assert.match(shelves, /Continue watching/, 'resume rail present');
   assert.match(shelves, /My List/, 'watchlist rail present');
+  const syncState = await read('app/watch-sync-state.ts');
+  assert.match(syncState, /reportProgress\(token/, 'opening a title reports it');
   const sync = await read('app/watch-sync.tsx');
-  assert.match(sync, /reportProgress\(token/, 'opening a title reports it');
+  assert.match(sync, /useWatchSync\(props\)/, 'the classic island runs the shared sync hook');
   assert.match(sync, /MediaSignIn/, 'signed-out visitors get a sign-in, not dead buttons');
   const moviePage = await read('app/movie/watch/[tmdbId]/page.tsx');
   assert.match(moviePage, /<WatchSync/, 'film page syncs');

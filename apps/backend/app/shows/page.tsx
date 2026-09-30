@@ -8,6 +8,8 @@ import MediaHero from '../media-hero';
 import { TvIcon } from '../media-icons';
 import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
+import { useSpiceUiV2 } from '../ui-v2/preference-client';
+import { WatchBrowseView } from '../ui-v2/watch/browse-view';
 
 interface ShowHit {
   tmdbId: string;
@@ -82,6 +84,7 @@ export default function ShowsPage() {
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
+  const ui = useSpiceUiV2();
   const [watchState, setWatchState] = useState<WatchState | null>(null);
 
   function refreshWatchState(next: string) {
@@ -163,6 +166,36 @@ export default function ShowsPage() {
       }
       return { ...prev, watchlist: prev.watchlist.filter((entry) => !(entry.kind === 'show' && entry.tmdbId === tmdbId)) };
     });
+  }
+
+  if (ui.enabled) {
+    // New interface: same state and handlers, rendered by the UI v2 browse view.
+    return (
+      <WatchBrowseView
+        model={{
+          kind: 'show',
+          session: { token, watchState, onSignedIn: refreshWatchState, onSignOut: clearWatchState },
+          query,
+          setQuery,
+          runSearch: () => void runSearch(),
+          loading,
+          error,
+          searched,
+          hits,
+          resetSearch: () => { setSearched(false); setHits([]); setQuery(''); setError(null); },
+          shelves: SHELVES.map((shelf) => ({ key: shelf.key, title: shelf.title, items: shelves[shelf.key] })),
+          shelvesLoading,
+          shelvesError,
+          heroItems,
+          savedIds: savedShowIds,
+          onHeroListChange,
+          onListRemoved: (tmdbId) =>
+            setWatchState((prev) =>
+              prev ? { ...prev, watchlist: prev.watchlist.filter((entry) => entry.tmdbId !== tmdbId) } : prev,
+            ),
+        }}
+      />
+    );
   }
 
   return (
