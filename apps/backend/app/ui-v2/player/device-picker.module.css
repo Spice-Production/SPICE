@@ -1,0 +1,194 @@
+/* ================================================================
+   SPICE UI v2 player — Spice Connect device picker
+   ================================================================ */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease);
+}
+
+.trigger:hover {
+  background: var(--sx-hover);
+}
+
+.trigger[data-active='true'] {
+  border-color: var(--sx-accent);
+  color: var(--sx-accent-text);
+}
+
+.triggerDisabled {
+  opacity: 0.62;
+}
+
+/* Compact like the classic mini picker: name and chevron only. */
+.trigger-mini {
+  height: 28px;
+  padding: 0 6px 0 8px;
+  gap: 4px;
+}
+
+.trigger-mini > svg:first-child,
+.trigger-mini .triggerDetail {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .trigger-mini {
+    height: 36px;
+  }
+}
+
+.triggerCopy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.triggerLabel {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.triggerDetail {
+  overflow: hidden;
+  font-size: var(--sx-text-2xs);
+  line-height: 1.25;
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.triggerChevron {
+  flex-shrink: 0;
+  color: var(--sx-fg-subtle);
+}
+
+/* ── Popover panel ──────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--sx-border);
+}
+
+.panelTitle {
+  font-size: var(--sx-text-xs);
+  font-weight: 600;
+  color: var(--sx-fg-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.option {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border: none;
+  border-radius: var(--sx-radius-sm);
+  background: transparent;
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--sx-hover);
+}
+
+.optionSelected {
+  background: var(--sx-accent-soft);
+}
+
+.optionIcon {
+  flex-shrink: 0;
+  color: var(--sx-fg-muted);
+}
+
+.optionSelected .optionIcon {
+  color: var(--sx-accent-text);
+}
+
+.optionCopy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.optionLabel {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.optionDetail {
+  overflow: hidden;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.optionCheck {
+  flex-shrink: 0;
+  color: var(--sx-accent-text);
+}
+
+.forgetBtn {
+  flex-shrink: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 14px 10px;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-subtle);
+  text-align: center;
+}
+
+.panelFooter {
+  padding: 8px;
+  border-top: 1px solid var(--sx-border);
+}

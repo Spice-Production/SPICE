@@ -1,0 +1,172 @@
+/* ================================================================
+   SPICE UI v2 player — bottom/top player bar
+   ================================================================ */
+
+/* Flex (not a fixed 3-column grid) so the right-hand controls always keep
+   their full width and the center column absorbs any squeeze. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  padding: 0 clamp(12px, 2vw, 24px);
+}
+
+.left {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 4px;
+  min-width: 268px;
+}
+
+.identity {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px;
+  margin: -4px 0 -4px -4px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.identity:hover .title {
+  text-decoration: underline;
+  text-decoration-color: var(--sx-border-strong);
+}
+
+.bar[data-density='slim'] .identity {
+  gap: 10px;
+}
+
+.identityText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.artist {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.leftAction {
+  flex-shrink: 0;
+}
+
+.center {
+  display: flex;
+  flex: 0 1 640px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 260px;
+}
+
+.right {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: max-content;
+}
+
+.right > * {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .left {
+    min-width: 200px;
+  }
+
+  .center {
+    min-width: 240px;
+  }
+
+  .left .hideNarrow,
+  .right .hideNarrow {
+    display: none;
+  }
+}
+
+/* ── Phone compact bar ──────────────────────────────────────── */
+.mobileBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  min-height: 60px;
+  padding: 6px 12px;
+  overflow: hidden;
+}
+
+.mobileProgress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--sx-border);
+}
+
+.mobileProgressFill {
+  height: 100%;
+  background: var(--sx-accent);
+}
+
+.mobileMain {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobileText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mobileTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mobileArtist {
+  overflow: hidden;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

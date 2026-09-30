@@ -1,0 +1,339 @@
+/* ================================================================
+   SPICE UI v2 player — shared transport, seek, and volume controls
+   ================================================================ */
+
+.transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.transport-lg {
+  gap: 20px;
+}
+
+.playButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    transform var(--sx-fast) var(--sx-ease);
+}
+
+.playButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sx-inverse) 88%, transparent);
+}
+
+.playButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.playButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.playButton-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.playButton-md {
+  width: 32px;
+  height: 32px;
+}
+
+.playButton-lg {
+  width: 64px;
+  height: 64px;
+}
+
+.playButton-touch {
+  width: 40px;
+  height: 40px;
+}
+
+/* ── Seek row ───────────────────────────────────────────────── */
+.seekRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.seekRow[data-disabled='true'] {
+  opacity: 0.7;
+}
+
+.seekTime {
+  flex-shrink: 0;
+  min-width: 34px;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.seekTime-end {
+  text-align: right;
+}
+
+.seekSlider {
+  flex: 1 1 auto;
+}
+
+.seekMeta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 14px;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-subtle);
+}
+
+.resolving {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+}
+
+.resolvingText {
+  white-space: nowrap;
+}
+
+.resolving::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sx-accent);
+  animation: sxResolvingPulse 1s var(--sx-ease) infinite;
+}
+
+@keyframes sxResolvingPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Volume ─────────────────────────────────────────────────── */
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.volumeSlider {
+  width: 96px;
+}
+
+.volumeSlider-sm {
+  width: 64px;
+}
+
+.volumeSlider-lg {
+  width: 140px;
+}
+
+.volumeValue {
+  min-width: 30px;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.boostToggle {
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  background: transparent;
+  color: var(--sx-fg-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease),
+    background-color var(--sx-fast) var(--sx-ease);
+}
+
+.boostToggle:hover {
+  color: var(--sx-fg);
+  border-color: var(--sx-border-strong);
+}
+
+.boostToggle[data-active='true'] {
+  border-color: var(--sx-accent);
+  color: var(--sx-accent-text);
+  background: var(--sx-accent-soft);
+}
+
+.volumeTrack {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.volumeFluid .volumeTrack {
+  flex: 1 1 auto;
+}
+
+/* Follows the slider thumb (left is set inline from the volume). */
+.volumeTooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: var(--sx-radius-sm);
+  background: var(--sx-elevated-bg);
+  border: 1px solid var(--sx-border);
+  box-shadow: var(--sx-shadow-sm);
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.volumeWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Responsive / fluid volume ──────────────────────────────── */
+.volumeFluid {
+  width: 100%;
+}
+
+.volumeFluid .volumeWrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.volumeFluid .volumeSlider {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.volumeFluid .volumeValue {
+  flex-shrink: 0;
+}
+
+/* Narrower bars drop the boost pill until volume actually exceeds 100%. */
+@media (max-width: 1439px) {
+  .volumeResponsive .boostToggle:not([data-over='true']) {
+    display: none;
+  }
+}
+
+@media (max-width: 1279px) {
+  .volumeResponsive .volumeSlider {
+    width: 80px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .volumeResponsive .volumeSlider {
+    display: none;
+  }
+}
+
+/* Narrow bars keep the pulsing dot; the label stays available to screen readers. */
+@media (max-width: 1180px) {
+  .resolvingText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .boostToggle {
+    height: 36px;
+    padding: 0 12px;
+  }
+}
+
+/* ── Compact volume popover (vertical slider) ─────────────── */
+.volumePopover {
+  min-width: 0;
+}
+
+.volumeVerticalPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 8px;
+}
+
+.volumeVerticalValue {
+  min-width: 36px;
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  color: var(--sx-fg);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.volumeVertical {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 16px;
+  height: 128px;
+}
+
+.volumeVertical::-webkit-slider-runnable-track {
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(
+    to top,
+    var(--sx-slider-fill) 0,
+    var(--sx-slider-fill) var(--sx-vertical-pct),
+    var(--sx-slider-track) var(--sx-vertical-pct),
+    var(--sx-slider-track) 100%
+  );
+}
+
+.volumeVertical::-moz-range-track {
+  width: 4px;
+  height: 100%;
+}
+
+.volumeVertical::-moz-range-progress {
+  width: 4px;
+}
+
+.volumeVertical::-webkit-slider-thumb {
+  margin-top: 0;
+  margin-left: -4px;
+}

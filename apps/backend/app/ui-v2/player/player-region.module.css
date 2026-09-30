@@ -1,0 +1,20 @@
+/* ================================================================
+   SPICE UI v2 player — region wrapper / lyrics sheet
+   ================================================================ */
+
+.bar {
+  height: 100%;
+}
+
+.lyricsSheetBody {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 8px;
+}
+
+.lyricsSheetScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}

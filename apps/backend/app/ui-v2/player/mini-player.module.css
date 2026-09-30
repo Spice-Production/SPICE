@@ -1,0 +1,143 @@
+/* ================================================================
+   SPICE UI v2 player — floating mini player
+   ================================================================ */
+
+.card {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  /* Above the shell, below sheets, dialogs, and popovers (the device picker opens from inside
+     this card), sheets, and dialogs. */
+  z-index: var(--sx-z-overlay);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-elevated-bg);
+  box-shadow: var(--sx-shadow-lg);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* Once dragged the card is placed by left/top only; keeping right/bottom
+   would stretch it down to the bottom offset. */
+.card[data-positioned='true'] {
+  right: auto;
+  bottom: auto;
+}
+
+.card[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+@media (max-width: 768px) {
+  .card:not([data-positioned='true']) {
+    right: 12px;
+    bottom: calc(var(--sx-mobile-nav-height) + 12px);
+  }
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.artButton {
+  flex-shrink: 0;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sx-art-radius);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.artOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.artButton:hover .artOverlay,
+.artButton:focus-visible .artOverlay {
+  opacity: 1;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.title {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.artist {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.transport {
+  flex-shrink: 0;
+}
+
+.seek {
+  flex-shrink: 0;
+}
+
+.tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sx-border);
+}
+
+/* Eight actions fit one row in the 320px card; narrower phones wrap. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.device {
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 2px;
+}
+
+.panel {
+  padding-top: 8px;
+  border-top: 1px solid var(--sx-border);
+  max-height: 160px;
+  overflow-y: auto;
+}

@@ -1,0 +1,157 @@
+/* ================================================================
+   SPICE UI v2 player — synced lyrics view
+   ================================================================ */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--sx-border);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--sx-text-xs);
+  font-weight: 600;
+  color: var(--sx-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.karaokeToggle {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease),
+    background-color var(--sx-fast) var(--sx-ease);
+}
+
+.karaokeToggle:hover:not(:disabled) {
+  color: var(--sx-fg);
+  border-color: var(--sx-border-strong);
+}
+
+.karaokeToggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.karaokeToggle[data-active='true'] {
+  border-color: var(--sx-accent);
+  color: #fff;
+  background: var(--sx-accent);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 4px;
+  text-align: center;
+  scroll-behavior: smooth;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: var(--sx-fg-subtle);
+  font-size: var(--sx-text-sm);
+}
+
+.line {
+  padding: 4px 10px;
+  border-radius: var(--sx-radius);
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-lg);
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0.8;
+  cursor: default;
+  transition:
+    color var(--sx-fast) var(--sx-ease),
+    opacity var(--sx-fast) var(--sx-ease);
+}
+
+.line[data-past='true'] {
+  opacity: 0.5;
+}
+
+.line[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.line[data-clickable='true']:hover {
+  color: var(--sx-fg);
+  opacity: 1;
+}
+
+.line[data-active='true'] {
+  color: var(--sx-fg);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.line[data-header='true'] {
+  color: var(--sx-accent-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--sx-text-xs);
+  letter-spacing: 0.06em;
+}
+
+.line[data-chorus='true'] {
+  font-weight: 700;
+  font-size: var(--sx-text-xl);
+}
+
+.word {
+  display: inline-block;
+  color: inherit;
+  white-space: pre-wrap;
+  transition: color 0.1s linear;
+}
+
+.word[data-passed='true'] {
+  color: var(--sx-fg);
+}
+
+.word[data-active='true'] {
+  color: var(--sx-accent-text);
+  font-weight: 700;
+}
+
+/* ── Compact (mini player) strip ────────────────────────────── */
+.compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 2px 4px;
+  text-align: center;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  color: var(--sx-accent-text);
+  overflow-wrap: anywhere;
+}
+
+.compactMuted {
+  color: var(--sx-fg-subtle);
+  font-weight: 500;
+}

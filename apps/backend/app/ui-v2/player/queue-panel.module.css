@@ -1,0 +1,153 @@
+/* ================================================================
+   SPICE UI v2 player — queue sheet / panel
+   ================================================================ */
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.nowPlaying {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--sx-border);
+}
+
+.nowPlayingText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nowPlayingLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sx-text-2xs);
+  font-weight: 600;
+  color: var(--sx-accent-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nowPlayingTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nowPlayingArtist {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+}
+
+.listHeader > span {
+  font-size: var(--sx-text-xs);
+  font-weight: 600;
+  color: var(--sx-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.listActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+}
+
+.removeBtn {
+  opacity: 0.7;
+}
+
+.removeBtn:hover {
+  opacity: 1;
+}
+
+/* ── Mini player inline queue ───────────────────────────────── */
+.miniList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.miniRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--sx-radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.miniRow:hover {
+  background: var(--sx-hover);
+  border-color: var(--sx-border);
+}
+
+.miniRowText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.miniRowTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.miniRowArtist {
+  overflow: hidden;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.miniEmpty {
+  padding: 10px 0;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-subtle);
+  text-align: center;
+}

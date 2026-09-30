@@ -1,0 +1,50 @@
+/* ================================================================
+   SPICE UI v2 player — Spice Connect transport diagnostics
+   ================================================================ */
+
+.panel {
+  position: fixed;
+  top: 76px;
+  right: 18px;
+  z-index: 1290;
+  width: min(320px, calc(100vw - 36px));
+  padding: 12px 14px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-elevated-bg);
+  box-shadow: var(--sx-shadow-lg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  flex: 1 1 auto;
+  font-size: var(--sx-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sx-fg);
+}
+
+.body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--sx-text-xs);
+  line-height: 1.55;
+  color: var(--sx-fg-muted);
+}
+
+.route strong {
+  color: var(--sx-accent-text);
+}
+
+.meta {
+  color: var(--sx-fg-subtle);
+  font-size: var(--sx-text-2xs);
+}

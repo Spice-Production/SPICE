@@ -1,0 +1,967 @@
+/* ================================================================
+   SPICE UI v2 — Account
+   Profile overview, local profiles, cloud account & sync, profile
+   editor, and import/backup. Tokens only (--sx-*): the page follows
+   the accent, the light "daylight" surface, and custom palettes.
+   Grids size themselves from the space the content column actually
+   has (the sidebar width varies), so there are few breakpoints.
+   ================================================================ */
+
+/* ── Page ───────────────────────────────────────────────────── */
+.page {
+  width: 100%;
+  max-width: 880px;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  min-width: 0;
+}
+
+.section {
+  min-width: 0;
+}
+
+.strong {
+  font-weight: 500;
+  color: var(--sx-fg);
+}
+
+.mutedSmall {
+  font-size: var(--sx-text-xs);
+  line-height: 1.5;
+  color: var(--sx-fg-muted);
+}
+
+.capitalize {
+  text-transform: capitalize;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.rowLabel {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inlineStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+}
+
+/* Status copy: status color mixed toward the text color stays readable on
+   both the dark and the light surface. */
+.toneSuccess {
+  color: color-mix(in srgb, var(--sx-success) 62%, var(--sx-fg));
+}
+
+.toneWarning {
+  color: color-mix(in srgb, var(--sx-warning) 62%, var(--sx-fg));
+}
+
+.toneDanger {
+  color: color-mix(in srgb, var(--sx-danger) 62%, var(--sx-fg));
+}
+
+.inlineLink {
+  padding: 0;
+  border: none;
+  border-radius: var(--sx-radius-sm);
+  background: none;
+  color: var(--sx-accent-text);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+  text-underline-offset: 3px;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}
+
+.trailingButton {
+  flex-shrink: 0;
+}
+
+/* ── Profile overview ───────────────────────────────────────── */
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.overviewTop {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.overviewAvatar {
+  box-shadow: 0 0 0 1px var(--sx-border);
+}
+
+.overviewIdentity {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.overviewNameRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overviewName {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lockMark {
+  display: inline-flex;
+  color: var(--sx-fg-muted);
+}
+
+.overviewHandle {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+}
+
+.overviewBio {
+  max-width: 60ch;
+  margin: 8px 0 0;
+  font-size: var(--sx-text-sm);
+  line-height: 1.55;
+  color: var(--sx-fg);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.overviewActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 12px;
+}
+
+.overview .stats > * {
+  padding: 14px 16px;
+}
+
+/* The join date is text, not a number: keep it on the numeric baseline. */
+.statText {
+  display: block;
+  overflow: hidden;
+  font-size: var(--sx-text-lg);
+  letter-spacing: -0.01em;
+  line-height: 36px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Profiles on this device ────────────────────────────────── */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profileItem {
+  position: relative;
+  min-width: 0;
+}
+
+.profileTile,
+.addProfile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-surface);
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease),
+    box-shadow var(--sx-fast) var(--sx-ease);
+}
+
+.profileTile:hover {
+  background: var(--sx-surface-hover);
+  border-color: var(--sx-border-strong);
+}
+
+.profileItem[data-deletable='true'] .profileTile {
+  padding-right: 46px;
+}
+
+.profileItem[data-active='true'] .profileTile {
+  border-color: var(--sx-accent);
+  box-shadow: 0 0 0 1px var(--sx-accent);
+}
+
+.profileTileText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profileTileNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.profileTileName {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-base);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileTileLock {
+  color: var(--sx-fg-muted);
+}
+
+.profileTileMetaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.profileTileMeta {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileItem .profileTileDelete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.profileItem .profileTileDelete:hover {
+  background: var(--sx-danger-soft);
+  color: var(--sx-danger);
+}
+
+.addProfile {
+  border-style: dashed;
+  border-color: var(--sx-border-strong);
+  background: transparent;
+  color: var(--sx-fg-muted);
+}
+
+.addProfile:hover:not(:disabled) {
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+.addProfile:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.addProfileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-hover);
+  color: var(--sx-fg-muted);
+}
+
+.addProfile .profileTileName {
+  color: var(--sx-fg);
+}
+
+/* ── SPICE account & sync ───────────────────────────────────── */
+.page .identityBlock {
+  padding-block: 20px;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 16px;
+}
+
+.identityIcon,
+.inviteIcon,
+.benefitIcon,
+.transferIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sx-radius);
+  background: var(--sx-hover);
+  color: var(--sx-fg-muted);
+}
+
+.identityIcon {
+  width: 40px;
+  height: 40px;
+}
+
+.identityText {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.identityLabel {
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+}
+
+.identityEmailRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.identityEmail {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identityBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.identitySignOut {
+  flex-shrink: 0;
+}
+
+.alertStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adminLink {
+  text-decoration: none;
+}
+
+.usernameForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+}
+
+.usernameField {
+  min-width: 0;
+}
+
+.usernameActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Playlist requests */
+.invitesHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+
+.inviteList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invite {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+}
+
+.inviteText {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inviteTitle {
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.inviteActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Sign in / create account ───────────────────────────────── */
+.authLayout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 32px;
+  align-items: start;
+}
+
+.authCard {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+}
+
+.authNotice {
+  margin-bottom: 16px;
+}
+
+.authForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.authHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.authBadgeIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+.authTitle {
+  margin: 0;
+  font-size: var(--sx-text-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.authSubtitle {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+}
+
+.fieldStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fieldLabel {
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  color: var(--sx-fg);
+}
+
+.authSwitch {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+  text-align: center;
+}
+
+.authSwitch .inlineLink {
+  font-size: inherit;
+}
+
+.authSecondary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.authForm .codeInput {
+  height: 48px;
+  padding-left: calc(12px + 0.4em);
+  font-family: var(--sx-font-mono);
+  font-size: var(--sx-text-2xl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.authIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.authLead {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  line-height: 1.6;
+  color: var(--sx-fg-muted);
+}
+
+.benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.benefitText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.benefitTitle {
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+}
+
+.benefitDescription {
+  font-size: var(--sx-text-xs);
+  line-height: 1.5;
+  color: var(--sx-fg-muted);
+}
+
+/* ── Import & backup ────────────────────────────────────────── */
+.transferGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.transferWide {
+  grid-column: 1 / -1;
+}
+
+.transferCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.transferHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.transferHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.transferTitle {
+  margin: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 600;
+}
+
+.transferDescription {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  line-height: 1.5;
+  color: var(--sx-fg-muted);
+}
+
+.transferBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transferAction {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.transferButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.transferFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.transferCard .jsonInput {
+  min-height: 120px;
+  font-family: var(--sx-font-mono);
+  font-size: var(--sx-text-xs);
+  line-height: 1.6;
+}
+
+/* ── Edit profile dialog ────────────────────────────────────── */
+.editorForm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.editorGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.editorGroup + .editorGroup {
+  padding-top: 24px;
+  border-top: 1px solid var(--sx-border);
+}
+
+.editorLabelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.editorLabel {
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  color: var(--sx-fg);
+}
+
+.editorHint {
+  font-size: var(--sx-text-xs);
+  line-height: 1.5;
+  color: var(--sx-fg-muted);
+}
+
+.avatarEditorTop {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatarEditorText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.avatarEditorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 72px));
+  gap: 8px;
+}
+
+.presetAvatar {
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-hover);
+  cursor: pointer;
+  transition:
+    border-color var(--sx-fast) var(--sx-ease),
+    box-shadow var(--sx-fast) var(--sx-ease);
+}
+
+.presetAvatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.presetAvatar:hover {
+  border-color: var(--sx-border-strong);
+}
+
+.presetAvatar[aria-pressed='true'] {
+  border-color: var(--sx-accent);
+  box-shadow: 0 0 0 2px var(--sx-accent);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.swatch {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  cursor: pointer;
+  transition: box-shadow var(--sx-fast) var(--sx-ease);
+}
+
+.swatchSelected {
+  box-shadow:
+    0 0 0 2px var(--sx-surface),
+    0 0 0 4px var(--sx-fg);
+}
+
+.passcodeRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Nested so the fixed width beats the input wrapper's full-width default. */
+.passcodeRow .passcodeWrap {
+  flex: 0 0 auto;
+  width: 160px;
+}
+
+.passcodeRow .passcodeInput {
+  letter-spacing: 0.3em;
+}
+
+.passcodeRow .dangerText {
+  color: var(--sx-danger);
+}
+
+.passcodeRow .dangerText:hover {
+  background: var(--sx-danger-soft);
+  color: var(--sx-danger);
+}
+
+/* ── Phones ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sections {
+    gap: 32px;
+  }
+
+  .overview {
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .overviewName {
+    font-size: var(--sx-text-xl);
+  }
+
+  .overviewActions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .overviewActions > * {
+    flex: 1 1 0;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .authCard {
+    padding: 20px;
+  }
+
+  .identitySignOut {
+    width: 100%;
+  }
+
+  .inviteActions {
+    flex: 1 1 100%;
+  }
+
+  .inviteActions > * {
+    flex: 1 1 0;
+  }
+
+  .transferAction {
+    align-self: stretch;
+  }
+
+  .transferFooter > :last-child {
+    flex: 1 1 100%;
+  }
+
+  /* Touch targets stay at least 36px. The switch keeps its 36x20 track and
+     gets an invisible hit area instead of being stretched. */
+  .page button:not(.inlineLink):not([role='switch']),
+  .page a.adminLink {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .page [role='switch']::after {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
+  }
+
+  .avatarEditorActions button,
+  .passcodeRow button {
+    min-height: 36px;
+  }
+
+  .swatch {
+    width: 36px;
+    height: 36px;
+  }
+
+  .inlineLink {
+    padding: 8px 0;
+    margin: -8px 0;
+  }
+
+  /* 16px controls stop iOS from zooming the page on focus. */
+  .authForm input,
+  .usernameForm input,
+  .transferCard input,
+  .transferCard textarea,
+  .editorForm input,
+  .editorForm textarea {
+    font-size: 16px;
+  }
+
+  .authForm input,
+  .usernameForm input,
+  .transferCard input,
+  .editorForm input:not([type='file']) {
+    height: 40px;
+  }
+
+  .authForm .codeInput {
+    height: 52px;
+    font-size: var(--sx-text-2xl);
+  }
+}
+
+@media (max-width: 420px) {
+  .overviewTop {
+    gap: 16px;
+  }
+
+  .presetGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: 260px;
+  }
+}
