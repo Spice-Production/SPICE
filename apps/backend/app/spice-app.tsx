@@ -5,7 +5,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   enrichTrackSnapshot,
   enrichTrackSnapshots,
@@ -51,6 +51,15 @@ import {
 } from './listening-context';
 import CommandPalette, { type CommandPaletteCommand } from './command-palette';
 import { isCommandPaletteShortcut } from './command-palette-core';
+import SpiceUiV2, { SPICE_UI_V2_HOST_CLASS } from './ui-v2/spice-ui-v2';
+import type { SpiceUiModel } from './ui-v2/model';
+import {
+  resolveSpiceUiV2Preference,
+  serializeSpiceUiV2Preference,
+  SPICE_UI_V2_DOCUMENT_ATTRIBUTE,
+  SPICE_UI_V2_QUERY_PARAM,
+  SPICE_UI_V2_STORAGE_KEY,
+} from './ui-v2/preference';
 import ThemeEditor from './theme-editor';
 import RuntimeDiagnosticsPanel from './runtime-diagnostics-panel';
 import MusicRuntimeSettingsPanel from './music-runtime-settings-panel';
@@ -261,7 +270,7 @@ const SPICE_MEDIA_CORE_LABEL = `Spice Media Core v${SPICE_MEDIA_CORE_VERSION}`;
 const LASTFM_CALLBACK_ORIGIN_STORAGE_KEY = 'spice_lastfm_callback_origin';
 const REMOTE_PAIRING_CREDENTIAL_STORAGE_PREFIX = 'spice_remote_pairing_credential_v1:';
 
-interface StoredRemotePairingCredential {
+export interface StoredRemotePairingCredential {
   token: string;
   authorizationId: string;
   deviceId: string;
@@ -298,7 +307,7 @@ function loadRemotePairingCredential(profileId: string): StoredRemotePairingCred
   }
 }
 
-type SpiceApiLane = 'local' | 'cloud';
+export type SpiceApiLane = 'local' | 'cloud';
 const SPICE_RUNTIME_TARGET = process.env.NEXT_PUBLIC_SPICE_RUNTIME_TARGET === 'vercel' ? 'vercel' : 'local';
 const SPICE_LOCAL_API_ORIGIN = normalizeApiOrigin(
   process.env.NEXT_PUBLIC_SPICE_LOCAL_API_ORIGIN || 'http://127.0.0.1:3939',
@@ -787,7 +796,7 @@ interface Album {
   year?: number;
 }
 
-interface Track {
+export interface Track {
   id: string;
   title: string;
   artists: Artist[];
@@ -801,31 +810,31 @@ interface Track {
   addedBy?: { userId: string; username: string | null; displayName: string };
 }
 
-type AppPage = 'home' | 'search' | 'library' | 'account' | 'settings';
-type SearchProvider = 'hybrid' | 'youtube_music' | 'youtube_videos' | 'soundcloud';
-type StreamProtocol = 'proxy' | 'web' | 'embed';
-type ProfileSyncStatus = 'idle' | 'playing' | 'scrobbled' | 'error';
-type AccentTheme = 'pink' | 'blue' | 'orange' | 'green' | 'gold' | 'crimson' | 'deeppurple';
-type VisualSurface = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight';
-type ArtworkShape = 'rounded' | 'soft' | 'circle';
-type MotionLevel = 'full' | 'calm' | 'off';
-type InterfaceScale = 'compact' | 'comfortable' | 'spacious';
-type TopbarLayout = 'embedded' | 'floating';
-type PlayerBarDensity = 'standard' | 'slim';
-type PlayerVisualStyle = 'spice' | 'vk';
-type NativeToolbarButtonKey = 'back' | 'reload' | 'home' | 'volume' | 'lyrics' | 'miniPlayer' | 'queue';
-type TopbarSearchMode = SearchProvider | 'users';
-type ReceiverSelectVariant = 'bar' | 'expanded' | 'mini';
+export type AppPage = 'home' | 'search' | 'library' | 'account' | 'settings';
+export type SearchProvider = 'hybrid' | 'youtube_music' | 'youtube_videos' | 'soundcloud';
+export type StreamProtocol = 'proxy' | 'web' | 'embed';
+export type ProfileSyncStatus = 'idle' | 'playing' | 'scrobbled' | 'error';
+export type AccentTheme = 'pink' | 'blue' | 'orange' | 'green' | 'gold' | 'crimson' | 'deeppurple';
+export type VisualSurface = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight';
+export type ArtworkShape = 'rounded' | 'soft' | 'circle';
+export type MotionLevel = 'full' | 'calm' | 'off';
+export type InterfaceScale = 'compact' | 'comfortable' | 'spacious';
+export type TopbarLayout = 'embedded' | 'floating';
+export type PlayerBarDensity = 'standard' | 'slim';
+export type PlayerVisualStyle = 'spice' | 'vk';
+export type NativeToolbarButtonKey = 'back' | 'reload' | 'home' | 'volume' | 'lyrics' | 'miniPlayer' | 'queue';
+export type TopbarSearchMode = SearchProvider | 'users';
+export type ReceiverSelectVariant = 'bar' | 'expanded' | 'mini';
 type AccountRole = 'user' | 'admin' | string;
-type SpiceNoticeKind = 'success' | 'info' | 'warning' | 'danger';
+export type SpiceNoticeKind = 'success' | 'info' | 'warning' | 'danger';
 
-interface SpiceNotice {
+export interface SpiceNotice {
   id: number;
   message: string;
   kind: SpiceNoticeKind;
 }
 
-interface SpiceConfirmDialog {
+export interface SpiceConfirmDialog {
   title: string;
   message: string;
   confirmLabel?: string;
@@ -839,7 +848,7 @@ interface SpiceDesktopNavigationDetail {
   handled: boolean;
 }
 
-interface NativeShellPreferences {
+export interface NativeShellPreferences {
   nativeMode: boolean;
   discordRpcEnabled: boolean;
   alwaysOnTop: boolean;
@@ -847,14 +856,14 @@ interface NativeShellPreferences {
   customCss: string;
 }
 
-interface NativeShellUpdateStatus {
+export interface NativeShellUpdateStatus {
   status: 'idle' | 'checking' | 'available' | 'not-available' | 'error' | 'downloading' | 'downloaded';
   error?: string;
   progress?: { percent?: number };
   info?: { version?: string };
 }
 
-interface SpiceDesktopUpdaterBridge {
+export interface SpiceDesktopUpdaterBridge {
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => void;
   getStartOnBoot?: () => Promise<DesktopStartOnBootPreference>;
@@ -862,7 +871,7 @@ interface SpiceDesktopUpdaterBridge {
   onUpdateStatus: (callback: (status: NativeShellUpdateStatus) => void) => () => void;
 }
 
-interface DesktopOfflineLibraryEntry {
+export interface DesktopOfflineLibraryEntry {
   fileName: string;
   bytes: number;
   updatedAt: string;
@@ -870,7 +879,7 @@ interface DesktopOfflineLibraryEntry {
   track: Track;
 }
 
-interface SpiceDesktopOfflineLibraryBridge {
+export interface SpiceDesktopOfflineLibraryBridge {
   getSettings: () => Promise<{ directory: string }>;
   chooseDirectory: () => Promise<{ canceled: boolean; directory: string }>;
   list: () => Promise<{ directory: string; tracks: DesktopOfflineLibraryEntry[] }>;
@@ -891,12 +900,12 @@ interface SpiceDesktopRuntimeBridge {
   prepare: () => Promise<SpiceDesktopRuntimeStatus>;
 }
 
-interface DesktopStartOnBootPreference {
+export interface DesktopStartOnBootPreference {
   supported: boolean;
   enabled: boolean;
 }
 
-interface SpiceNativeShellBridge extends SpiceDesktopUpdaterBridge {
+export interface SpiceNativeShellBridge extends SpiceDesktopUpdaterBridge {
   getSettings: () => Promise<NativeShellPreferences>;
   runtime: {
     get: () => Promise<{
@@ -985,7 +994,7 @@ const nativeUpdateStatusMessage = (status: NativeShellUpdateStatus | null) => {
   }
 };
 
-interface SongShareDialog {
+export interface SongShareDialog {
   track: Track;
   shareUrl: string;
 }
@@ -1050,7 +1059,7 @@ const PROFILE_SYNC_STATUS_LABELS: Record<ProfileSyncStatus, string> = {
   error: 'Needs attention',
 };
 
-interface PendingInvite {
+export interface PendingInvite {
   playlistId: string;
   playlistTitle: string;
   ownerId: string;
@@ -1062,7 +1071,7 @@ interface PendingInvite {
 
 
 
-interface PlaylistMember {
+export interface PlaylistMember {
   userId: string;
   username: string | null;
   displayName: string;
@@ -1072,7 +1081,7 @@ interface PlaylistMember {
   acceptedAt?: string | null;
 }
 
-interface Playlist {
+export interface Playlist {
   id: string;
   title: string;
   description?: string;
@@ -1246,13 +1255,13 @@ function VirtualTrackRows({
   );
 }
 
-interface PlaylistInvitePreview {
+export interface PlaylistInvitePreview {
   token: string;
   playlist: Playlist;
   expiresAt?: string | null;
 }
 
-interface CloudAccount {
+export interface CloudAccount {
   id: string;
   email: string;
   username?: string | null;
@@ -1269,7 +1278,7 @@ interface CloudAccount {
   };
 }
 
-interface AccountBlockState {
+export interface AccountBlockState {
   status: 'timeout' | 'banned';
   reason: string | null;
   expiresAt: string | null;
@@ -1291,7 +1300,7 @@ function parseAccountBlockPayload(payload: unknown): AccountBlockState | null {
   };
 }
 
-type RemoteCommandType =
+export type RemoteCommandType =
   | 'play'
   | 'pause'
   | 'toggle'
@@ -1315,7 +1324,7 @@ type RemoteCommandType =
   | 'connect'
   | 'lan_signal';
 
-interface RemoteDevice {
+export interface RemoteDevice {
   deviceId: string;
   displayName: string;
   currentTrack?: Track | null;
@@ -1334,13 +1343,13 @@ interface RemoteDevice {
   syncedAtMs?: number;
 }
 
-interface OptimisticRemoteDeviceState {
+export interface OptimisticRemoteDeviceState {
   deviceId: string;
   expiresAt: number;
   updates: Partial<RemoteDevice>;
 }
 
-interface RemoteCommand {
+export interface RemoteCommand {
   id: string;
   sourceDeviceId: string;
   targetDeviceId: string;
@@ -1371,7 +1380,7 @@ interface RemoteCommand {
   createdAt: string;
 }
 
-interface SpiceConnectTransportDiagnostic {
+export interface SpiceConnectTransportDiagnostic {
   direction: 'sent' | 'received';
   transport: 'lan' | 'cloud';
   command: RemoteCommandType;
@@ -1380,7 +1389,7 @@ interface SpiceConnectTransportDiagnostic {
   latencyMs?: number;
 }
 
-interface PendingSpiceConnectHandoff {
+export interface PendingSpiceConnectHandoff {
   state: SpiceConnectHandoffSourceState;
   targetName: string;
   acceptTimeoutId: number | null;
@@ -1401,7 +1410,7 @@ function clearPendingSpiceConnectHandoffTimers(
   }
 }
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   displayName: string;
   bio: string;
@@ -1420,9 +1429,9 @@ interface UserProfile {
   isPrivate?: boolean;
 }
 
-type SyncOutboxPayload = Record<string, unknown>;
+export type SyncOutboxPayload = Record<string, unknown>;
 
-interface ProfileSyncProviderResult {
+export interface ProfileSyncProviderResult {
   ok: boolean;
   skipped?: boolean;
   error?: string;
@@ -1435,7 +1444,7 @@ interface ProfileSyncResponse {
   };
 }
 
-interface PreparedCrossfade {
+export interface PreparedCrossfade {
   id: number;
   outgoingTrackKey: string;
   track: Track;
@@ -1877,7 +1886,7 @@ interface WordTiming {
   duration: number;
 }
 
-interface LyricLine {
+export interface LyricLine {
   time: number;
   text: string;
   words: WordTiming[];
@@ -3104,6 +3113,8 @@ export default function SpiceApp() {
 
     let apiStatus: 'passed' | 'failed' = 'failed';
     let dbStatus: 'passed' | 'failed' | 'disabled' = 'disabled';
+    // Runs from a click handler; the compiler only flags it because uiModel exposes it to UI v2.
+    // eslint-disable-next-line react-hooks/purity
     const startTime = Date.now();
 
     try {
@@ -3162,6 +3173,7 @@ export default function SpiceApp() {
       embedStatus = 'failed';
     }
 
+    // eslint-disable-next-line react-hooks/purity
     const latency = Date.now() - startTime;
     setSelfTestResults({ api: apiStatus, db: dbStatus, embed: embedStatus, latency });
     setSelfTestRunning(false);
@@ -3965,6 +3977,48 @@ export default function SpiceApp() {
   }, [saveListenBrainzToken]);
 
   const [isMounted, setIsMounted] = useState(false);
+
+  // UI v2 preview toggle. Classic stays the default until testers opt in from
+  // Settings (or with ?ui=v2 / ?ui=classic links, which persist the choice).
+  const [uiV2Enabled, setUiV2EnabledState] = useState(false);
+  const syncUiV2DocumentFlag = useCallback((enabled: boolean) => {
+    if (typeof document === 'undefined') return;
+    if (enabled) document.documentElement.setAttribute(SPICE_UI_V2_DOCUMENT_ATTRIBUTE, 'v2');
+    else document.documentElement.removeAttribute(SPICE_UI_V2_DOCUMENT_ATTRIBUTE);
+  }, []);
+  const setUiV2Enabled = useCallback((enabled: boolean) => {
+    setUiV2EnabledState(enabled);
+    syncUiV2DocumentFlag(enabled);
+    try {
+      localStorage.setItem(SPICE_UI_V2_STORAGE_KEY, serializeSpiceUiV2Preference(enabled));
+    } catch {
+      // Storage can be unavailable (private mode); the choice then lasts for this session.
+    }
+  }, [syncUiV2DocumentFlag]);
+  useLayoutEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(SPICE_UI_V2_STORAGE_KEY);
+    } catch {
+      stored = null;
+    }
+    const url = new URL(window.location.href);
+    const queryValue = url.searchParams.get(SPICE_UI_V2_QUERY_PARAM);
+    const resolution = resolveSpiceUiV2Preference(stored, queryValue);
+    if (resolution.persist) {
+      try {
+        localStorage.setItem(SPICE_UI_V2_STORAGE_KEY, serializeSpiceUiV2Preference(resolution.enabled));
+      } catch {
+        // Ignore storage failures; the query parameter still applies to this visit.
+      }
+    }
+    if (queryValue !== null) {
+      url.searchParams.delete(SPICE_UI_V2_QUERY_PARAM);
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    setUiV2EnabledState(resolution.enabled);
+    syncUiV2DocumentFlag(resolution.enabled);
+  }, [syncUiV2DocumentFlag]);
 
   // Load localStorage states safely on client mount to prevent SSR hydration mismatch
   useEffect(() => {
@@ -12992,12 +13046,20 @@ const getMaskedEmail = (email: string) => {
     { id: 'player-expanded', label: 'Open Expanded Player', description: 'Immersive now-playing view', keywords: ['fullscreen'], run: () => { setPlayerViewMode('expanded'); localStorage.setItem('spice_player_view_mode', 'expanded'); } },
     { id: 'playlist-create', label: 'Create a Playlist', description: 'Start a new local playlist', keywords: ['new library'], run: () => { openCommandPage('library'); setShowCreateDialog(true); } },
     { id: 'remote-connect', label: 'Open Spice Connect', description: 'Pair and control another device', keywords: ['phone remote receiver'], run: () => openCommandPage('settings') },
+    {
+      id: 'interface-preview',
+      label: uiV2Enabled ? 'Switch to Classic Interface' : 'Try the New Interface',
+      description: uiV2Enabled ? 'Return to the original SPICE layout' : 'Preview the minimalist redesign',
+      keywords: ['ui v2 redesign layout preview classic'],
+      run: () => setUiV2Enabled(!uiV2Enabled),
+    },
   ];
 
   const settingsNavigationGroups = [
     {
       label: 'Personalize',
       items: [
+        { id: 'interface-preview', label: 'New Interface', icon: Icons.monitor },
         { id: 'theme-accent', label: 'Theme Accent', icon: Icons.palette },
         { id: 'visual-customization', label: 'Visual Layout', icon: Icons.monitor },
         { id: 'profile-privacy', label: 'Profile Settings', icon: Icons.shield },
@@ -13055,12 +13117,967 @@ const getMaskedEmail = (email: string) => {
     queueSearch(query, 'hybrid');
   };
 
+  // View-model for the UI v2 preview tree. It exposes the same state and
+  // handlers the classic interface renders from, so both stay behaviorally
+  // identical; see app/ui-v2/model.ts.
+  const uiModel: SpiceUiModel = {
+    SPICE_CONNECT_TRANSPORT_DIAGNOSTICS_STORAGE_KEY,
+    MAX_LOCAL_PROFILES,
+    SPICE_MEDIA_CORE_LABEL,
+    spiceApiUrl,
+    NATIVE_TOOLBAR_CONTROLS,
+    getSpiceNativeShellBridge,
+    getSpiceDesktopUpdaterBridge,
+    getSpiceDesktopOfflineLibraryBridge,
+    formatOfflineLibrarySize,
+    nativeUpdateStatusMessage,
+    SEARCH_PROVIDER_LABELS,
+    TOPBAR_SEARCH_MODE_LABELS,
+    VISUAL_SURFACE_LABELS,
+    ARTWORK_SHAPE_LABELS,
+    MOTION_LEVEL_LABELS,
+    INTERFACE_SCALE_LABELS,
+    TOPBAR_LAYOUT_LABELS,
+    PLAYER_BAR_DENSITY_LABELS,
+    PLAYER_VISUAL_STYLE_LABELS,
+    PROFILE_SYNC_STATUS_LABELS,
+    trackListFingerprint,
+    PRESET_GRADIENTS,
+    PRESET_AVATARS,
+    genres,
+    formatTime,
+    trackSourceLabel,
+    isSearchProvider,
+    isStreamProtocol,
+    isVisualSurface,
+    isArtworkShape,
+    isMotionLevel,
+    isInterfaceScale,
+    isTopbarLayout,
+    isPlayerBarDensity,
+    isPlayerVisualStyle,
+    playbackTrackKey,
+    profileArtistName,
+    profileOriginUrl,
+    isPlaylistUuid,
+    volumeBoosterAccepted,
+    setVolumeBoosterAccepted,
+    isVolumeHovered,
+    setIsVolumeHovered,
+    currentPage,
+    setCurrentPage,
+    selectedPlaylist,
+    setSelectedPlaylist,
+    debugLogs,
+    setDebugLogs,
+    logDebug,
+    accentTheme,
+    setAccentTheme,
+    customThemePalette,
+    setCustomThemePalette,
+    customThemeEnabled,
+    setCustomThemeEnabled,
+    visualSurface,
+    setVisualSurface,
+    artworkShape,
+    setArtworkShape,
+    motionLevel,
+    setMotionLevel,
+    interfaceScale,
+    setInterfaceScale,
+    topbarLayout,
+    setTopbarLayout,
+    audioQuality,
+    setAudioQuality,
+    streamProtocol,
+    setStreamProtocol,
+    playbackProfileState,
+    setPlaybackProfileState,
+    activePlaybackProfile,
+    sidebarHidden,
+    setSidebarHidden,
+    sidebarSearchEnabled,
+    setSidebarSearchEnabled,
+    sidebarProfileEnabled,
+    setSidebarProfileEnabled,
+    sidebarSettingsEnabled,
+    setSidebarSettingsEnabled,
+    desktopUpdaterAvailable,
+    setDesktopUpdaterAvailable,
+    desktopStartOnBoot,
+    setDesktopStartOnBoot,
+    desktopStartOnBootMessage,
+    setDesktopStartOnBootMessage,
+    nativeShellAvailable,
+    setNativeShellAvailable,
+    nativeShellSettings,
+    setNativeShellSettings,
+    nativeShellCssDraft,
+    setNativeShellCssDraft,
+    nativeShellMessage,
+    setNativeShellMessage,
+    nativeShellBusy,
+    setNativeShellBusy,
+    nativeUpdateStatus,
+    setNativeUpdateStatus,
+    profileSyncEnabled,
+    setProfileSyncEnabled,
+    lastFmSessionKey,
+    setLastFmSessionKey,
+    lastFmAccountLinked,
+    setLastFmAccountLinked,
+    lastFmLinkedUser,
+    setLastFmLinkedUser,
+    lastFmLinkStatus,
+    setLastFmLinkStatus,
+    lastFmPlaybackStatus,
+    setLastFmPlaybackStatus,
+    isLinkingLastFm,
+    setIsLinkingLastFm,
+    listenBrainzToken,
+    setListenBrainzToken,
+    listenBrainzAccountLinked,
+    setListenBrainzAccountLinked,
+    listenBrainzLinkStatus,
+    setListenBrainzLinkStatus,
+    listenBrainzSaveTimeoutRef,
+    migratedLegacyListenBrainzRef,
+    profileSyncStatus,
+    setProfileSyncStatus,
+    showQueueDrawer,
+    setShowQueueDrawer,
+    commandPaletteOpen,
+    setCommandPaletteOpen,
+    spiceNotices,
+    setSpiceNotices,
+    spiceConfirm,
+    setSpiceConfirm,
+    songShareDialog,
+    setSongShareDialog,
+    offlineLibraryEntries,
+    setOfflineLibraryEntries,
+    offlineLibraryDirectory,
+    setOfflineLibraryDirectory,
+    offlineLibraryBridgeState,
+    setOfflineLibraryBridgeState,
+    offlineLibraryTotalBytes,
+    offlineDownloadTrackId,
+    setOfflineDownloadTrackId,
+    offlineDownloadTrackIdRef,
+    playlistDownloadProgress,
+    setPlaylistDownloadProgress,
+    playlistDownloadCancelledRef,
+    desktopMediaRuntimeReadyRef,
+    activeNoticeTimersRef,
+    activePlaybackProfileRef,
+    dismissSpiceNotice,
+    showSpiceNotice,
+    copyTextToClipboard,
+    shareSongLink,
+    copySongShareLink,
+    refreshOfflineLibrary,
+    fetchTrackDownloadBlob,
+    saveTrackDownload,
+    downloadTrackToOfflineLibrary,
+    downloadSharedSong,
+    openSongSource,
+    requestSpiceConfirm,
+    cancelSpiceConfirm,
+    feedbackCategory,
+    setFeedbackCategory,
+    feedbackRating,
+    setFeedbackRating,
+    feedbackText,
+    setFeedbackText,
+    isSubmittingFeedback,
+    setIsSubmittingFeedback,
+    feedbackStatus,
+    setFeedbackStatus,
+    playedTracksCount,
+    setPlayedTracksCount,
+    showFeedbackPopup,
+    setShowFeedbackPopup,
+    profiles,
+    setProfiles,
+    activeProfileId,
+    setActiveProfileId,
+    isProfileHydrated,
+    setIsProfileHydrated,
+    activeSettingsSection,
+    setActiveSettingsSection,
+    activeProfile,
+    recommendationPreferences,
+    setRecommendationPreferences,
+    listeningEvents,
+    setListeningEvents,
+    adaptiveTrackPriorityRef,
+    adaptiveTasteScores,
+    setAdaptiveTasteScores,
+    listenersLikeYou,
+    setListenersLikeYou,
+    collaborativeTasteScores,
+    setCollaborativeTasteScores,
+    adaptiveListenCycleRef,
+    adaptivePlaybackStartedRef,
+    syncOutboxItems,
+    setSyncOutboxItems,
+    weeklyListeningRecap,
+    isLocked,
+    setIsLocked,
+    passcodeInput,
+    setPasscodeInput,
+    passcodeError,
+    setPasscodeError,
+    showCreateProfileDialog,
+    setShowCreateProfileDialog,
+    newProfileName,
+    setNewProfileName,
+    newProfileBio,
+    setNewProfileBio,
+    newProfileGradient,
+    setNewProfileGradient,
+    newProfilePasscode,
+    setNewProfilePasscode,
+    newProfileAvatarUrl,
+    setNewProfileAvatarUrl,
+    currentTrack,
+    setCurrentTrack,
+    streamUrl,
+    setStreamUrl,
+    isPlaying,
+    setIsPlaying,
+    isLoadingStream,
+    setIsLoadingStream,
+    progress,
+    setProgress,
+    duration,
+    setDuration,
+    remotePlaybackClock,
+    setRemotePlaybackClock,
+    volume,
+    setVolume,
+    likedTracks,
+    setLikedTracks,
+    likedTrackDetails,
+    setLikedTrackDetails,
+    customPlaylists,
+    setCustomPlaylists,
+    likedTracksRef,
+    likedTrackDetailsRef,
+    customPlaylistsRef,
+    history,
+    setHistory,
+    queue,
+    setQueue,
+    queueIndex,
+    setQueueIndex,
+    homeHistoryShelves,
+    privateTasteProfile,
+    tasteAffinityContext,
+    libraryView,
+    setLibraryView,
+    libraryFilter,
+    setLibraryFilter,
+    editName,
+    setEditName,
+    editBio,
+    setEditBio,
+    editGradient,
+    setEditGradient,
+    editPasscode,
+    setEditPasscode,
+    editAvatarUrl,
+    setEditAvatarUrl,
+    isEditingProfile,
+    setIsEditingProfile,
+    ytPlaylistLink,
+    setYtPlaylistLink,
+    isImportingPlaylist,
+    setIsImportingPlaylist,
+    playlistImportError,
+    setPlaylistImportError,
+    playlistImportSuccess,
+    setPlaylistImportSuccess,
+    jsonImportText,
+    setJsonImportText,
+    _jsonBackupStatus,
+    setJsonBackupStatus,
+    showCreateDialog,
+    setShowCreateDialog,
+    newPlTitle,
+    setNewPlTitle,
+    newPlDesc,
+    setNewPlDesc,
+    playlistPickerTrack,
+    setPlaylistPickerTrack,
+    playlistPickerSavingId,
+    setPlaylistPickerSavingId,
+    newPlaylistSeedTrack,
+    setNewPlaylistSeedTrack,
+    showEditPlaylistDialog,
+    setShowEditPlaylistDialog,
+    editPlTitle,
+    setEditPlTitle,
+    editPlDesc,
+    setEditPlDesc,
+    editPlGradient,
+    setEditPlGradient,
+    editPlCoverUrl,
+    setEditPlCoverUrl,
+    newPlIsPublic,
+    setNewPlIsPublic,
+    editPlIsPublic,
+    setEditPlIsPublic,
+    searchTab,
+    setSearchTab,
+    searchForYouOnly,
+    setSearchForYouOnly,
+    userSearchQuery,
+    setUserSearchQuery,
+    userSearchResults,
+    setUserSearchResults,
+    isSearchingUsers,
+    setIsSearchingUsers,
+    selectedUser,
+    setSelectedUser,
+    selectedUserProfileData,
+    setSelectedUserProfileData,
+    myLikesCount,
+    setMyLikesCount,
+    isLoadingUserProfile,
+    setIsLoadingUserProfile,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    listenTogetherSession,
+    setListenTogetherSession,
+    listenTogetherHostSessionId,
+    setListenTogetherHostSessionId,
+    listenTogetherHostName,
+    setListenTogetherHostName,
+    pendingListenInvites,
+    setPendingListenInvites,
+    listenTogetherDialogOpen,
+    setListenTogetherDialogOpen,
+    listenTogetherInviteUsername,
+    setListenTogetherInviteUsername,
+    listenTogetherJoinSessionId,
+    setListenTogetherJoinSessionId,
+    listenTogetherInvitesList,
+    setListenTogetherInvitesList,
+    isSendingListenTogetherInvite,
+    setIsSendingListenTogetherInvite,
+    listenTogetherStatus,
+    setListenTogetherStatus,
+    isCreatingListenTogetherSession,
+    setIsCreatingListenTogetherSession,
+    sharingPlaylistId,
+    setSharingPlaylistId,
+    shareStatus,
+    setShareStatus,
+    invitePreview,
+    setInvitePreview,
+    inviteStatus,
+    setInviteStatus,
+    acceptingInvite,
+    setAcceptingInvite,
+    cloudUsername,
+    setCloudUsername,
+    editUsername,
+    setEditUsername,
+    usernameError,
+    setUsernameError,
+    pendingInvites,
+    setPendingInvites,
+    pendingInvitesLoading,
+    setPendingInvitesLoading,
+    notificationTrayOpen,
+    setNotificationTrayOpen,
+    profileMenuOpen,
+    setProfileMenuOpen,
+    selectedReleaseNotification,
+    setSelectedReleaseNotification,
+    readReleaseNotificationIds,
+    setReadReleaseNotificationIds,
+    releaseNotifications,
+    setReleaseNotifications,
+    showMembersPanel,
+    setShowMembersPanel,
+    membersLoading,
+    setMembersLoading,
+    membersList,
+    setMembersList,
+    inviteUsername,
+    setInviteUsername,
+    invitingMember,
+    setInvitingMember,
+    memberActionStatus,
+    setMemberActionStatus,
+    showCreateSharedDialog,
+    setShowCreateSharedDialog,
+    newSharedPlTitle,
+    setNewSharedPlTitle,
+    newSharedPlDesc,
+    setNewSharedPlDesc,
+    cloudToken,
+    setCloudToken,
+    pairedRemoteCredential,
+    setPairedRemoteCredential,
+    cloudUser,
+    setCloudUser,
+    syncingStatus,
+    setSyncingStatus,
+    dbError,
+    setDbError,
+    accountBlock,
+    setAccountBlock,
+    isLocalDbFallback,
+    setIsLocalDbFallback,
+    remoteControlEnabled,
+    setRemoteControlEnabled,
+    remoteRealtimeConnected,
+    setRemoteRealtimeConnected,
+    remoteDeviceId,
+    activePairedRemoteCredential,
+    remoteAuthToken,
+    remoteDeviceName,
+    setRemoteDeviceName,
+    remoteDevices,
+    setRemoteDevices,
+    selectedRemoteDeviceId,
+    setSelectedRemoteDeviceId,
+    incomingRemoteControllerId,
+    setIncomingRemoteControllerId,
+    remoteStatus,
+    setRemoteStatus,
+    remoteTransport,
+    setRemoteTransport,
+    remoteLanPeerDeviceIds,
+    setRemoteLanPeerDeviceIds,
+    remoteTransportDiagnosticsEnabled,
+    setRemoteTransportDiagnosticsEnabled,
+    remoteTransportDiagnostic,
+    setRemoteTransportDiagnostic,
+    remoteLanLatencyMsByDevice,
+    setRemoteLanLatencyMsByDevice,
+    remoteRedisConfigured,
+    setRemoteRedisConfigured,
+    forgettingRemoteDeviceIds,
+    setForgettingRemoteDeviceIds,
+    receiverMenuOpen,
+    setReceiverMenuOpen,
+    playerPlacement,
+    setPlayerPlacement,
+    playerViewMode,
+    setPlayerViewMode,
+    playerBarDensity,
+    setPlayerBarDensity,
+    playerVisualStyle,
+    setPlayerVisualStyle,
+    showVideoPlayer,
+    setShowVideoPlayer,
+    miniPlayerPos,
+    setMiniPlayerPos,
+    isDraggingMini,
+    setIsDraggingMini,
+    dragStartRef,
+    isShuffle,
+    setIsShuffle,
+    repeatMode,
+    setRepeatMode,
+    expandedTab,
+    setExpandedTab,
+    lyricsData,
+    setLyricsData,
+    lyricsLoading,
+    setLyricsLoading,
+    isKaraokeMode,
+    setIsKaraokeMode,
+    lyricsContainerRef,
+    showBarLyrics,
+    setShowBarLyrics,
+    showMiniLyrics,
+    setShowMiniLyrics,
+    showMiniQueue,
+    setShowMiniQueue,
+    showSyncEmail,
+    setShowSyncEmail,
+    lastUnlockedProfileIdRef,
+    authEmail,
+    setAuthEmail,
+    authPassword,
+    setAuthPassword,
+    authUsername,
+    setAuthUsername,
+    authMode,
+    setAuthMode,
+    authError,
+    setAuthError,
+    authLoading,
+    setAuthLoading,
+    emailVerification,
+    setEmailVerification,
+    emailVerificationCode,
+    setEmailVerificationCode,
+    authForgotMode,
+    setAuthForgotMode,
+    authForgotSent,
+    setAuthForgotSent,
+    homeTrending,
+    setHomeTrending,
+    homeRecommended,
+    setHomeRecommended,
+    homeRecommendationShelves,
+    setHomeRecommendationShelves,
+    homeBecauseShelf,
+    setHomeBecauseShelf,
+    homeFreshFinds,
+    setHomeFreshFinds,
+    homeTimeMix,
+    setHomeTimeMix,
+    listeningTimeProfile,
+    onRepeatShelf,
+    homeRecommendationSeed,
+    setHomeRecommendationSeed,
+    isLoadingRecommendations,
+    setIsLoadingRecommendations,
+    isLoadingHome,
+    setIsLoadingHome,
+    searchQuery,
+    setSearchQuery,
+    topbarSearchQuery,
+    setTopbarSearchQuery,
+    searchProvider,
+    setSearchProvider,
+    searchResults,
+    setSearchResults,
+    searchResultsSource,
+    setSearchResultsSource,
+    isSearching,
+    setIsSearching,
+    topbarSearchTrayOpen,
+    setTopbarSearchTrayOpen,
+    quickSearchTab,
+    setQuickSearchTab,
+    topbarUserSearchResults,
+    setTopbarUserSearchResults,
+    isSearchingTopbarUsers,
+    setIsSearchingTopbarUsers,
+    recentSearchEntries,
+    setRecentSearchEntries,
+    topbarSearchShellRef,
+    topbarProfileShellRef,
+    error,
+    setError,
+    selfTestRunning,
+    setSelfTestRunning,
+    selfTestResults,
+    setSelfTestResults,
+    terminalFilter,
+    setTerminalFilter,
+    terminalAutoScroll,
+    setTerminalAutoScroll,
+    logsCopied,
+    setLogsCopied,
+    terminalEndRef,
+    launchIntentHandledRef,
+    applyLastFmSession,
+    prevTerminalAutoScrollRef,
+    runSelfTest,
+    audioRef,
+    audioSlotRefs,
+    activeAudioSlotRef,
+    audioTransitionGainsRef,
+    preparedCrossfadeRef,
+    crossfadePreparationIdRef,
+    crossfadeAnimationFrameRef,
+    crossfadeAnimationStarterRef,
+    audioContextRef,
+    gainNodeRef,
+    sourceNodeRef,
+    ytPlayerRef,
+    searchTimeoutRef,
+    searchRequestRef,
+    recommendationRequestRef,
+    queueIndexRef,
+    queueRef,
+    repeatModeRef,
+    streamProtocolRef,
+    isShuffleRef,
+    activeProfileRef,
+    activeProfileIdRef,
+    listenTogetherHostSessionIdRef,
+    cloudTokenRef,
+    cloudUserRef,
+    cloudUsernameRef,
+    progressRef,
+    currentTrackRef,
+    isPlayingRef,
+    streamUrlRef,
+    isLoadingStreamRef,
+    durationRef,
+    volumeRef,
+    playbackRetryTimeoutRef,
+    playbackRetryCountsRef,
+    playbackTelemetryRecordedRef,
+    recommendationListenCreditedRef,
+    recommendationListenProgressRef,
+    personalizedQueueContinuationSuppressedRef,
+    playlistQueueOriginRef,
+    shuffleHistoryRef,
+    relatedQueueInFlightRef,
+    relatedQueueCacheRef,
+    syncOutboxRef,
+    playbackRequestRef,
+    shouldAutoPlayRef,
+    clientBootedAtRef,
+    suppressRemotePlaybackUntilRef,
+    directEmbedRetryRef,
+    embedProxyRetryRef,
+    proxyUnresolvableRef,
+    playbackFallbackAttemptedRef,
+    boostProtocolHandoffRef,
+    boostResumeSecondsRef,
+    pendingProxyStartSecondsRef,
+    captureSameTrackResumeSeconds,
+    seekEmbedToPendingResume,
+    syncLockRef,
+    scrobbleStateRef,
+    profileListenRetryTimeoutsRef,
+    remoteDeviceReportInFlightRef,
+    remoteDeviceReportQueuedRef,
+    remoteDeviceLoadInFlightRef,
+    remoteCommandPollInFlightRef,
+    emptyRemoteCommandPollsRef,
+    appliedRemoteCommandIdsRef,
+    remoteStateSyncTimeoutRef,
+    remoteTargetRefreshTimeoutRef,
+    optimisticRemoteDeviceStateRef,
+    forgettingRemoteDeviceIdsRef,
+    remoteDeviceListRevisionRef,
+    remoteRequestGenerationRef,
+    pendingSpiceConnectHandoffRef,
+    preparedSpiceConnectHandoffsRef,
+    remoteLanTransportRef,
+    applyRemoteCommandRef,
+    handleRemoteLanStateRef,
+    sendRemoteCommandRef,
+    addTrackToPlaylistRef,
+    remotePlaylistMutationChainRef,
+    handleAudioEndedRef,
+    handleAudioErrorRef,
+    playTrackRef,
+    handleNextRef,
+    ensurePersonalizedUpNextRef,
+    recordTrackDiscoveryWinRef,
+    tasteSyncTimerRef,
+    tasteSyncMetaKey,
+    tasteSyncDirtyKey,
+    readTasteSyncJson,
+    markTasteDirty,
+    resolveTasteSyncToken,
+    scheduleTasteCloudSync,
+    applyAudioElementVolume,
+    bindAudioSlotRef,
+    autoSyncProfiles,
+    updateProfileData,
+    updateActiveProfileData,
+    autoSyncHistory,
+    autoSyncPlaylists,
+    autoSyncLikes,
+    handleUserSearch,
+    handleSelectUser,
+    handleToggleProfileLike,
+    restoreProfileConnections,
+    saveListenBrainzToken,
+    queueListenBrainzTokenSave,
+    isMounted,
+    setIsMounted,
+    uiV2Enabled,
+    setUiV2Enabled,
+    loadPlaylistInvite,
+    scrollToSettingsSection,
+    updateNativeShellBoolean,
+    updateNativeToolbarControl,
+    saveNativeShellCss,
+    clearNativeShellCss,
+    copyNativeUtilityUrl,
+    checkDesktopUpdates,
+    updateDesktopStartOnBoot,
+    initializeYtPlayer,
+    setAudioTransitionGain,
+    cancelPreparedCrossfade,
+    resolveCrossfadeStreamUrl,
+    isIntentionalPlaylistQueue,
+    adaptiveWeightsForQueue,
+    beginAdaptiveListenCycle,
+    finishAdaptiveListenCycle,
+    nextCrossfadeTarget,
+    prepareCrossfade,
+    startPreparedCrossfade,
+    updateCrossfade,
+    finalizePreparedCrossfade,
+    syncWithCloud,
+    finishCloudAuthentication,
+    handleAuthSubmit,
+    handleForgotSubmit,
+    disconnectListenTogetherForIdentityChange,
+    handleLogout,
+    currentTrackKey,
+    activeProfileListenProviders,
+    setPlaybackPlaying,
+    beginProfileListenCycle,
+    clearPlaybackRetryTimer,
+    schedulePlaybackRetry,
+    recordPlaybackTelemetry,
+    submitProfileListen,
+    requestProfileListen,
+    scheduleProfileListenRetry,
+    profileProviderLabel,
+    handleFeedbackSubmit,
+    handleLinkLastFm,
+    activeLineIdx,
+    fetchFallbackSourceResults,
+    tryResolveFallbackSource,
+    playTrack,
+    pauseCurrentPlayback,
+    resumeCurrentPlayback,
+    togglePlayPause,
+    handleMiniPointerDown,
+    handleMiniPointerMove,
+    handleMiniPointerUp,
+    handlePrev,
+    stopPlaybackAtQueueBoundary,
+    handleNext,
+    commitTrackLiked,
+    setTrackLiked,
+    applyRemoteTrackLiked,
+    toggleLike,
+    seekToPosition,
+    applyLocalShuffleMode,
+    applyLocalRepeatMode,
+    handleRemoteAuthorizationResponse,
+    currentSpiceConnectLanDeviceState,
+    handleRemoteLanState,
+    reportRemoteDeviceState,
+    loadRemoteDevices,
+    scheduleRemoteDeviceSync,
+    scheduleRemoteTargetRefresh,
+    rememberRemoteCommandId,
+    patchRemoteDevice,
+    clearPendingSpiceConnectHandoff,
+    currentSpiceConnectHandoffPayload,
+    handleSpiceConnectHandoffReady,
+    handleSpiceConnectHandoffComplete,
+    applySpiceConnectHandoffCommit,
+    shouldIgnoreRemoteCommand,
+    recordRemoteTransportDiagnostic,
+    applyRemoteCommand,
+    pollRemoteCommands,
+    sendRemoteCommand,
+    handleEmailVerificationSubmit,
+    resendEmailVerification,
+    createSecurePairingCode,
+    cancelSecurePairingCode,
+    claimSecurePairingCode,
+    loadSecurePairingAuthorizations,
+    revokeSecurePairingAuthorization,
+    forgetLocalPairingCredential,
+    remoteCommandPollDelayMs,
+    remoteDeviceStateFingerprint,
+    selectedRemoteDeviceUsesLan,
+    remoteCommandRouteLabel,
+    remoteCloudPathLabel,
+    fetchSearchProviderResults,
+    ensurePersonalizedUpNext,
+    queueSearch,
+    resolvePastedMediaLink,
+    handleSearchInput,
+    handleSearchProviderChange,
+    handleTopbarSearchModeChange,
+    runTopbarSearch,
+    handleTopbarSearchSubmit,
+    handleTopbarSearchInput,
+    runRecentTopbarSearch,
+    openAccountFromTopbar,
+    openSettingsFromTopbar,
+    updateSidebarHiddenPreference,
+    updateSidebarSearchPreference,
+    updateSidebarProfilePreference,
+    updateSidebarSettingsPreference,
+    persistRecommendationPreferences,
+    recordTrackDiscoveryWin,
+    hideRecommendation,
+    snoozeRecommendationArtist,
+    dislikeRecommendation,
+    persistCustomPlaylists,
+    createPlaylist,
+    deletePlaylist,
+    handleCoverUpload,
+    savePlaylistEdits,
+    addTrackToPlaylist,
+    addRemoteTrackToPlaylist,
+    openPlaylistPicker,
+    savePlaylistPickerSelection,
+    removeTrackFromPlaylist,
+    sharePlaylist,
+    acceptSharedPlaylistInvite,
+    likedTracksList,
+    editablePlaylists,
+    sharedPlaylists,
+    allEditablePlaylists,
+    fetchUsername,
+    fetchPendingInvites,
+    fetchMyLikesCount,
+    openReleaseNotification,
+    markAllReleaseNotificationsAsRead,
+    handleAcceptInvite,
+    handleRejectInvite,
+    fetchPendingListenInvites,
+    fetchListenTogetherInvitesList,
+    joinListenTogetherSession,
+    handleStartListenTogetherSession,
+    handleEndListenTogetherSession,
+    handleSendListenTogetherInvite,
+    handleRespondToListenTogetherInvite,
+    handleLeaveListenTogetherSession,
+    handleEndOrLeaveListenTogether,
+    handleInviteUserProfileToListenTogether,
+    resumeCurrentPlaybackRef,
+    pauseCurrentPlaybackRef,
+    seekToPositionRef,
+    enrichTrackSnapshotRef,
+    fetchPlaylistMembers,
+    inviteMember,
+    removeMember,
+    refreshSharedPlaylist,
+    createSharedPlaylist,
+    remoteTargetDevices,
+    selectedRemoteDevice,
+    incomingRemoteController,
+    isControllingRemoteReceiver,
+    remoteReceiverPlaceholder,
+    playerTrack,
+    playerQueue,
+    playerQueueIndex,
+    playerIsPlaying,
+    playerProgress,
+    playerDuration,
+    playerVolume,
+    playerVolumeMax,
+    playerShuffleEnabled,
+    playerRepeatMode,
+    playerIsPlaceholder,
+    receiverLabel,
+    receiverSelectDisabled,
+    canControlSelectedRemoteReceiver,
+    selectSpiceConnectReceiver,
+    patchSelectedRemoteDevice,
+    handoffPlaybackToDevice,
+    handoffPlaybackToSelectedDevice,
+    startTrackOnActiveReceiver,
+    playOfflineLibraryEntry,
+    showOfflineLibraryEntry,
+    handleReceiverPrev,
+    handleReceiverNext,
+    toggleReceiverPlayPause,
+    toggleReceiverShuffle,
+    cycleReceiverRepeat,
+    seekActiveReceiverTo,
+    handleReceiverSeek,
+    setReceiverVolume,
+    adjustReceiverVolumeByWheel,
+    refreshSpiceConnectReceiverList,
+    receiverStatusLabel,
+    forgetSpiceConnectDevice,
+    getLikedTrackClickHandler,
+    getLikedTrackToggleHandler,
+    clearHistory,
+    shufflePlaylistPlay,
+    downloadPlaylistToOfflineLibrary,
+    cancelPlaylistDownload,
+    getMaskedEmail,
+    switchProfile,
+    createProfile,
+    deleteProfile,
+    handlePasscodeKey,
+    clearPasscode,
+    handleCancelPasscode,
+    removePasscodeFromActive,
+    saveProfile,
+    importYouTubePlaylist,
+    downloadBackupFile,
+    copyBackupToClipboard,
+    restoreBackupData,
+    normalizedTopbarQuery,
+    topbarRecentSuggestions,
+    topbarTrayResults,
+    topbarSearchMode,
+    shouldShowTopbarSearchTray,
+    unreadReleaseNotifications,
+    notificationCount,
+    notificationCountLabel,
+    isPlaylistOwner,
+    openCommandPage,
+    updatePlaybackProfiles,
+    rebuildSmartQueue,
+    commandPaletteCommands,
+    runCommandQuickSearch,
+  };
+
   return (
     <div
-      className={`app ${sidebarHidden ? 'app--sidebar-hidden' : ''} surface--${visualSurface} topbar-layout--${topbarLayout} player-style--${playerVisualStyle} player-placement--${playerPlacement}`}
+      className={uiV2Enabled ? SPICE_UI_V2_HOST_CLASS : `app ${sidebarHidden ? 'app--sidebar-hidden' : ''} surface--${visualSurface} topbar-layout--${topbarLayout} player-style--${playerVisualStyle} player-placement--${playerPlacement}`}
       style={customThemeEnabled ? createThemeCssVariables(customThemePalette) as React.CSSProperties : undefined}
     >
       <style dangerouslySetInnerHTML={{ __html: getAccentStyles() }} />
+      {/* Hidden Audio Player */}
+      {([0, 1] as const).map((slot) => (
+        <audio
+          key={slot}
+          ref={slot === 0 ? bindAudioSlotZeroRef : bindAudioSlotOneRef}
+          crossOrigin="anonymous"
+          preload="auto"
+          onCanPlay={(event) => handleAudioCanPlay(slot, event.currentTarget)}
+          onPlaying={(event) => handleAudioPlaying(slot, event.currentTarget)}
+          onTimeUpdate={(event) => handleTimeUpdate(slot, event.currentTarget)}
+          onLoadedMetadata={(event) => handleLoadedMetadata(slot, event.currentTarget)}
+          onEnded={(event) => handleAudioEnded(slot, event.currentTarget)}
+          onError={() => {
+            if (slot === activeAudioSlotRef.current) handleAudioError();
+            else if (preparedCrossfadeRef.current?.slot === slot) cancelPreparedCrossfade();
+          }}
+        />
+      ))}
+
+      {/* Stealth YouTube Embed Container — Invisible but functional for audio fallback */}
+      <div
+        className={`floating-yt-panel ${showVideoPlayer ? 'is-visible' : ''}`}
+        aria-hidden={!showVideoPlayer}
+      >
+        {showVideoPlayer && (
+          <div className="floating-yt-panel__header">
+            <span className="floating-yt-panel__title">YouTube Video</span>
+            <button
+              className="floating-yt-panel__close"
+              type="button"
+              onClick={() => setShowVideoPlayer(false)}
+              aria-label="Close video player"
+              title="Close video player"
+            >
+              {Icons.close}
+            </button>
+          </div>
+        )}
+        <div
+          id="spice-yt-iframe-container"
+          className="floating-yt-panel__frame"
+        />
+      </div>
+
+      {uiV2Enabled ? (
+        <SpiceUiV2 model={uiModel} />
+      ) : (
+      <>
       <CommandPalette
         open={commandPaletteOpen}
         commands={commandPaletteCommands}
@@ -13629,50 +14646,6 @@ const getMaskedEmail = (email: string) => {
           </div>
         </div>
       )}
-
-      {/* Hidden Audio Player */}
-      {([0, 1] as const).map((slot) => (
-        <audio
-          key={slot}
-          ref={slot === 0 ? bindAudioSlotZeroRef : bindAudioSlotOneRef}
-          crossOrigin="anonymous"
-          preload="auto"
-          onCanPlay={(event) => handleAudioCanPlay(slot, event.currentTarget)}
-          onPlaying={(event) => handleAudioPlaying(slot, event.currentTarget)}
-          onTimeUpdate={(event) => handleTimeUpdate(slot, event.currentTarget)}
-          onLoadedMetadata={(event) => handleLoadedMetadata(slot, event.currentTarget)}
-          onEnded={(event) => handleAudioEnded(slot, event.currentTarget)}
-          onError={() => {
-            if (slot === activeAudioSlotRef.current) handleAudioError();
-            else if (preparedCrossfadeRef.current?.slot === slot) cancelPreparedCrossfade();
-          }}
-        />
-      ))}
-
-      {/* Stealth YouTube Embed Container — Invisible but functional for audio fallback */}
-      <div
-        className={`floating-yt-panel ${showVideoPlayer ? 'is-visible' : ''}`}
-        aria-hidden={!showVideoPlayer}
-      >
-        {showVideoPlayer && (
-          <div className="floating-yt-panel__header">
-            <span className="floating-yt-panel__title">YouTube Video</span>
-            <button
-              className="floating-yt-panel__close"
-              type="button"
-              onClick={() => setShowVideoPlayer(false)}
-              aria-label="Close video player"
-              title="Close video player"
-            >
-              {Icons.close}
-            </button>
-          </div>
-        )}
-        <div
-          id="spice-yt-iframe-container"
-          className="floating-yt-panel__frame"
-        />
-      </div>
 
       {/* ═══ Sidebar Panel ═══ */}
       <aside
@@ -16689,6 +17662,27 @@ const getMaskedEmail = (email: string) => {
                   {/* Right Content Column */}
                   <div className="settings-page-content">
                     <h1 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '2rem', fontWeight: 800, marginBottom: '24px' }}>Application Settings</h1>
+
+                    {/* Interface preview toggle (UI v2) */}
+                    <div id="interface-preview" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {Icons.monitor} New Interface
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-pink)', border: '1px solid var(--border-color)', borderRadius: '999px', padding: '2px 8px' }}>Preview</span>
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0, lineHeight: 1.4 }}>
+                          Try the minimalist SPICE redesign. Your library, playback, and theme carry over, and you can switch back to the classic interface from its Settings page at any time.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUiV2Enabled(true)}
+                        className="btn btn--primary"
+                        style={{ flexShrink: 0 }}
+                      >
+                        Try the new interface
+                      </button>
+                    </div>
 
                     {/* Theme Accent Settings */}
                     <div id="theme-accent" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
@@ -20387,6 +21381,8 @@ const getMaskedEmail = (email: string) => {
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

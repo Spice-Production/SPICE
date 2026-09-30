@@ -1,0 +1,318 @@
+/* ================================================================
+   SPICE UI v2 — sidebar (desktop rail and phone nav sheet)
+   ================================================================ */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  min-height: 0;
+  padding: 8px 8px 12px;
+  color: var(--sx-fg);
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0 0 0 2px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px 0 6px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.brand:hover {
+  background: var(--sx-hover);
+}
+
+.wordmark {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Primary navigation ─────────────────────────────────────── */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    color var(--sx-fast) var(--sx-ease);
+}
+
+.navItem:hover {
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+.navItem[aria-current='page'] {
+  background: var(--sx-active);
+  color: var(--sx-fg);
+}
+
+.navLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Playlists ──────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 2px 0 10px;
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--sx-fg-subtle);
+}
+
+.playlists {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 4px -4px 0;
+  padding: 0 4px 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.playlistItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.playlistItem:hover {
+  background: var(--sx-hover);
+}
+
+.playlistItem[aria-current='true'] {
+  background: var(--sx-active);
+}
+
+.playlistArt {
+  border-radius: min(var(--sx-art-radius), 6px);
+}
+
+.playlistText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.playlistTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlistItem[aria-current='true'] .playlistTitle {
+  color: var(--sx-accent-text);
+}
+
+.playlistMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  line-height: 1.35;
+}
+
+.playlistCount {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sharedBadge {
+  height: 16px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 12px 10px;
+  border: 1px dashed var(--sx-border);
+  border-radius: var(--sx-radius);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  color: var(--sx-fg);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--sx-text-xs);
+  line-height: 1.45;
+  color: var(--sx-fg-muted);
+}
+
+/* ── Collapsed rail (64px) ──────────────────────────────────── */
+.sidebar[data-collapsed='true'] {
+  align-items: center;
+  padding: 8px 0 12px;
+}
+
+.sidebar[data-collapsed='true'] .header {
+  flex-direction: column;
+  height: auto;
+  gap: 4px;
+  padding: 6px 0 4px;
+}
+
+.sidebar[data-collapsed='true'] .brand {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.sidebar[data-collapsed='true'] .nav {
+  align-items: center;
+}
+
+.sidebar[data-collapsed='true'] .navItem {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.sidebar[data-collapsed='true'] .section {
+  align-items: center;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sx-border);
+}
+
+.sidebar[data-collapsed='true'] .sectionHeader {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar[data-collapsed='true'] .playlists {
+  align-items: center;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 0 0 8px;
+  scrollbar-width: none;
+}
+
+.sidebar[data-collapsed='true'] .playlists::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar[data-collapsed='true'] .playlistItem {
+  justify-content: center;
+  width: 48px;
+  padding: 4px;
+}
+
+/* ── Phone nav sheet ────────────────────────────────────────── */
+.sidebar[data-variant='sheet'] {
+  height: auto;
+  padding: 8px 12px 24px;
+}
+
+.sidebar[data-variant='sheet'] .navItem {
+  height: 44px;
+  font-size: var(--sx-text-base);
+}
+
+.sidebar[data-variant='sheet'] .sectionHeader {
+  height: 40px;
+}
+
+.sidebar[data-variant='sheet'] .playlists {
+  overflow: visible;
+}
+
+.sidebar[data-variant='sheet'] .playlistItem {
+  min-height: 52px;
+  padding: 6px;
+}

@@ -1,0 +1,17 @@
+/* Queue/lyrics panels dock beside the page on desktop, leaving the player
+   bar usable (the classic drawers were non-modal too). */
+@media (min-width: 769px) {
+  .dockBottom {
+    top: 0;
+    bottom: var(--sx-player-height);
+    border-bottom: 1px solid var(--sx-border);
+    border-bottom-left-radius: var(--sx-radius-lg);
+  }
+
+  .dockTop {
+    top: var(--sx-player-height);
+    bottom: 0;
+    border-top: 1px solid var(--sx-border);
+    border-top-left-radius: var(--sx-radius-lg);
+  }
+}

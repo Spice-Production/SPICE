@@ -1,0 +1,521 @@
+/* ================================================================
+   SPICE UI v2 — media building blocks (artwork, cards, shelves, rows)
+   ================================================================ */
+
+/* ── Artwork ────────────────────────────────────────────────── */
+.art {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--sx-art-radius);
+  background: var(--sx-active);
+  color: var(--sx-fg-subtle);
+}
+
+.art-round {
+  border-radius: 999px;
+}
+
+.art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artFallback {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Media card (grid/shelf tile) ───────────────────────────── */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  margin: -8px;
+  border-radius: var(--sx-radius-lg);
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.card:hover {
+  background: var(--sx-hover);
+}
+
+.cardHit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 0;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cardArt {
+  position: relative;
+  width: 100%;
+}
+
+.cardPlay {
+  position: absolute;
+  z-index: 2;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  box-shadow: var(--sx-shadow-md);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--sx-fast) var(--sx-ease),
+    transform var(--sx-fast) var(--sx-ease);
+  cursor: pointer;
+}
+
+.card:hover .cardPlay,
+.card:focus-within .cardPlay,
+.cardPlay[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cardTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTitle[data-active='true'] {
+  color: var(--sx-accent);
+}
+
+.cardSubtitle {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMenu {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.card:hover .cardMenu,
+.card:focus-within .cardMenu {
+  opacity: 1;
+}
+
+.cardMenu button {
+  background: color-mix(in srgb, var(--sx-bg) 70%, transparent);
+  color: var(--sx-fg);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Quick tile (compact horizontal card) ───────────────────── */
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 56px;
+  padding: 0 12px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.tile:hover {
+  background: var(--sx-surface-hover);
+}
+
+.tile .art {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+}
+
+.tileTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tilePlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.tile:hover .tilePlay,
+.tile:focus-visible .tilePlay {
+  opacity: 1;
+}
+
+.tileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 8px;
+}
+
+/* ── Shelf ──────────────────────────────────────────────────── */
+.shelf {
+  min-width: 0;
+}
+
+.shelfScroller {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--sx-shelf-item, 164px);
+  gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 8px;
+  margin: -8px;
+  scrollbar-width: none;
+}
+
+.shelfScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.shelfScroller > * {
+  scroll-snap-align: start;
+}
+
+.shelfNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--sx-grid-min, 160px), 1fr));
+  gap: 24px 16px;
+}
+
+@media (max-width: 640px) {
+  .shelfScroller {
+    grid-auto-columns: var(--sx-shelf-item-mobile, 136px);
+    gap: 12px;
+  }
+
+  .cardGrid {
+    --sx-grid-min: 132px;
+    gap: 20px 12px;
+  }
+}
+
+/* ── Track rows ─────────────────────────────────────────────── */
+.trackList {
+  position: relative;
+  min-width: 0;
+}
+
+.trackListHeader {
+  display: grid;
+  grid-template-columns: var(--sx-track-columns);
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--sx-border);
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+}
+
+.trackListScroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.trackRow {
+  --sx-row-h: 56px;
+  display: grid;
+  grid-template-columns: var(--sx-track-columns);
+  align-items: center;
+  gap: 12px;
+  height: var(--sx-row-h);
+  padding: 0 12px;
+  border-radius: var(--sx-radius);
+  color: var(--sx-fg);
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.trackRow:hover,
+.trackRow:focus-within,
+.trackRow[data-menu-open='true'] {
+  background: var(--sx-hover);
+}
+
+.trackRow[data-active='true'] {
+  background: color-mix(in srgb, var(--sx-accent) 8%, transparent);
+}
+
+.trackRow-dense {
+  --sx-row-h: 48px;
+}
+
+.trackIndex {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.trackIndexNumber {
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.trackIndexPlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--sx-radius-sm);
+  background: transparent;
+  color: var(--sx-fg);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.trackRow:hover .trackIndexPlay,
+.trackIndexPlay:focus-visible {
+  opacity: 1;
+}
+
+.trackRow:hover .trackIndexNumber,
+.trackRow:focus-within .trackIndexNumber {
+  opacity: 0;
+}
+
+.trackMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trackMain .art {
+  width: 40px;
+  height: 40px;
+}
+
+.trackRow-dense .trackMain .art {
+  width: 36px;
+  height: 36px;
+}
+
+.trackText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.trackTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackRow[data-active='true'] .trackTitle {
+  color: var(--sx-accent);
+}
+
+.trackSubtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+}
+
+.trackSubtitleText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackMeta {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trackDuration {
+  justify-self: end;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.trackActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.trackHoverAction {
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.trackRow:hover .trackHoverAction,
+.trackRow:focus-within .trackHoverAction,
+.trackRow[data-menu-open='true'] .trackHoverAction,
+.trackHoverAction[data-pinned='true'] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .trackHoverAction {
+    opacity: 1;
+  }
+
+  .trackIndexPlay {
+    display: none;
+  }
+
+  .trackRow:hover .trackIndexNumber {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .trackRow,
+  .trackListHeader {
+    grid-template-columns: var(--sx-track-columns-mobile);
+    gap: 10px;
+    padding: 0 8px;
+  }
+
+  .trackMetaColumn,
+  .trackDurationColumn {
+    display: none;
+  }
+}
+
+/* ── Now-playing bars ───────────────────────────────────────── */
+.bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 14px;
+  height: 12px;
+  color: var(--sx-accent);
+}
+
+.bars span {
+  flex: 1;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: sxBars 0.9s ease-in-out infinite;
+}
+
+.bars span:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.bars span:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+.bars[data-paused='true'] span {
+  animation-play-state: paused;
+  transform: scaleY(0.35);
+}
+
+@keyframes sxBars {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}

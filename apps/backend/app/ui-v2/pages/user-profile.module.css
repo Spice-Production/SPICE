@@ -1,0 +1,160 @@
+/* ================================================================
+   SPICE UI v2 — Listener profile
+   ================================================================ */
+
+.page {
+  min-width: 0;
+}
+
+.back {
+  margin: 0 0 20px -10px;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.hero {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 28px;
+}
+
+.heroAvatar {
+  flex-shrink: 0;
+}
+
+.heroIdentity {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.heroName {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-3xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heroHandle {
+  margin: 0;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.heroBio {
+  max-width: 52ch;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+  line-height: 1.5;
+}
+
+.heroJoined {
+  align-self: flex-start;
+  margin-top: 6px;
+  color: var(--sx-fg-muted);
+}
+
+.heroActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ── Stats ──────────────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 32px;
+}
+
+/* ── Playlists ──────────────────────────────────────────────── */
+.section {
+  margin-top: 40px;
+  min-width: 0;
+}
+
+/* ── Loading ────────────────────────────────────────────────── */
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.skeletonHero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+}
+
+.skeletonText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skeletonStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero {
+    padding: 20px;
+  }
+
+  /* A smaller basis lets the name sit beside the 72px avatar instead of below it. */
+  .heroIdentity {
+    flex-basis: 160px;
+  }
+
+  .heroActions {
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .heroActions > * {
+    flex: 1 1 auto;
+  }
+
+  .heroName {
+    font-size: var(--sx-text-2xl);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats,
+  .skeletonStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats > :last-child:nth-child(odd),
+  .skeletonStats > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .skeletonHero {
+    padding: 20px;
+  }
+}

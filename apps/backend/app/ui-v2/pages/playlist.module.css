@@ -1,0 +1,434 @@
+/* ================================================================
+   SPICE UI v2 — Playlist detail page and members sheet
+   ================================================================ */
+
+.page {
+  min-width: 0;
+}
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.back {
+  margin-left: -10px;
+}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+.hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  min-width: 0;
+}
+
+.heroArt {
+  position: relative;
+  flex-shrink: 0;
+  width: 200px;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--sx-art-radius);
+  background: transparent;
+  color: inherit;
+  box-shadow: 0 0 0 1px var(--sx-border);
+}
+
+button.heroArt {
+  cursor: pointer;
+}
+
+.heroArtImage {
+  width: 100%;
+}
+
+.heroArtEdit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #fff;
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.heroArt:hover .heroArtEdit,
+.heroArt:focus-visible .heroArtEdit {
+  opacity: 1;
+}
+
+.heroText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+}
+
+.title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.description {
+  display: -webkit-box;
+  max-width: 64ch;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.metaPart {
+  display: inline-flex;
+  align-items: center;
+}
+
+.metaDot {
+  margin: 0 8px;
+  color: var(--sx-fg-subtle);
+}
+
+/* ── Actions ────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.playButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-right: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  cursor: pointer;
+  transition:
+    transform var(--sx-fast) var(--sx-ease),
+    opacity var(--sx-fast) var(--sx-ease);
+}
+
+.playButton:hover {
+  transform: scale(1.05);
+}
+
+.playButton:active {
+  transform: scale(0.97);
+}
+
+.actionHint {
+  max-width: 480px;
+  margin: 12px 0 0;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+}
+
+.downloadStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 480px;
+  margin-top: 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-surface);
+}
+
+.downloadStatusText {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+}
+
+.downloadCount {
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Share status can carry a full invite URL, which has no natural break points. */
+.statusAlert {
+  max-width: 640px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Tracks ─────────────────────────────────────────────────── */
+.tracks {
+  min-width: 0;
+  margin-top: 36px;
+}
+
+.addedByInline {
+  display: none;
+  flex-shrink: 0;
+  color: var(--sx-fg-subtle);
+}
+
+/* ── Members sheet ──────────────────────────────────────────── */
+.membersBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.memberList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: var(--sx-radius);
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.memberRow:hover,
+.memberRow:focus-within {
+  background: var(--sx-hover);
+}
+
+/* Members have no profile gradient: neutral initials stay legible on every surface. */
+.memberRow .memberAvatar {
+  background: var(--sx-active);
+  color: var(--sx-fg);
+}
+
+.memberText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.memberName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 500;
+}
+
+.memberDetail {
+  overflow: hidden;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberRow .memberRemove {
+  flex-shrink: 0;
+  color: var(--sx-fg-muted);
+}
+
+.memberRow .memberRemove:hover {
+  background: var(--sx-danger-soft);
+  color: var(--sx-danger);
+}
+
+.memberSkeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memberSkeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+
+.memberSkeletonText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inviteForm {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inviteInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.memberStatus {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--sx-radius);
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+  font-size: var(--sx-text-xs);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero {
+    gap: 16px;
+  }
+
+  .heroArt {
+    width: 140px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .actions {
+    margin-top: 20px;
+  }
+
+  .playButton {
+    width: 48px;
+    height: 48px;
+  }
+
+  .tracks {
+    margin-top: 28px;
+  }
+
+  /* Touch targets: at least 36px on phones. */
+  .actions button {
+    --sx-btn-h: 40px;
+  }
+
+  .memberRow .memberRemove {
+    --sx-btn-h: 36px;
+  }
+
+  .inviteRow button {
+    --sx-btn-h: 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  .actions .actionButton {
+    width: var(--sx-btn-h);
+    padding: 0;
+    gap: 0;
+  }
+
+  .actionLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .addedByInline {
+    display: inline;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+}
+
+@media (hover: none) {
+  .heroArtEdit {
+    display: none;
+  }
+}

@@ -1,0 +1,328 @@
+/* ================================================================
+   SPICE UI v2 — Library page
+   ================================================================ */
+
+.page {
+  min-width: 0;
+}
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Toolbar: section tabs + playlist layout toggle ─────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+/* Doubled up so it always beats the primitive's non-shrinking Tabs rule: on
+   phones the tab strip must shrink and scroll instead of pushing the page wide. */
+.toolbar .tabs {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.viewToggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border-radius: calc(var(--sx-radius) + 2px);
+  background: var(--sx-hover);
+}
+
+.viewToggle button[data-active='true'] {
+  background: var(--sx-bg);
+  color: var(--sx-fg);
+  box-shadow: var(--sx-shadow-sm), 0 0 0 1px var(--sx-border);
+}
+
+.panel {
+  min-width: 0;
+}
+
+/* ── Playlist grid ──────────────────────────────────────────── */
+.playlistGrid {
+  padding-top: 4px;
+}
+
+.cover {
+  position: relative;
+  width: 100%;
+}
+
+.coverBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-elevated-bg);
+  color: var(--sx-fg);
+  font-size: var(--sx-text-2xs);
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ── Playlist rows (list view) ──────────────────────────────── */
+.playlistList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.playlistRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 12px 6px 6px;
+  border-radius: var(--sx-radius);
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.playlistRow:hover,
+.playlistRow:focus-within {
+  background: var(--sx-hover);
+}
+
+.playlistRowMain {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playlistRowArt {
+  flex-shrink: 0;
+}
+
+.playlistRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.playlistRowTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 500;
+  color: var(--sx-fg);
+}
+
+.playlistRow[data-active='true'] .playlistRowTitle {
+  color: var(--sx-accent-text);
+}
+
+.playlistRowMeta {
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roleBadge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--sx-border-strong);
+  border-radius: var(--sx-radius-full);
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-2xs);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.playlistRow .playlistRowPlay {
+  flex-shrink: 0;
+  border-radius: var(--sx-radius-full);
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.playlistRow:hover .playlistRowPlay,
+.playlistRow:focus-within .playlistRowPlay,
+.playlistRow .playlistRowPlay[data-visible='true'] {
+  opacity: 1;
+}
+
+.playlistRowChevron {
+  flex-shrink: 0;
+  color: var(--sx-fg-subtle);
+}
+
+/* ── Track lists ────────────────────────────────────────────── */
+.historyList [role='listitem'] .quickAdd {
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.historyList [role='listitem']:hover .quickAdd,
+.historyList [role='listitem']:focus-within .quickAdd,
+.historyList .quickAdd[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.downloads .dangerAction:hover {
+  background: var(--sx-danger-soft);
+  color: var(--sx-danger);
+}
+
+/* ── Downloads ──────────────────────────────────────────────── */
+.downloads {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.storageCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.storageIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sx-radius);
+  background: var(--sx-hover);
+  color: var(--sx-fg-muted);
+}
+
+.storageText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.storageTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.storageTitle {
+  margin: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 600;
+}
+
+.storageMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.storageFolder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--sx-font-mono);
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+}
+
+.storageActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+@media (hover: none) {
+  .playlistRow .playlistRowPlay,
+  .historyList [role='listitem'] .quickAdd {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    margin-bottom: 20px;
+  }
+
+  .playlistRow {
+    padding-right: 8px;
+  }
+
+  /* Touch targets: at least 36px on phones. */
+  .toolbar .tabs [role='tab'] {
+    height: 36px;
+  }
+
+  .toolbar .viewToggle button,
+  .storageActions button,
+  .downloads [role='listitem'] button,
+  .historyList [role='listitem'] .quickAdd {
+    --sx-btn-h: 36px;
+  }
+
+  .storageCard {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .storageText {
+    flex-basis: calc(100% - 56px);
+  }
+
+  .storageActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .roleBadge {
+    display: none;
+  }
+}

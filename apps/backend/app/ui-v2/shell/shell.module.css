@@ -1,0 +1,135 @@
+/* ================================================================
+   SPICE UI v2 — app shell layout
+   Sidebar on the app background, content in an inset panel, player below.
+   ================================================================ */
+
+.shell {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: var(--sx-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--sx-player-height);
+  grid-template-areas:
+    'sidebar main'
+    'player player';
+  transition: grid-template-columns var(--sx-slow) var(--sx-ease);
+}
+
+.shell[data-sidebar='collapsed'] {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.shell[data-player-placement='top'] {
+  grid-template-rows: var(--sx-player-height) minmax(0, 1fr);
+  grid-template-areas:
+    'player player'
+    'sidebar main';
+}
+
+.shell[data-player-mode='mini'] {
+  grid-template-rows: minmax(0, 1fr) 0;
+}
+
+.shell[data-player-mode='mini'][data-player-placement='top'] {
+  grid-template-rows: 0 minmax(0, 1fr);
+}
+
+.sidebarArea {
+  grid-area: sidebar;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mainArea {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 8px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-xl);
+  background: var(--sx-bg);
+}
+
+.shell[data-player-placement='top'] .mainArea {
+  margin: 0 8px 8px 0;
+}
+
+.shell[data-player-mode='mini'] .mainArea {
+  margin-bottom: 8px;
+}
+
+.shell[data-topbar='floating'] .mainArea {
+  background: transparent;
+  border-color: transparent;
+}
+
+.content {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: none;
+}
+
+.page {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: var(--sx-content-y) var(--sx-content-x) calc(var(--sx-content-y) + 32px);
+  animation: sxPageIn var(--sx-normal) var(--sx-ease);
+}
+
+.errorAlert {
+  margin-bottom: 20px;
+}
+
+.playerArea {
+  grid-area: player;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mobileNavArea {
+  grid-area: nav;
+  min-width: 0;
+}
+
+@keyframes sxPageIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .shell,
+  .shell[data-sidebar='collapsed'],
+  .shell[data-player-placement='top'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto var(--sx-mobile-nav-height);
+    grid-template-areas:
+      'main'
+      'player'
+      'nav';
+  }
+
+  .shell[data-player-mode='mini'] {
+    grid-template-rows: minmax(0, 1fr) 0 var(--sx-mobile-nav-height);
+  }
+
+  .mainArea,
+  .shell[data-player-placement='top'] .mainArea,
+  .shell[data-player-mode='mini'] .mainArea {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .page {
+    padding: 16px 16px 32px;
+  }
+}

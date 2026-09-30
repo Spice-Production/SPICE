@@ -1,0 +1,684 @@
+/* ================================================================
+   SPICE UI v2 — Search page
+   ================================================================ */
+
+.page {
+  min-width: 0;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.subheading {
+  margin: 0 0 12px;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  letter-spacing: normal;
+  color: var(--sx-fg);
+}
+
+/* ── Search field ───────────────────────────────────────────── */
+.inputBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inputBlock .searchInput {
+  font-size: var(--sx-text-base);
+}
+
+.inputBlock .searchInputTrailing {
+  padding-right: 72px;
+}
+
+.trailingSpinner {
+  padding: 0 6px;
+}
+
+.linkHint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  font-size: var(--sx-text-sm);
+  animation: sxSearchFadeIn var(--sx-normal) var(--sx-ease);
+}
+
+.linkHintIcon {
+  color: var(--sx-accent-text);
+}
+
+.linkHintText {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--sx-fg-muted);
+}
+
+.linkHintKey {
+  display: inline-flex;
+}
+
+/* ── Toolbar: tabs, provider, For you ───────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toolbar .provider {
+  width: auto;
+}
+
+.toolbar .providerSelect {
+  width: auto;
+  min-width: 176px;
+  font-weight: 500;
+}
+
+.forYou {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--sx-input);
+  border-radius: var(--sx-radius);
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  transition:
+    border-color var(--sx-fast) var(--sx-ease),
+    color var(--sx-fast) var(--sx-ease);
+}
+
+.forYou:hover {
+  border-color: var(--sx-border-strong);
+}
+
+.forYou[data-checked='true'] {
+  color: var(--sx-fg);
+  border-color: color-mix(in srgb, var(--sx-accent) 45%, transparent);
+}
+
+.forYou[data-checked='true'] .forYouIcon {
+  color: var(--sx-accent-text);
+}
+
+.forYouLabel {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ── Result rows ────────────────────────────────────────────── */
+.sourceBadge {
+  flex-shrink: 0;
+}
+
+.rowHoverAction {
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+[role='listitem']:hover .rowHoverAction,
+[role='listitem']:focus-within .rowHoverAction,
+.rowHoverAction[aria-expanded='true'] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .rowHoverAction {
+    opacity: 1;
+  }
+}
+
+/* ── Top result ─────────────────────────────────────────────── */
+.topGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) minmax(0, 3fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.topColumn,
+.songsColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topGrid + .moreResults {
+  margin-top: 32px;
+}
+
+.topCard {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.topMain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.topArt {
+  display: block;
+  width: 104px;
+  flex-shrink: 0;
+}
+
+.topText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.topTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--sx-text-2xl);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.topTitle[data-active='true'] {
+  color: var(--sx-accent);
+}
+
+.topMain:hover .topTitle {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 4px;
+}
+
+.topArtists {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.topMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+}
+
+.topDuration {
+  font-variant-numeric: tabular-nums;
+}
+
+.topNowPlaying {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sx-accent-text);
+  font-weight: 500;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.playFab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: 4px;
+  border: none;
+  border-radius: 999px;
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    transform var(--sx-fast) var(--sx-ease);
+}
+
+.playFab:hover {
+  background: color-mix(in srgb, var(--sx-inverse) 88%, transparent);
+}
+
+.playFab:active {
+  transform: scale(0.96);
+}
+
+/* ── Loading ────────────────────────────────────────────────── */
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonRow {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 12px;
+}
+
+.skeletonText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skeletonTrailing {
+  justify-self: end;
+}
+
+.loadingNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0 12px;
+  font-size: var(--sx-text-sm);
+}
+
+.loadingNoteMuted {
+  color: var(--sx-fg-muted);
+}
+
+.spin {
+  color: var(--sx-fg-muted);
+  animation: sxSearchSpin 0.8s linear infinite;
+}
+
+/* ── Browse categories ──────────────────────────────────────── */
+.genreGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.genreTile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 64px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-surface);
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease);
+}
+
+.genreTile:hover {
+  background: var(--sx-surface-hover);
+  border-color: var(--sx-border-strong);
+}
+
+.genreSwatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sx-radius);
+  color: #fff;
+}
+
+.genreName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.genreArrow {
+  color: var(--sx-fg-subtle);
+  opacity: 0;
+  transform: translate(-2px, 2px);
+  transition:
+    opacity var(--sx-fast) var(--sx-ease),
+    transform var(--sx-fast) var(--sx-ease);
+}
+
+.genreTile:hover .genreArrow,
+.genreTile:focus-visible .genreArrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Listener results ───────────────────────────────────────── */
+.listenerList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listenerRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.listenerRow:hover {
+  background: var(--sx-hover);
+}
+
+.listenerText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.listenerName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 500;
+}
+
+.listenerNameText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listenerMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+}
+
+.listenerHandle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listenerPrivate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.listenerCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  transition:
+    color var(--sx-fast) var(--sx-ease),
+    border-color var(--sx-fast) var(--sx-ease);
+}
+
+.listenerRow:hover .listenerCta,
+.listenerRow:focus-visible .listenerCta {
+  color: var(--sx-fg);
+  border-color: var(--sx-border-strong);
+}
+
+.listenerSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .topGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .inputBlock .searchInput {
+    height: 44px;
+    /* 16px keeps iOS from zooming into the field. */
+    font-size: var(--sx-text-lg);
+  }
+
+  .inputBlock .clearButton {
+    width: 36px;
+    height: 36px;
+  }
+
+  .inputBlock .searchInputTrailing {
+    padding-right: 80px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  .tabs > button {
+    flex: 1;
+    height: 36px;
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .toolbar .provider,
+  .toolbar .providerSelect {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar .providerSelect,
+  .forYou {
+    height: 36px;
+  }
+
+  .linkHintKey {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .sourceLabel {
+    display: none;
+  }
+
+  .sourceBadge {
+    padding: 0 5px;
+  }
+
+  .rowHoverAction {
+    display: none;
+  }
+
+  .skeletonRow {
+    padding: 0 8px;
+  }
+
+  .skeletonTrailing {
+    visibility: hidden;
+  }
+
+  .topCard {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .topMain {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .topArt {
+    width: 72px;
+  }
+
+  .topTitle {
+    font-size: var(--sx-text-xl);
+  }
+
+  .genreGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .genreTile {
+    height: 56px;
+    gap: 10px;
+    padding: 0 10px 0 8px;
+  }
+
+  .genreSwatch {
+    width: 36px;
+    height: 36px;
+  }
+
+  .genreArrow {
+    display: none;
+  }
+
+  .listenerRow {
+    gap: 12px;
+    padding: 10px 8px;
+  }
+
+  .listenerCta {
+    height: 36px;
+    padding: 0 6px;
+    border-color: transparent;
+  }
+
+  .listenerCtaText {
+    display: none;
+  }
+}
+
+@keyframes sxSearchSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sxSearchFadeIn {
+  from {
+    opacity: 0;
+  }
+}

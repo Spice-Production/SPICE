@@ -1,0 +1,700 @@
+/* ================================================================
+   SPICE UI v2 — topbar, search tray, notifications, profile menu
+   ================================================================ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--sx-topbar-height);
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--sx-border);
+  background: var(--sx-bg);
+}
+
+.topbar[data-layout='floating'] {
+  border-bottom-color: transparent;
+  background: transparent;
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+}
+
+.backBtn {
+  flex-shrink: 0;
+}
+
+/* ── Search ─────────────────────────────────────────────────── */
+
+.searchArea {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+}
+
+.searchForm {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  color: var(--sx-fg-muted);
+  transition: border-color var(--sx-fast) var(--sx-ease);
+}
+
+.searchForm:focus-within {
+  border-color: var(--sx-border-strong);
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+}
+
+.searchInput::placeholder {
+  color: var(--sx-fg-subtle);
+}
+
+.searchInput:focus {
+  outline: none;
+}
+
+.modeSelectWrap {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 24px;
+  padding-left: 8px;
+  border-left: 1px solid var(--sx-border);
+  color: var(--sx-fg-subtle);
+}
+
+/* Invisible copy of the selected label: it gives the wrapper its width so the
+   absolutely positioned <select> always fits the full option text. */
+.modeSizer {
+  padding-right: 22px;
+  visibility: hidden;
+  white-space: nowrap;
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.modeSelect {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  width: calc(100% - 8px);
+  height: 100%;
+  padding: 0 18px 0 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+}
+
+.modeSelect option {
+  background-color: var(--sx-surface);
+  color: var(--sx-fg);
+}
+
+.modeSelect:focus-visible {
+  outline: 2px solid var(--sx-ring);
+  outline-offset: 2px;
+}
+
+.modeChevron {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.modeGlyph {
+  display: none;
+  pointer-events: none;
+}
+
+/* Phones: the picker collapses to an icon-sized tap target (the native
+   picker still lists every source) so the field keeps its room. */
+@media (max-width: 768px) {
+  .modeSelectWrap {
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .modeSizer,
+  .modeChevron {
+    display: none;
+  }
+
+  .modeSelect {
+    left: 0;
+    width: 100%;
+    padding: 0;
+    color: transparent;
+  }
+
+  .modeGlyph {
+    display: flex;
+  }
+}
+
+.commandHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.commandHint:hover {
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+@media (max-width: 1024px) {
+  .commandHint {
+    display: none;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.trayAnchor {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Floating trays (search / notifications / profile) ─────────
+   Portaled via useAnchoredPosition + <Portal>, same as Popover, so they
+   float above the inset content panel's `overflow: hidden` instead of
+   being clipped by it. Their trigger wrapper still carries
+   topbarSearchShellRef / topbarProfileShellRef (SpiceApp's own
+   outside-click effects), and the panel itself stops pointerdown from
+   bubbling to `document` so that legacy listener never races a click's
+   mousedown against its own click; see shell/topbar.tsx. */
+
+.tray {
+  position: fixed;
+  z-index: var(--sx-z-popover);
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow: hidden;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  background: var(--sx-elevated-bg);
+  box-shadow: var(--sx-shadow-lg);
+  animation: sxTrayIn var(--sx-fast) var(--sx-ease);
+}
+
+.tray:focus-visible {
+  outline: none;
+}
+
+.tray[data-measuring='true'] {
+  visibility: hidden;
+  animation: none;
+}
+
+@keyframes sxTrayIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.trayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sx-border);
+}
+
+.trayHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trayEyebrow {
+  color: var(--sx-fg-subtle);
+  font-size: var(--sx-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trayTitle {
+  overflow: hidden;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trayHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.trayTabsRow {
+  margin-bottom: 10px;
+}
+
+.trayBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.traySection + .traySection {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sx-border);
+}
+
+.traySectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 8px;
+  color: var(--sx-fg-subtle);
+  font-size: var(--sx-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trayEmpty {
+  margin: 0;
+  padding: 10px 4px;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-sm);
+}
+
+/* Loading placeholder rows */
+
+.trayLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+}
+
+.skeletonText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.linkBtn {
+  border: none;
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-2xs);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  color: var(--sx-fg);
+}
+
+/* Recent searches */
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-surface);
+}
+
+.chipLabel {
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chipLabel:hover {
+  color: var(--sx-fg);
+}
+
+.chipRemove {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sx-fg-subtle);
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  background: var(--sx-danger-soft);
+  color: var(--sx-danger);
+}
+
+/* Result rows (tracks / users) */
+
+.resultList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resultRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resultMain {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.resultMain:hover {
+  background: var(--sx-hover);
+}
+
+.resultArt {
+  flex-shrink: 0;
+  border-radius: var(--sx-radius-sm);
+}
+
+.resultAvatar {
+  flex-shrink: 0;
+}
+
+.resultText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.resultTitle {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultMeta {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultBadge {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-accent-soft);
+  color: var(--sx-accent-text);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.resultSource {
+  flex-shrink: 0;
+  color: var(--sx-fg-subtle);
+}
+
+.resultSource::before {
+  content: '·';
+  margin-right: 6px;
+}
+
+/* Notification / invite rows */
+
+.noticeItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--sx-radius);
+}
+
+.noticeItem[data-unread='true'] {
+  background: var(--sx-accent-soft);
+}
+
+.noticeCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.noticeEyebrow {
+  color: var(--sx-fg-subtle);
+  font-size: var(--sx-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.noticeTitle {
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+}
+
+.noticeText {
+  margin: 0;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  line-height: 1.5;
+}
+
+.noticeActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* ── Profile menu ───────────────────────────────────────────── */
+
+.profileTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px 0 4px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  cursor: pointer;
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.profileTrigger:hover,
+.profileTrigger[aria-expanded='true'] {
+  background: var(--sx-hover);
+}
+
+.profileCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  text-align: left;
+}
+
+.profileName {
+  overflow: hidden;
+  max-width: 128px;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileRole {
+  overflow: hidden;
+  max-width: 128px;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .profileCopy {
+    display: none;
+  }
+}
+
+.profilePanel {
+  width: 268px;
+}
+
+.profileIdentity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+.profileIdentityText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.profileIdentityName {
+  overflow: hidden;
+  color: var(--sx-fg);
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileIdentityHandle {
+  overflow: hidden;
+  color: var(--sx-fg-muted);
+  font-size: var(--sx-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileMenuGroup {
+  padding: 6px;
+}
+
+.profileMenuLabel {
+  padding: 8px 12px 2px;
+}
+
+.profileSwitchRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--sx-radius);
+  background: transparent;
+  color: var(--sx-fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.profileSwitchRow:hover {
+  background: var(--sx-hover);
+}
+
+.profileSwitchRow[aria-checked='true'] {
+  background: var(--sx-active);
+}
+
+.profileSwitchRow[data-destructive='true'] {
+  color: var(--sx-danger);
+}
+
+.profileSwitchName {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileSwitchCheck {
+  flex-shrink: 0;
+  color: var(--sx-accent-text);
+}

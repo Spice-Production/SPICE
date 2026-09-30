@@ -1,0 +1,234 @@
+/* ================================================================
+   SPICE UI v2 — design tokens
+   Minimal, neutral surfaces with the user's accent used sparingly.
+   Every token derives from the shared SPICE theme variables written by
+   SpiceApp (accent theme, visual surface, custom palette, artwork shape,
+   interface scale, player density), so Settings changes apply instantly.
+   ================================================================ */
+
+.host {
+  /* Color */
+  --sx-bg: var(--body-bg, var(--bg-primary, #09090b));
+  --sx-app-bg: var(--spice-app-background, var(--sx-bg));
+  --sx-fg: var(--text-primary, #fafafa);
+  --sx-fg-muted: var(--text-secondary, #a1a1aa);
+  --sx-fg-subtle: color-mix(in srgb, var(--sx-fg-muted) 72%, transparent);
+  --sx-surface: var(--bg-surface, #0f0f11);
+  --sx-surface-hover: var(--bg-surface-hover, #18181b);
+  /* Opaque layer for floating UI (surfaces can be translucent in Glass/Aurora). */
+  --sx-elevated-bg: linear-gradient(var(--sx-surface), var(--sx-surface)), var(--sx-bg);
+  --sx-border: var(--border-color, rgba(255, 255, 255, 0.1));
+  --sx-border-strong: color-mix(in srgb, var(--sx-fg) 16%, transparent);
+  --sx-input: color-mix(in srgb, var(--sx-fg) 14%, transparent);
+  --sx-hover: color-mix(in srgb, var(--sx-fg) 6%, transparent);
+  --sx-active: color-mix(in srgb, var(--sx-fg) 10%, transparent);
+  --sx-overlay: rgba(0, 0, 0, 0.6);
+  --sx-accent: var(--accent-pink, #a855f7);
+  --sx-accent-rgb: var(--accent-pink-rgb, 168, 85, 247);
+  --sx-accent-soft: rgba(var(--sx-accent-rgb), 0.14);
+  --sx-accent-text: var(--text-accent, var(--sx-accent));
+  --sx-accent-gradient: var(--accent-gradient, var(--sx-accent));
+  --sx-inverse: var(--sx-fg);
+  --sx-inverse-fg: var(--sx-bg);
+  --sx-danger: #ef4444;
+  --sx-danger-soft: rgba(239, 68, 68, 0.12);
+  --sx-success: #22c55e;
+  --sx-success-soft: rgba(34, 197, 94, 0.12);
+  --sx-warning: #f59e0b;
+  --sx-warning-soft: rgba(245, 158, 11, 0.12);
+  --sx-info: #3b82f6;
+  --sx-info-soft: rgba(59, 130, 246, 0.12);
+  --sx-ring: rgba(var(--sx-accent-rgb), 0.6);
+
+  /* Shape */
+  --sx-radius-sm: 6px;
+  --sx-radius: 8px;
+  --sx-radius-lg: 12px;
+  --sx-radius-xl: 16px;
+  --sx-radius-full: 9999px;
+  --sx-art-radius: var(--spice-art-radius, 8px);
+
+  /* Type (Geist is loaded globally by app/layout.tsx) */
+  --sx-font: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sx-font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sx-text-2xs: 11px;
+  --sx-text-xs: 12px;
+  --sx-text-sm: 13px;
+  --sx-text-base: 14px;
+  --sx-text-lg: 16px;
+  --sx-text-xl: 20px;
+  --sx-text-2xl: 24px;
+  --sx-text-3xl: 30px;
+
+  /* Layout (follows Settings → Interface scale and player density) */
+  --sx-sidebar-width: calc(var(--sidebar-width, 260px) - 16px);
+  --sx-player-height: var(--now-playing-height, 80px);
+  --sx-topbar-height: 56px;
+  --sx-content-x: clamp(16px, 3vw, var(--spice-content-x, 32px));
+  --sx-content-y: var(--spice-content-y, 24px);
+  --sx-mobile-nav-height: 60px;
+
+  /* Elevation */
+  --sx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --sx-shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.32);
+  --sx-shadow-lg: 0 16px 48px -12px rgba(0, 0, 0, 0.55), 0 4px 12px -4px rgba(0, 0, 0, 0.35);
+
+  /* Motion (Settings → Motion "off" also zeroes these through the shared rule) */
+  --sx-ease: cubic-bezier(0.2, 0, 0, 1);
+  --sx-fast: 120ms;
+  --sx-normal: 180ms;
+  --sx-slow: 260ms;
+
+  /* Stacking */
+  /* Stacking: page < fixed player views < sheets < dialogs < popovers < toasts.
+     Popovers sit above dialogs/sheets so menus opened inside them stay visible. */
+  --sx-z-sticky: 20;
+  --sx-z-player: 40;
+  --sx-z-overlay: 980;
+  --sx-z-banner: 990;
+  --sx-z-sheet: 1100;
+  --sx-z-dialog: 1200;
+  --sx-z-popover: 1250;
+  --sx-z-toast: 1300;
+  --sx-z-lock: 200000;
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--sx-app-bg);
+  color: var(--sx-fg);
+  font-family: var(--sx-font);
+  font-size: var(--sx-text-base);
+  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root {
+  position: absolute;
+  inset: 0;
+  color-scheme: dark;
+}
+
+.root[data-surface='daylight'] {
+  color-scheme: light;
+  --sx-overlay: rgba(15, 12, 20, 0.4);
+  --sx-shadow-lg: 0 16px 48px -12px rgba(20, 16, 30, 0.22), 0 4px 12px -4px rgba(20, 16, 30, 0.12);
+  --sx-shadow-md: 0 4px 12px -2px rgba(20, 16, 30, 0.14);
+}
+
+.portal {
+  position: relative;
+}
+
+/* Element resets. `:where(.host) el` has element specificity (0,0,1): it beats the
+   classic global element rules by load order but loses to every module class,
+   so component styles always win. */
+:where(.host) h1,
+:where(.host) h2,
+:where(.host) h3,
+:where(.host) h4,
+:where(.host) h5,
+:where(.host) h6 {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--sx-fg);
+}
+
+:where(.host) p {
+  line-height: 1.55;
+}
+
+:where(.host) button,
+:where(.host) input,
+:where(.host) select,
+:where(.host) textarea {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+:where(.host) :where(button, [role='button'], a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--sx-ring);
+  outline-offset: 2px;
+}
+
+:where(.host) :where(input, textarea)::placeholder {
+  color: var(--sx-fg-subtle);
+  opacity: 1;
+}
+
+:where(.host) ::selection {
+  background: rgba(var(--sx-accent-rgb), 0.32);
+}
+
+:where(.host) * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--sx-fg) 18%, transparent) transparent;
+}
+
+:where(.host) ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:where(.host) ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sx-fg) 16%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+:where(.host) ::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--sx-fg) 28%, transparent);
+}
+
+/* The shared YouTube video panel lives outside the v2 tree (it must survive
+   interface switches); restyle it to match while the preview is active. */
+.host :global(.floating-yt-panel.is-visible) {
+  background: var(--sx-elevated-bg);
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-lg);
+  box-shadow: var(--sx-shadow-lg);
+  bottom: calc(var(--sx-player-height) + 16px);
+  right: 16px;
+}
+
+.host :global(.floating-yt-panel__header) {
+  border-bottom: 1px solid var(--sx-border);
+}
+
+.host :global(.floating-yt-panel__title) {
+  font-family: var(--sx-font);
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--sx-fg);
+}
+
+.host :global(.floating-yt-panel__close) {
+  border-radius: var(--sx-radius-sm);
+  background: transparent;
+  color: var(--sx-fg-muted);
+}
+
+.host :global(.floating-yt-panel__close:hover) {
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

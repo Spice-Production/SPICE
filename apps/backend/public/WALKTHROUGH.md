@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.179
+
+- [Spice.Music main] Preview a new interface: a from-scratch minimalist redesign of the web player (new sidebar, topbar, command menu, pages, player, now-playing view, mini player, dialogs, and settings) sits behind a toggle. Classic stays the default; turn the new one on from Settings → New Interface (or a `?ui=v2` link, `?ui=classic` to go back) and switch back any time from its own Settings. Both interfaces drive the same library, playback, and sync, songs keep playing across a switch, and the new one follows your accent, surface (including Daylight), custom palette, artwork shape, motion, and density settings live.
+
 ## v1.0.178
 
 - [Spice.Player main] Same-track restarts resume mid-song: proxy errors, timed retries, and transport rescues snapshot the live position first (iframe clock preferred, last timeupdate as fallback), and both the proxy and embed transports seek to it instead of replaying from 0.

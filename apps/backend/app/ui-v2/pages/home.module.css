@@ -1,0 +1,447 @@
+/* ================================================================
+   SPICE UI v2 — Home
+   Greeting, quick access, weekly recap, and track shelves.
+   ================================================================ */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  min-width: 0;
+}
+
+/* The page header keeps its own bottom margin elsewhere; here the column gap
+   spaces sections, so pull the first section a little closer. */
+.home > .greeting {
+  margin: 0 0 -16px;
+}
+
+.section {
+  min-width: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.titleWithBadge {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ── Jump back in ───────────────────────────────────────────── */
+
+/* 2–4 columns: never narrower than 220px, never more than four across
+   (the extra 8px of slack keeps the fourth column from rounding away). */
+.section .jumpGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(220px, calc((100% - 32px) / 4))), 1fr));
+  gap: 8px;
+}
+
+.jumpTile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 64px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  transition: background-color var(--sx-fast) var(--sx-ease);
+}
+
+.jumpTile:hover {
+  background: var(--sx-surface-hover);
+}
+
+.jumpMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jumpArt {
+  display: flex;
+  flex-shrink: 0;
+  width: 48px;
+}
+
+.jumpText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.jumpTitle {
+  overflow: hidden;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jumpTile[data-active='true'] .jumpTitle {
+  color: var(--sx-accent);
+}
+
+.jumpMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  white-space: nowrap;
+}
+
+.jumpMetaText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jumpPlay {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sx-radius-full);
+  background: var(--sx-inverse);
+  color: var(--sx-inverse-fg);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--sx-fast) var(--sx-ease);
+}
+
+.jumpTile:hover .jumpPlay,
+.jumpTile:focus-within .jumpPlay,
+.jumpTile[data-active='true'] .jumpPlay {
+  opacity: 1;
+}
+
+/* ── Weekly recap ───────────────────────────────────────────── */
+.recapGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.recapStat {
+  background: var(--sx-surface);
+}
+
+.statUnit {
+  margin-left: 3px;
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--sx-fg-muted);
+}
+
+.topArtist {
+  max-width: min(280px, 48vw);
+}
+
+.footnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+}
+
+/* ── Taste learning ─────────────────────────────────────────── */
+.learning {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+}
+
+.learningIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sx-radius);
+  background: var(--sx-hover);
+  color: var(--sx-fg-muted);
+}
+
+.learningBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.learningTitle {
+  margin: 0;
+  font-size: var(--sx-text-base);
+  font-weight: 600;
+}
+
+.learningText {
+  max-width: 600px;
+  margin: 4px 0 0;
+  font-size: var(--sx-text-sm);
+  color: var(--sx-fg-muted);
+}
+
+.learningProgress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 480px;
+  margin-top: 16px;
+}
+
+.learningBar {
+  flex: 1;
+}
+
+.learningStatus {
+  flex-shrink: 0;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Discovery tuner (popover) ──────────────────────────────── */
+.tune {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.tuneHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tuneTitle {
+  margin: 0;
+  font-size: var(--sx-text-sm);
+  font-weight: 600;
+}
+
+.tuneValue {
+  font-size: var(--sx-text-sm);
+  font-weight: 500;
+  color: var(--sx-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuneText {
+  margin: 0;
+  font-size: var(--sx-text-xs);
+  color: var(--sx-fg-muted);
+}
+
+.tuneScale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+  font-size: var(--sx-text-2xs);
+  color: var(--sx-fg-subtle);
+}
+
+.tuneSeparator {
+  margin: 4px 0;
+}
+
+.tuneReset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* ── Shelves ────────────────────────────────────────────────── */
+.mediaCard {
+  min-width: 0;
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skeletonArt {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-bottom: 2px;
+}
+
+/* ── Quick picks ────────────────────────────────────────────── */
+.quickList [role='list'] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.quickSkeleton {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.quickSkeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 12px;
+}
+
+.quickSkeletonText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .quickList [role='list'],
+  .quickSkeleton {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .recapGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .home {
+    gap: 32px;
+  }
+
+  .home > .greeting {
+    margin-bottom: -12px;
+  }
+
+  /* A lone tile fills the row; extra columns only appear while each keeps 240px. */
+  .section .jumpGrid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  }
+
+  /* Six shortcuts keep the first screen for shelves. */
+  .jumpGrid > :nth-child(n + 7) {
+    display: none;
+  }
+
+  .jumpTile {
+    height: 56px;
+  }
+
+  .jumpMain {
+    gap: 10px;
+    padding: 0 8px 0 6px;
+  }
+
+  .jumpArt {
+    width: 40px;
+  }
+
+  .learning {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .learningProgress {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .quickSkeletonRow {
+    padding: 0 8px;
+  }
+}
+
+/* One tile per row on narrow phones: four rows are enough before the shelves. */
+@media (max-width: 560px) {
+  .jumpGrid > :nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* Touch: tapping a tile already plays it, so its play button only shows the
+   current track's pause/resume; card menus stay visible and finger-sized. */
+@media (hover: none) {
+  .jumpPlay {
+    display: none;
+  }
+
+  .jumpTile[data-active='true'] .jumpPlay {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    margin-right: 8px;
+  }
+
+  .mediaCard > :nth-child(3) {
+    opacity: 1;
+  }
+
+  .mediaCard > :nth-child(3) button {
+    --sx-btn-h: 36px;
+  }
+}
