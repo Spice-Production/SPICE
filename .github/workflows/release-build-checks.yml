@@ -136,6 +136,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Runner cmdline-tools 16+ dropped the legacy "tools" package the action
+          # installs by default; the next step installs what the build needs.
+          packages: ''
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
