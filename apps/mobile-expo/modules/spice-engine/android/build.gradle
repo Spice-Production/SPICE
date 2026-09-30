@@ -1,0 +1,36 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'xyz.spiceapp'
+version = '1.0.0'
+
+android {
+  namespace "xyz.spiceapp.engine"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+  // NewPipe Extractor is published through JitPack.
+  maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+  implementation 'androidx.media3:media3-exoplayer:1.10.1'
+  implementation 'androidx.media3:media3-exoplayer-hls:1.10.1'
+  implementation 'androidx.media3:media3-session:1.10.1'
+  implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.3'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.json:json:20240303'
+}

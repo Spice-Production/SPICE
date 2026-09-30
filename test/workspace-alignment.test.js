@@ -30,6 +30,9 @@ const lockfileConfig = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'package-lock.json'), 'utf8'),
 );
 
+// apps/* projects with their own toolchain and lockfile, outside the workspace.
+const STANDALONE_APPS = new Set(['mobile', 'mobile-expo']);
+
 /**Declared workspaces may be literal dirs or globs; expand against disk.*/
 function expandWorkspaceGlobs(entries) {
   const resolved = [];
@@ -122,8 +125,9 @@ test('on-disk workspaces are not forgotten by package.json', () => {
   for (const dirent of fs.readdirSync(appsDir, { withFileTypes: true })) {
     if (!dirent.isDirectory()) continue;
     const candidate = `apps/${dirent.name}`;
-    // mobile builds via gradle wrappers and is intentionally not a workspace.
-    if (dirent.name === 'mobile' || !fs.existsSync(path.join(appsDir, dirent.name, 'package.json'))) continue;
+    // mobile builds via gradle wrappers, and mobile-expo keeps its own lockfile so
+    // React Native never hoists into the root tree; neither is a workspace.
+    if (STANDALONE_APPS.has(dirent.name) || !fs.existsSync(path.join(appsDir, dirent.name, 'package.json'))) continue;
     assert.ok(
       declared.has(candidate),
       `"${candidate}" contains a package.json but is not declared in root workspaces — declare it or move it out of apps/`,

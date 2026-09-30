@@ -49,6 +49,30 @@ jobs:
       - name: Build Vercel runtime
         run: npm run backend:build:vercel
 
+  mobile-expo:
+    name: Mobile (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile-expo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile-expo/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install Expo app
+        run: npm ci
+      - name: Typecheck, lint, and test core
+        run: npm run check
+      - name: Test native engine
+        run: npm run android:engine:test
+
   local-windows-package:
     name: SPICE local Windows package
     runs-on: windows-latest

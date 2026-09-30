@@ -61,7 +61,11 @@
     "mobile:android:debug": "npm --prefix apps/mobile run android:debug",
     "mobile:android:check": "npm --prefix apps/mobile run android:check",
     "mobile:android:release": "npm --prefix apps/mobile run android:release",
-    "mobile:android:release:check": "npm --prefix apps/mobile run android:release:check"
+    "mobile:android:release:check": "npm --prefix apps/mobile run android:release:check",
+    "mobile-expo:check": "npm --prefix apps/mobile-expo run check",
+    "mobile-expo:android:debug": "npm --prefix apps/mobile-expo run android:debug",
+    "mobile-expo:android:release": "npm --prefix apps/mobile-expo run android:release",
+    "mobile-expo:engine:test": "npm --prefix apps/mobile-expo run android:engine:test"
   },
   "build": {
     "publish": [
