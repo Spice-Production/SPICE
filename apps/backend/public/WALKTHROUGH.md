@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.181
+
+- [Spice.Movies main] Spice Movies joins the new interface preview: Movies, TV Series, and both watch pages get the minimalist shell (sidebar, topbar search, release bell, profile menu with default source), poster shelves, a quieter billboard, My List shelves, a list-status menu, segmented source tabs, and an episode grid. The preview choice now lives in a `spice_ui` cookie on the parent domain too, so it follows you between music and movies, and watch pages render the chosen interface on the server (no flash, never two players). Movies also picks up your accent, surface, custom palette, artwork shape, and motion settings. Classic stays the default; switch from either profile menu or with `?ui=v2` / `?ui=classic`.
+
 ## v1.0.180
 
 - [Spice.Connect main] Self-hosted realtime: the Connect events stream LISTENs over node-postgres when the database URL is not Neon, instead of failing the Neon-only handshake and degrading everything to polling.

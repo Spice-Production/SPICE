@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -6,6 +7,8 @@ import { getMovieDetails } from '@/lib/tmdb';
 
 import MoviePlayer from './movie-player';
 import WatchSync from '../../../watch-sync';
+import { resolveSpiceUiV2ForRequest, SPICE_UI_V2_COOKIE } from '../../../ui-v2/preference';
+import { MovieWatchView } from '../../../ui-v2/watch/watch-detail';
 
 interface WatchParams {
   tmdbId: string;
@@ -25,7 +28,13 @@ function formatRuntime(minutes: number | null): string | null {
   return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
 }
 
-export default async function MovieWatchPage({ params }: { params: Promise<WatchParams> }) {
+export default async function MovieWatchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<WatchParams>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { tmdbId } = await params;
   const embedUrl = buildMovieEmbedUrl(tmdbId);
   if (!embedUrl) notFound();
@@ -34,6 +43,25 @@ export default async function MovieWatchPage({ params }: { params: Promise<Watch
   const meta = details
     ? [details.year, formatRuntime(details.runtimeMinutes), ...details.genres].filter(Boolean).join(' · ')
     : null;
+
+  const query = (await searchParams?.catch(() => undefined)) ?? {};
+  if (resolveSpiceUiV2ForRequest((await cookies()).get(SPICE_UI_V2_COOKIE)?.value, query.ui)) {
+    const title = details?.title ?? `Movie ${tmdbId}`;
+    return (
+      <MovieWatchView
+        tmdbId={tmdbId}
+        info={{
+          title,
+          tagline: details?.tagline ?? null,
+          meta: details ? [details.year, formatRuntime(details.runtimeMinutes), ...details.genres].filter((item): item is string => Boolean(item)) : [],
+          overview: details?.overview ?? null,
+          backdropUrl: details?.backdropUrl ?? null,
+          posterUrl: details?.posterUrl ?? null,
+        }}
+        sync={{ title, posterUrl: details?.posterUrl ?? null, year: details?.year ?? null, releaseDate: details?.releaseDate ?? null }}
+      />
+    );
+  }
 
   return (
     <main

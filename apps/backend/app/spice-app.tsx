@@ -53,13 +53,7 @@ import CommandPalette, { type CommandPaletteCommand } from './command-palette';
 import { isCommandPaletteShortcut } from './command-palette-core';
 import SpiceUiV2, { SPICE_UI_V2_HOST_CLASS } from './ui-v2/spice-ui-v2';
 import type { SpiceUiModel } from './ui-v2/model';
-import {
-  resolveSpiceUiV2Preference,
-  serializeSpiceUiV2Preference,
-  SPICE_UI_V2_DOCUMENT_ATTRIBUTE,
-  SPICE_UI_V2_QUERY_PARAM,
-  SPICE_UI_V2_STORAGE_KEY,
-} from './ui-v2/preference';
+import { persistSpiceUiV2Preference, resolveClientSpiceUiV2Preference } from './ui-v2/preference-client';
 import ThemeEditor from './theme-editor';
 import RuntimeDiagnosticsPanel from './runtime-diagnostics-panel';
 import MusicRuntimeSettingsPanel from './music-runtime-settings-panel';
@@ -92,6 +86,7 @@ import {
   type ShuffleHistoryState,
 } from './shuffle-history';
 import { buildHomeHistoryShelves } from './home-history';
+import { ACCENT_THEME_VARS, ARTWORK_RADIUS, cssDeclarations, SURFACE_THEME_VARS } from './theme-presets';
 import {
   createThemeCssVariables,
   DEFAULT_PURPLE_PALETTE,
@@ -3981,44 +3976,14 @@ export default function SpiceApp() {
   // UI v2 preview toggle. Classic stays the default until testers opt in from
   // Settings (or with ?ui=v2 / ?ui=classic links, which persist the choice).
   const [uiV2Enabled, setUiV2EnabledState] = useState(false);
-  const syncUiV2DocumentFlag = useCallback((enabled: boolean) => {
-    if (typeof document === 'undefined') return;
-    if (enabled) document.documentElement.setAttribute(SPICE_UI_V2_DOCUMENT_ATTRIBUTE, 'v2');
-    else document.documentElement.removeAttribute(SPICE_UI_V2_DOCUMENT_ATTRIBUTE);
-  }, []);
   const setUiV2Enabled = useCallback((enabled: boolean) => {
     setUiV2EnabledState(enabled);
-    syncUiV2DocumentFlag(enabled);
-    try {
-      localStorage.setItem(SPICE_UI_V2_STORAGE_KEY, serializeSpiceUiV2Preference(enabled));
-    } catch {
-      // Storage can be unavailable (private mode); the choice then lasts for this session.
-    }
-  }, [syncUiV2DocumentFlag]);
+    persistSpiceUiV2Preference(enabled);
+  }, []);
   useLayoutEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(SPICE_UI_V2_STORAGE_KEY);
-    } catch {
-      stored = null;
-    }
-    const url = new URL(window.location.href);
-    const queryValue = url.searchParams.get(SPICE_UI_V2_QUERY_PARAM);
-    const resolution = resolveSpiceUiV2Preference(stored, queryValue);
-    if (resolution.persist) {
-      try {
-        localStorage.setItem(SPICE_UI_V2_STORAGE_KEY, serializeSpiceUiV2Preference(resolution.enabled));
-      } catch {
-        // Ignore storage failures; the query parameter still applies to this visit.
-      }
-    }
-    if (queryValue !== null) {
-      url.searchParams.delete(SPICE_UI_V2_QUERY_PARAM);
-      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-    }
-    setUiV2EnabledState(resolution.enabled);
-    syncUiV2DocumentFlag(resolution.enabled);
-  }, [syncUiV2DocumentFlag]);
+    // Query > domain cookie > localStorage; persists links and strips ?ui=.
+    setUiV2EnabledState(resolveClientSpiceUiV2Preference());
+  }, []);
 
   // Load localStorage states safely on client mount to prevent SSR hydration mismatch
   useEffect(() => {
@@ -12586,171 +12551,16 @@ const getMaskedEmail = (email: string) => {
   };
 
   const getAccentStyles = () => {
-    let base = '';
-    switch (accentTheme) {
-      case 'blue':
-        base = `
-          :root {
-            --accent-pink: #3b82f6 !important;
-            --accent-pink-rgb: 59, 130, 246 !important;
-            --accent-purple: #06b6d4 !important;
-            --accent-violet: #3b82f6 !important;
-            --accent-cyan: #06b6d4 !important;
-            --accent-gradient: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
-            --text-accent: #93c5fd !important;
-          }
-        `;
-        break;
-      case 'orange':
-        base = `
-          :root {
-            --accent-pink: #f97316 !important;
-            --accent-pink-rgb: 249, 115, 22 !important;
-            --accent-purple: #ef4444 !important;
-            --accent-violet: #f97316 !important;
-            --accent-cyan: #ef4444 !important;
-            --accent-gradient: linear-gradient(135deg, #f97316, #ef4444) !important;
-            --text-accent: #fdba74 !important;
-          }
-        `;
-        break;
-      case 'green':
-        base = `
-          :root {
-            --accent-pink: #10b981 !important;
-            --accent-pink-rgb: 16, 185, 129 !important;
-            --accent-purple: #059669 !important;
-            --accent-violet: #10b981 !important;
-            --accent-cyan: #059669 !important;
-            --accent-gradient: linear-gradient(135deg, #10b981, #059669) !important;
-            --text-accent: #6ee7b7 !important;
-          }
-        `;
-        break;
-      case 'gold':
-        base = `
-          :root {
-            --accent-pink: #f59e0b !important;
-            --accent-pink-rgb: 245, 158, 11 !important;
-            --accent-purple: #d97706 !important;
-            --accent-violet: #f59e0b !important;
-            --accent-cyan: #d97706 !important;
-            --accent-gradient: linear-gradient(135deg, #f59e0b, #d97706) !important;
-            --text-accent: #fcd34d !important;
-          }
-        `;
-        break;
-      case 'crimson':
-        base = `
-          :root {
-            --accent-pink: #ff003c !important;
-            --accent-pink-rgb: 255, 0, 60 !important;
-            --accent-purple: #990011 !important;
-            --accent-violet: #ff003c !important;
-            --accent-cyan: #ff3366 !important;
-            --accent-gradient: linear-gradient(135deg, #ff003c, #990011) !important;
-            --text-accent: #ffa3b1 !important;
-          }
-        `;
-        break;
-      case 'deeppurple':
-        base = `
-          :root {
-            --accent-pink: #7c3aed !important;
-            --accent-pink-rgb: 124, 58, 237 !important;
-            --accent-purple: #4c1d95 !important;
-            --accent-violet: #7c3aed !important;
-            --accent-cyan: #3b0764 !important;
-            --accent-gradient: linear-gradient(135deg, #4c1d95, #120024) !important;
-            --text-accent: #c084fc !important;
-          }
-        `;
-        break;
-      default: // pink
-        base = `
-          :root {
-            --accent-pink: #ec4899 !important;
-            --accent-pink-rgb: 236, 72, 153 !important;
-            --accent-purple: #a855f7 !important;
-            --accent-violet: #a855f7 !important;
-            --accent-cyan: #ec4899 !important;
-            --accent-gradient: linear-gradient(135deg, #a855f7, #ec4899) !important;
-            --text-accent: #f9a8d4 !important;
-          }
-        `;
-        break;
-    }
+    let base = `
+      :root {
+        ${cssDeclarations(ACCENT_THEME_VARS[accentTheme] ?? ACCENT_THEME_VARS.pink, true)}
+      }
+    `;
 
-    const surfaceCssByMode: Record<VisualSurface, string> = {
-      midnight: `
-        --body-bg: #000000;
-        --card-bg: rgba(10, 10, 10, 0.92);
-        --border-color: rgba(255, 255, 255, 0.08);
-        --bg-primary: #000000;
-        --bg-surface: #0a0a0a;
-        --bg-surface-hover: #151515;
-        --bg-glass: rgba(8, 8, 10, 0.9);
-        --spice-app-background: #000000;
-        --spice-panel-filter: blur(20px);
-      `,
-      glass: `
-        --body-bg: #050507;
-        --card-bg: rgba(17, 17, 24, 0.68);
-        --border-color: rgba(255, 255, 255, 0.12);
-        --bg-primary: #050507;
-        --bg-surface: rgba(14, 14, 18, 0.78);
-        --bg-surface-hover: rgba(34, 34, 42, 0.82);
-        --bg-glass: rgba(12, 12, 18, 0.72);
-        --spice-app-background: radial-gradient(circle at 12% 8%, rgba(var(--accent-pink-rgb), 0.16), transparent 32%), #050507;
-        --spice-panel-filter: blur(24px);
-      `,
-      solid: `
-        --body-bg: #050505;
-        --card-bg: #111113;
-        --border-color: rgba(255, 255, 255, 0.1);
-        --bg-primary: #050505;
-        --bg-surface: #111113;
-        --bg-surface-hover: #1b1b1f;
-        --bg-glass: #0d0d10;
-        --spice-app-background: #050505;
-        --spice-panel-filter: none;
-      `,
-      aurora: `
-        --body-bg: #030305;
-        --card-bg: rgba(14, 12, 22, 0.78);
-        --border-color: rgba(var(--accent-pink-rgb), 0.16);
-        --bg-primary: #030305;
-        --bg-surface: rgba(12, 10, 18, 0.9);
-        --bg-surface-hover: rgba(35, 26, 48, 0.9);
-        --bg-glass: rgba(9, 8, 16, 0.78);
-        --spice-app-background: radial-gradient(circle at 16% 10%, rgba(var(--accent-pink-rgb), 0.22), transparent 28%), radial-gradient(circle at 86% 20%, rgba(168, 85, 247, 0.16), transparent 34%), #030305;
-        --spice-panel-filter: blur(24px);
-      `,
-      daylight: `
-        color-scheme: light;
-        --body-bg: #f5f3f8;
-        --card-bg: rgba(255, 255, 255, 0.94);
-        --border-color: rgba(32, 24, 45, 0.14);
-        --bg-primary: #f7f5fa;
-        --bg-surface: #ffffff;
-        --bg-surface-hover: #ece8f1;
-        --bg-surface-active: #e4deea;
-        --bg-glass: rgba(255, 255, 255, 0.86);
-        --bg-glass-hover: rgba(255, 255, 255, 0.96);
-        --text-primary: #19151f;
-        --text-secondary: #625b6b;
-        --text-muted: #8b8394;
-        --border-subtle: rgba(32, 24, 45, 0.11);
-        --border-glass: rgba(32, 24, 45, 0.12);
-        --spice-app-background: radial-gradient(circle at 16% 8%, rgba(var(--accent-pink-rgb), 0.1), transparent 30%), #f7f5fa;
-        --spice-panel-filter: blur(22px);
-      `,
-    };
-    const artRadiusByShape: Record<ArtworkShape, string> = {
-      rounded: '10px',
-      soft: '18px',
-      circle: '9999px',
-    };
+    const surfaceCssByMode = Object.fromEntries(
+      Object.entries(SURFACE_THEME_VARS).map(([surface, vars]) => [surface, cssDeclarations(vars)]),
+    ) as Record<VisualSurface, string>;
+    const artRadiusByShape: Record<ArtworkShape, string> = ARTWORK_RADIUS;
     const scaleCssByMode: Record<InterfaceScale, string> = {
       compact: '--sidebar-width: 240px; --now-playing-height: 78px; --spice-content-x: 32px; --spice-content-y: 24px;',
       comfortable: '--sidebar-width: 260px; --now-playing-height: 88px; --spice-content-x: 48px; --spice-content-y: 32px;',

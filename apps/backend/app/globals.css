@@ -6589,6 +6589,7 @@ h4 { font-size: 1rem; }
 
 /* UI v2 preview: hide the statically rendered classic shell for opted-in
    testers until the v2 tree mounts (see app/ui-v2/preference.ts). */
-html[data-spice-ui="v2"] .app {
+html[data-spice-ui="v2"] .app,
+html[data-spice-ui="v2"] .media-shell {
   visibility: hidden;
 }

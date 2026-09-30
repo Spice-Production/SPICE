@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import OfflineShellRegistration from "./offline-shell-registration";
 import { SPICE_UI_V2_BOOT_SCRIPT } from "./ui-v2/preference";
+import { SpiceUiV2PreferenceSync } from "./ui-v2/preference-client";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default function RootLayout({
       <body>
         {children}
         <OfflineShellRegistration />
+        <SpiceUiV2PreferenceSync />
         <SpeedInsights />
         <Analytics />
       </body>

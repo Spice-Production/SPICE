@@ -8,6 +8,8 @@ import MediaHero from '../media-hero';
 import { FilmIcon, TvIcon } from '../media-icons';
 import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
 import { WatchShelves } from '../watch-shelves';
+import { useSpiceUiV2 } from '../ui-v2/preference-client';
+import { WatchBrowseView } from '../ui-v2/watch/browse-view';
 
 interface ShowSpotlight {
   tmdbId: string;
@@ -89,6 +91,7 @@ export default function MoviePage() {
   const [shelvesLoading, setShelvesLoading] = useState(true);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(() => readAccountToken());
+  const ui = useSpiceUiV2();
   const [watchState, setWatchState] = useState<WatchState | null>(null);
   const [spotlight, setSpotlight] = useState<ShowSpotlight[]>([]);
 
@@ -189,6 +192,37 @@ export default function MoviePage() {
       }
       return { ...prev, watchlist: prev.watchlist.filter((entry) => !(entry.kind === 'movie' && entry.tmdbId === tmdbId)) };
     });
+  }
+
+  if (ui.enabled) {
+    // New interface: same state and handlers, rendered by the UI v2 browse view.
+    return (
+      <WatchBrowseView
+        model={{
+          kind: 'movie',
+          session: { token, watchState, onSignedIn: refreshWatchState, onSignOut: clearWatchState },
+          query,
+          setQuery,
+          runSearch: () => void runSearch(),
+          loading,
+          error,
+          searched,
+          hits,
+          resetSearch: () => { setSearched(false); setHits([]); setQuery(''); setError(null); },
+          shelves: SHELVES.map((shelf) => ({ key: shelf.key, title: shelf.title, items: shelves[shelf.key] })),
+          shelvesLoading,
+          shelvesError,
+          heroItems,
+          savedIds: savedMovieIds,
+          onHeroListChange,
+          onListRemoved: (tmdbId) =>
+            setWatchState((prev) =>
+              prev ? { ...prev, watchlist: prev.watchlist.filter((entry) => entry.tmdbId !== tmdbId) } : prev,
+            ),
+          spotlight,
+        }}
+      />
+    );
   }
 
   return (

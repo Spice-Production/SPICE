@@ -286,7 +286,8 @@ test('SPICE embedded header keeps an accessible profile menu and compact breakpo
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(styles, /\.app-topbar__profile-menu\s*\{[\s\S]*var\(--bg-primary\)/);
   assert.match(spiceApp, /type VisualSurface = [^;]*'daylight'/);
-  assert.match(spiceApp, /daylight:\s*`[\s\S]*--text-primary:\s*#19151f/);
+  const presets = read('apps/backend/app/theme-presets.ts');
+  assert.match(presets, /daylight:\s*\{[\s\S]*'--text-primary':\s*'#19151f'/);
   assert.match(spiceApp, /surface--\$\{visualSurface\}/);
 });
 

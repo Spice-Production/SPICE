@@ -1,19 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import MediaSignIn from './media-signin';
-import {
-  WATCH_LIST_STATUS_LABELS,
-  WATCH_LIST_STATUS_ORDER,
-  fetchWatchState,
-  readAccountToken,
-  reportProgress,
-  setWatchListStatus,
-  toggleWatchlist,
-  type WatchKind,
-  type WatchListStatus,
-} from './watch-client';
+import { WATCH_LIST_STATUS_LABELS, WATCH_LIST_STATUS_ORDER, type WatchListStatus } from './watch-client';
+import { useWatchSync, type WatchSyncProps } from './watch-sync-state';
 
 /**
  * One island per watch page: reports progress to the SPICE account (so the
@@ -22,58 +13,10 @@ import {
  * Dropped), and offers Mark watched. When signed out it collapses to a
  * compact sign-in instead of dead buttons.
  */
-export default function WatchSync({
-  kind,
-  tmdbId,
-  title,
-  posterUrl,
-  year,
-  releaseDate,
-  season = 0,
-  episode = 0,
-  episodeLabel,
-}: {
-  kind: WatchKind;
-  tmdbId: string;
-  title: string;
-  posterUrl?: string | null;
-  year?: string | null;
-  releaseDate?: string | null;
-  season?: number;
-  episode?: number;
-  episodeLabel?: string;
-}) {
-  const [token, setToken] = useState<string | null>(() => readAccountToken());
-  const [status, setStatus] = useState<WatchListStatus | null>(null);
-  const [known, setKnown] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [busy, setBusy] = useState(false);
+export default function WatchSync(props: WatchSyncProps) {
+  const { episodeLabel } = props;
+  const { token, setToken, status, known, completed, busy, pickStatus: saveStatus, removeFromList: removeEntry, markWatched } = useWatchSync(props);
   const [pickerOpen, setPickerOpen] = useState(false);
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    reportProgress(token, { kind, tmdbId, title, posterUrl, season, episode }).catch(() => null);
-    fetchWatchState(token)
-      .then((state) => {
-        if (cancelled) return;
-        const row = state.watchlist.find((entry) => entry.kind === kind && entry.tmdbId === tmdbId);
-        const shelf = row?.status as WatchListStatus | null | undefined;
-        setStatus(shelf && (WATCH_LIST_STATUS_ORDER as string[]).includes(shelf) ? shelf : row ? 'watch_later' : null);
-        setKnown(true);
-        setCompleted(
-          state.completed.some(
-            (entry) => entry.kind === kind && entry.tmdbId === tmdbId && entry.season === season && entry.episode === episode,
-          ),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setToken(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, kind, tmdbId, title, posterUrl, season, episode]);
 
   if (!token) {
     return (
@@ -83,50 +26,18 @@ export default function WatchSync({
     );
   }
 
-  async function pickStatus(next: WatchListStatus) {
+  function pickStatus(next: WatchListStatus) {
     setPickerOpen(false);
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (status === null) {
-        await toggleWatchlist(token as string, { kind, tmdbId, title, posterUrl, year, releaseDate }, false, next);
-      } else {
-        await setWatchListStatus(token as string, { kind, tmdbId, status: next });
-      }
-      setStatus(next);
-      setKnown(true);
-    } catch {
-      /* shelf refreshes next visit; keep the old state */
-    } finally {
-      setBusy(false);
-    }
+    void saveStatus(next);
   }
 
-  async function removeFromList() {
+  function removeFromList() {
     setPickerOpen(false);
-    if (busy || status === null) return;
-    setBusy(true);
-    try {
-      await toggleWatchlist(token as string, { kind, tmdbId, title }, true);
-      setStatus(null);
-    } catch {
-      /* shelf refreshes next visit */
-    } finally {
-      setBusy(false);
-    }
+    void removeEntry();
   }
 
-  async function onCompleted() {
-    setBusy(true);
-    try {
-      await reportProgress(token as string, { kind, tmdbId, title, posterUrl, season, episode, completed: true });
-      setCompleted(true);
-      if (status !== null) setStatus('completed');
-    } catch {
-      /* ignore; retry next visit */
-    } finally {
-      setBusy(false);
-    }
+  function onCompleted() {
+    void markWatched();
   }
 
   return (

@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -5,6 +6,8 @@ import { normalizeTmdbMovieId } from '@/lib/movie-provider';
 import { getShowDetails } from '@/lib/tmdb';
 
 import ShowPlayer from './show-player';
+import { resolveSpiceUiV2ForRequest, SPICE_UI_V2_COOKIE } from '../../../ui-v2/preference';
+import { ShowWatchView } from '../../../ui-v2/watch/watch-detail';
 
 interface WatchParams {
   id: string;
@@ -41,6 +44,31 @@ export default async function ShowWatchPage({
   const initialEpisode = asPositiveInt(query.e);
 
   const meta = [details.year, details.status, ...details.genres].filter(Boolean).join(' · ');
+
+  if (resolveSpiceUiV2ForRequest((await cookies()).get(SPICE_UI_V2_COOKIE)?.value, query.ui)) {
+    return (
+      <ShowWatchView
+        info={{
+          title: details.title,
+          tagline: details.tagline ?? null,
+          meta: [details.year, details.status, ...details.genres].filter((item): item is string => Boolean(item)),
+          overview: details.overview ?? null,
+          backdropUrl: details.backdropUrl ?? null,
+          posterUrl: details.posterUrl ?? null,
+        }}
+        player={{
+          tmdbId: details.tmdbId,
+          title: details.title,
+          posterUrl: details.posterUrl,
+          year: details.year,
+          releaseDate: details.releaseDate,
+          seasons: details.seasons,
+          initialSeason,
+          initialEpisode,
+        }}
+      />
+    );
+  }
 
   return (
     <main

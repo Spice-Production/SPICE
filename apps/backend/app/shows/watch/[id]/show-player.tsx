@@ -1,93 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
-
+import { useShowPlayer, type ShowPlayerProps } from '../../../watch-player-state';
 import { ProviderTabs, WatchFrame } from '../../../watch-frame';
 import WatchSync from '../../../watch-sync';
 
-interface SeasonSummary {
-  seasonNumber: number;
-  name: string;
-  episodeCount: number;
-}
-
-interface Episode {
-  episodeNumber: number;
-  name: string;
-  overview: string;
-  stillUrl: string | null;
-  runtimeMinutes: number | null;
-}
-
-interface ShowPlayerProps {
-  tmdbId: string;
-  title: string;
-  posterUrl?: string | null;
-  year?: string | null;
-  releaseDate?: string | null;
-  seasons: SeasonSummary[];
-  initialSeason?: number;
-  initialEpisode?: number;
-}
-
-export default function ShowPlayer({ tmdbId, title, posterUrl, year, releaseDate, seasons, initialSeason, initialEpisode }: ShowPlayerProps) {
-  const available = seasons.filter((s) => s.seasonNumber > 0 && s.episodeCount > 0);
-  const [season, setSeason] = useState(
-    initialSeason && available.some((s) => s.seasonNumber === initialSeason) ? initialSeason : (available[0]?.seasonNumber ?? 1),
-  );
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [episode, setEpisode] = useState(initialEpisode && initialEpisode >= 1 ? initialEpisode : 1);
-  const [loadingList, setLoadingList] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/shows/${tmdbId}?season=${season}`, {
-          headers: { 'x-spice-api-namespace': 'local' },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || 'Could not load episodes.');
-        if (cancelled) return;
-        const list: Episode[] = Array.isArray(data.episodes) ? data.episodes : [];
-        setEpisodes(list);
-        setEpisode((prev) => (list.some((e) => e.episodeNumber === prev) ? prev : (list[0]?.episodeNumber ?? 1)));
-        setListError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setEpisodes([]);
-        setListError(err instanceof Error ? err.message : 'Could not load episodes.');
-      } finally {
-        if (!cancelled) setLoadingList(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [tmdbId, season]);
-
-  const pickEpisode = useCallback((next: number) => {
-    setEpisode(next);
-  }, []);
-
-  const current = episodes.find((e) => e.episodeNumber === episode);
-  const providerUrls = useMemo(
-    () =>
-      streamProviders()
-        .map((provider) => ({ id: provider.id, label: provider.label, url: provider.tvUrl(tmdbId, season, episode) }))
-        .filter((entry) => entry.url !== null),
-    [tmdbId, season, episode],
-  );
-  const [providerId, setProviderId] = useState(() => {
-    const stored = loadPreferredProvider(DEFAULT_STREAM_PROVIDER_ID);
-    return providerUrls.some((entry) => entry.id === stored) ? stored : (providerUrls[0]?.id ?? DEFAULT_STREAM_PROVIDER_ID);
-  });
-  const activeUrl = providerUrls.find((entry) => entry.id === providerId)?.url ?? providerUrls[0]?.url ?? null;
-  const hasNext = episodes.some((e) => e.episodeNumber === episode + 1);
+export default function ShowPlayer(props: ShowPlayerProps) {
+  const { tmdbId, title, posterUrl, year, releaseDate } = props;
+  const {
+    available,
+    season,
+    selectSeason,
+    episodes,
+    episode,
+    pickEpisode,
+    current,
+    hasNext,
+    loadingList,
+    listError,
+    providerUrls,
+    providerId,
+    pickProvider,
+    activeUrl,
+  } = useShowPlayer(props);
 
   return (
     <div>
@@ -105,10 +39,7 @@ export default function ShowPlayer({ tmdbId, title, posterUrl, year, releaseDate
       <ProviderTabs
         sources={providerUrls.map((entry) => ({ ...entry, disabled: false }))}
         activeId={providerId}
-        onPick={(id) => {
-          setProviderId(id);
-          savePreferredProvider(id);
-        }}
+        onPick={pickProvider}
       />
       {activeUrl ? (
         <WatchFrame key={`${providerId}:${season}:${episode}`} src={activeUrl} title={`${title} S${season} E${episode} player`} frameKey={`${providerId}:${season}:${episode}`} />
@@ -143,7 +74,7 @@ export default function ShowPlayer({ tmdbId, title, posterUrl, year, releaseDate
         <select
           id="show-season"
           value={season}
-          onChange={(e) => { setSeason(Number(e.target.value)); setLoadingList(true); setListError(null); }}
+          onChange={(e) => selectSeason(Number(e.target.value))}
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', color: '#f1f5f9', padding: '8px 12px', fontSize: '0.9rem' }}
         >
           {available.map((s) => (
