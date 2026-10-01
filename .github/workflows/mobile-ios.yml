@@ -19,7 +19,7 @@ concurrency:
 jobs:
   ios:
     name: Mobile (Expo) iOS unsigned IPA
-    runs-on: macos-15
+    runs-on: macos-26 # Expo SDK 57 needs Swift 6.2 (Xcode 26)
     timeout-minutes: 60
     defaults:
       run:
