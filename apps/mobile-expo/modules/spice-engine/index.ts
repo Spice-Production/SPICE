@@ -80,6 +80,8 @@ type SpiceEngineEvents = {
   onTrackRepeated(event: Record<string, never>): void;
   onCrossfadeCompleted(event: { trackKey: string }): void;
   onCrossfadeFailed(event: { trackKey: string }): void;
+  /** iOS lock-screen skip buttons; Android's playback service handles them natively. */
+  onRemoteCommand(event: { command: 'next' | 'previous' }): void;
 };
 
 declare class SpiceEngineModule extends NativeModule<SpiceEngineEvents> {
@@ -109,5 +111,8 @@ declare class SpiceEngineModule extends NativeModule<SpiceEngineEvents> {
   drainBackgroundHistory(): EngineHistoryEntry[];
 }
 
-/** Null on platforms without the native engine (iOS until its engine lands, tests). */
+/**
+ * Null where the native engine is missing (tests). The iOS engine only plays
+ * audio: search, resolution, priority, and history functions are Android-only.
+ */
 export const SpiceEngine = requireOptionalNativeModule<SpiceEngineModule>('SpiceEngine');

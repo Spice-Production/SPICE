@@ -1,0 +1,70 @@
+name: Mobile iOS
+
+# Builds an unsigned Spice Next .ipa for sideloading (AltStore, Sideloadly, or
+# an EU alternative marketplace re-sign it with the tester's own Apple ID).
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/mobile-expo/**"
+      - ".github/workflows/mobile-ios.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Mobile (Expo) iOS unsigned IPA
+    runs-on: macos-26 # Expo SDK 57 needs Swift 6.2 (Xcode 26)
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/mobile-expo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile-expo/package-lock.json
+      - name: Install Expo app
+        run: npm ci
+      - name: Generate iOS project
+        run: npx expo prebuild --platform ios
+      - name: Build unsigned app
+        working-directory: apps/mobile-expo/ios
+        run: |
+          set -o pipefail
+          workspace="$(ls -d *.xcworkspace | head -n 1)"
+          scheme="${workspace%.xcworkspace}"
+          xcodebuild \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee xcodebuild.log | grep -E "error:|warning: unre|\*\* BUILD|^▸|CompileSwift.*SpiceEngine" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" xcodebuild.log
+      - name: Show build errors
+        if: failure()
+        working-directory: apps/mobile-expo/ios
+        run: grep -E "error:|fatal error" -B 2 -A 6 xcodebuild.log | tail -n 200 || tail -n 120 xcodebuild.log
+      - name: Package IPA
+        working-directory: apps/mobile-expo/ios
+        run: |
+          app="$(ls -d build/Build/Products/Release-iphoneos/*.app | head -n 1)"
+          mkdir -p Payload
+          cp -R "$app" Payload/
+          zip -qry spice-next-unsigned.ipa Payload
+          ls -lh spice-next-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spice-next-ios-unsigned
+          path: apps/mobile-expo/ios/spice-next-unsigned.ipa
+          if-no-files-found: error

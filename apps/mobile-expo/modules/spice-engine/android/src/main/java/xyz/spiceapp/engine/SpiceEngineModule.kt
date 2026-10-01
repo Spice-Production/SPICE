@@ -45,6 +45,8 @@ class SpiceEngineModule : Module() {
             "onTrackRepeated",
             "onCrossfadeCompleted",
             "onCrossfadeFailed",
+            // Emitted by the iOS engine only; declared so JS can subscribe everywhere.
+            "onRemoteCommand",
         )
 
         OnDestroy {

@@ -1,6 +1,7 @@
 import { FlatList, Keyboard, Pressable, View } from 'react-native';
 
 import { SEARCH_PROVIDERS, type Track } from '../../core/models';
+import { engine } from '../../engine/engine';
 import { useController, useSpice } from '../context';
 import { Icon } from '../icons';
 import { TrackRow } from '../media';
@@ -39,17 +40,19 @@ export function SearchScreen({ bottomInset, onTrackMenu }: { bottomInset: number
           ) : undefined
         }
       />
-      <Segmented
-        options={SEARCH_PROVIDERS.map((provider) => ({
-          id: provider.id,
-          label: provider.id === 'All' ? 'All sources' : provider.id,
-        }))}
-        value={state.provider}
-        onChange={(provider) => {
-          controller.setSearchProvider(provider);
-          if (state.query.trim()) controller.search();
-        }}
-      />
+      {engine.searchProviders.length > 1 ? (
+        <Segmented
+          options={SEARCH_PROVIDERS.map((provider) => ({
+            id: provider.id,
+            label: provider.id === 'All' ? 'All sources' : provider.id,
+          }))}
+          value={state.provider}
+          onChange={(provider) => {
+            controller.setSearchProvider(provider);
+            if (state.query.trim()) controller.search();
+          }}
+        />
+      ) : null}
     </View>
   );
 
