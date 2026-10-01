@@ -74,6 +74,8 @@ function normalizeShellTheme(value) {
       ? source.surface
       : DEFAULT_SHELL_THEME.surface,
   };
+  // Present only while the web app's UI v2 preview is on.
+  if (source.ui === "v2") theme.ui = "v2";
   const custom = normalizeCustomShellTheme(source.custom);
   return custom ? { ...theme, custom } : theme;
 }

@@ -171,6 +171,8 @@
                 root.dataset.spiceSurface = surfaces.includes(source.surface)
                     ? source.surface
                     : "midnight";
+                if (source.ui === "v2") root.dataset.spiceUi = "v2";
+                else delete root.dataset.spiceUi;
 
                 const properties = [
                     "--accent",

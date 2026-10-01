@@ -4,6 +4,7 @@
    ================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 /* ── Design Tokens ────────────────────────────────────────────── */
 :root {
@@ -618,3 +619,125 @@ button:focus-visible {
     outline-offset: 2px;
 }
 input:focus-visible { outline: none; }
+
+/* ── UI v2 preview ─────────────────────────────────────────────
+   Follows the web app's UI v2 toggle: flat surfaces, hairline borders,
+   Geist, and no gradients or glow. Accent themes still apply. */
+:root[data-spice-ui="v2"] {
+    --bg-obsidian: #000;
+    --surface: rgba(255, 255, 255, 0.04);
+    --surface-hover: rgba(255, 255, 255, 0.07);
+    --surface-active: rgba(255, 255, 255, 0.1);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --accent-gradient: var(--accent);
+    --accent-glow: transparent;
+    --shell-background: #000;
+    --shell-surface: #0a0a0a;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --bg-color: #000;
+    --card-bg: #0a0a0a;
+    --text-color: #fafafa;
+}
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] {
+    --bg-obsidian: #f7f5fa;
+    --surface: rgba(25, 21, 31, 0.04);
+    --surface-hover: rgba(25, 21, 31, 0.07);
+    --surface-active: rgba(25, 21, 31, 0.1);
+    --border-glass: rgba(32, 24, 45, 0.14);
+    --shell-background: #f7f5fa;
+    --shell-surface: #fff;
+    --text-primary: #19151f;
+    --text-secondary: #625b6b;
+    --text-muted: #8b8394;
+    --bg-color: #f7f5fa;
+    --card-bg: #fff;
+    --text-color: #19151f;
+}
+:root[data-spice-ui="v2"] body,
+:root[data-spice-ui="v2"] .font-sans {
+    font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+}
+:root[data-spice-ui="v2"] .spice-titlebar { border-bottom-color: var(--border-glass) !important; }
+:root[data-spice-ui="v2"] .spice-player-bar,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .spice-player-bar { background: var(--shell-surface); }
+:root[data-spice-ui="v2"] .theme-home-bg { background: var(--shell-background); }
+:root[data-spice-ui="v2"] .native-auth::before,
+:root[data-spice-ui="v2"] .native-auth__orb { display: none; }
+:root[data-spice-ui="v2"] .native-auth__panel {
+    border-color: var(--border-glass);
+    border-radius: 16px;
+    background: var(--shell-surface);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+:root[data-spice-ui="v2"] .native-auth__mark { border-color: transparent; border-radius: 12px; box-shadow: none; }
+:root[data-spice-ui="v2"] .native-auth__eyebrow { color: var(--text-secondary); }
+:root[data-spice-ui="v2"] .native-auth__tabs button.is-active {
+    color: var(--text-primary);
+    background: var(--surface-active);
+    box-shadow: none;
+}
+:root[data-spice-ui="v2"] .theme-text-glow { text-shadow: none; }
+:root[data-spice-ui="v2"] .theme-gradient-text {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--text-primary);
+}
+:root[data-spice-ui="v2"] .theme-card:hover {
+    border-color: var(--surface-active) !important;
+    box-shadow: none !important;
+}
+:root[data-spice-ui="v2"] .theme-primary-btn { box-shadow: none; }
+:root[data-spice-ui="v2"] .theme-dialog {
+    background: var(--shell-surface) !important;
+    border-color: var(--border-glass) !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+:root[data-spice-ui="v2"] .play-btn,
+:root[data-spice-ui="v2"] .play-btn:hover {
+    background: var(--text-primary);
+    color: var(--shell-background);
+    box-shadow: none;
+}
+:root[data-spice-ui="v2"] .play-btn:hover { opacity: 0.88; }
+:root[data-spice-ui="v2"] .glass,
+:root[data-spice-ui="v2"] .glass-strong {
+    background: var(--shell-surface);
+    border-color: var(--border-glass);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+:root[data-spice-ui="v2"] .animate-pulse-glow { animation: none; }
+:root[data-spice-ui="v2"] input[type="range"]:hover::-webkit-slider-thumb { box-shadow: none; }
+:root[data-spice-ui="v2"] .modal-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* UI v2 Daylight: the shell's utility classes assume a dark surface. */
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .spice-shell,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-white,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] [class*="hover:text-white"]:hover { color: var(--text-primary); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .theme-primary-btn.text-white,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .win-close:hover { color: #fff; }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-300,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-400,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .nav-btn,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .win-btn,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .ctrl-btn { color: var(--text-secondary); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-500,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-600,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-700,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .text-gray-800 { color: var(--text-muted); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .nav-btn:hover,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .win-btn:not(.win-close):hover,
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] .ctrl-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] [class*="bg-white/"],
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] [class*="bg-black/40"] { background-color: var(--surface); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] [class*="border-white/"] { border-color: var(--border-glass); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] input[type="range"]::-webkit-slider-runnable-track { background: var(--surface-active); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] input[type="range"]::-webkit-slider-thumb { background: var(--text-primary); }
+:root[data-spice-ui="v2"][data-spice-surface="daylight"] ::-webkit-scrollbar-thumb { background: var(--surface-active); }
