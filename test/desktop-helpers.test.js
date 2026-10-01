@@ -34,6 +34,16 @@ test("normalizes supported shell themes and rejects unknown values", () => {
   );
 });
 
+test("carries the UI v2 preview flag only when the web app enables it", () => {
+  assert.deepEqual(normalizeShellTheme({ accent: "blue", surface: "daylight", ui: "v2" }), {
+    accent: "blue",
+    surface: "daylight",
+    ui: "v2",
+  });
+  assert.equal("ui" in normalizeShellTheme({ ui: "classic" }), false);
+  assert.equal("ui" in normalizeShellTheme({ ui: "v2; x" }), false);
+});
+
 test("normalizes safe custom shell palettes and rejects injected colors", () => {
   const custom = {
     primary: "#a855f7",

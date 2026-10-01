@@ -498,11 +498,13 @@ function installSpiceDesktopUiBridge() {
         let accent = 'pink';
         let surface = 'midnight';
         let custom = null;
+        let ui = null;
         try {
             const savedAccent = window.localStorage.getItem('spice_accent_theme');
             const savedSurface = window.localStorage.getItem('spice_visual_surface');
             if (validAccents.has(savedAccent)) accent = savedAccent;
             if (validSurfaces.has(savedSurface)) surface = savedSurface;
+            if (window.localStorage.getItem('spice_ui_v2_enabled') === 'true') ui = 'v2';
             if (window.localStorage.getItem('spice_custom_theme_enabled') === 'true') {
                 custom = defaultCustomPalette;
                 const savedPalette = window.localStorage.getItem('spice_custom_theme_palette');
@@ -523,7 +525,7 @@ function installSpiceDesktopUiBridge() {
             }
         } catch (_) {}
 
-        const theme = { accent, surface, custom };
+        const theme = ui ? { accent, surface, custom, ui } : { accent, surface, custom };
         const signature = JSON.stringify(theme);
         if (signature === lastThemeSignature) return;
         lastThemeSignature = signature;

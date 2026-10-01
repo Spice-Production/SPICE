@@ -72,6 +72,7 @@
             accent: accents.includes(value.accent) ? value.accent : 'deeppurple',
             surface: surfaces.includes(value.surface) ? value.surface : 'midnight',
         };
+        if (value.ui === 'v2') theme.ui = 'v2';
         var custom = value.custom;
         if (custom && typeof custom === 'object' &&
             ['primary', 'secondary', 'highlight', 'background', 'surface', 'glass', 'border', 'primaryRgb']
@@ -86,6 +87,7 @@
         var root = document.documentElement;
         root.dataset.spiceAccent = theme.accent;
         root.dataset.spiceSurface = theme.surface;
+        if (theme.ui) root.dataset.spiceUi = theme.ui; else delete root.dataset.spiceUi;
         var properties = ['--accent', '--accent-hover', '--accent-secondary', '--accent-rgb', '--accent-gradient', '--shell-background', '--shell-surface', '--border-glass', '--bg-obsidian', '--card-bg', '--accent-yt', '--accent-sc'];
         properties.forEach(function(property) { root.style.removeProperty(property); });
         if (theme.custom) {

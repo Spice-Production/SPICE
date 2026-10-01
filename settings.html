@@ -1047,6 +1047,8 @@
                 document.documentElement.dataset.spiceSurface = surfaces.includes(theme && theme.surface)
                     ? theme.surface
                     : "midnight";
+                if (theme && theme.ui === "v2") document.documentElement.dataset.spiceUi = "v2";
+                else delete document.documentElement.dataset.spiceUi;
 
                 const root = document.documentElement;
                 const properties = [
