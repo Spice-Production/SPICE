@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { Share } from 'react-native';
+import { Platform, Share } from 'react-native';
 
 import { accountBlockFromError, SpiceApi } from '../core/api';
 import {
@@ -101,7 +101,7 @@ import { awaitRemoteEvent } from './realtime';
 import { Mutex, Store, delay } from './store';
 import type { UiState } from './types';
 
-const DISPLAY_NAME = 'Spice Android';
+const DISPLAY_NAME = Platform.OS === 'ios' ? 'Spice iPhone' : 'Spice Android';
 const USER_AGENT = 'Spice-Mobile/1.0';
 const SEARCH_DEBOUNCE_MS = 400;
 const AUTO_HISTORY_SYNC_DEBOUNCE_MS = 90_000;
@@ -314,6 +314,7 @@ export class SpiceController {
       onTrackRepeated: () => this.handleTrackRepeated(),
       onCrossfadeCompleted: (trackKey) => this.handleCrossfadeCompleted(trackKey),
       onCrossfadeFailed: (trackKey) => this.handleCrossfadeFailed(trackKey),
+      onRemoteCommand: (command) => (command === 'next' ? this.playNext() : this.playPrevious()),
     });
     void engine.connect().then((state) => this.handlePlayerState(state));
     this.drainBackgroundHistory();

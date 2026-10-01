@@ -11,6 +11,9 @@ import {
 } from '../../modules/spice-engine';
 import type { RepeatMode, ResolvedPlayback, SearchProvider, StreamQuality, Track } from '../core/models';
 import { makeTrack } from '../core/models';
+import { parseTrackPriorities, updateTrackPriorityPayload } from '../core/priorities';
+import { SoundCloudClient, applePlayableStream } from '../core/soundcloud';
+import { prefs } from '../data/prefs';
 
 export type PlayerState = {
   connected: boolean;
@@ -76,12 +79,30 @@ export type EngineListeners = {
   onTrackRepeated(): void;
   onCrossfadeCompleted(trackKey: string): void;
   onCrossfadeFailed(trackKey: string): void;
+  onRemoteCommand(command: 'next' | 'previous'): void;
 };
 
-const UNAVAILABLE =
-  Platform.OS === 'ios'
-    ? 'Native playback for iPhone is not built yet. SPICE on iOS currently needs the web player.'
-    : 'The SPICE native audio engine is not available in this build.';
+const UNAVAILABLE = 'The SPICE native audio engine is not available in this build.';
+
+// The Android engine also resolves streams and stores shuffle priorities, so its
+// playback service can continue the queue without JS. The iOS engine only plays
+// audio: the app keeps running while audio plays, so those stay in JS there.
+const nativeResolves = typeof SpiceEngine?.search === 'function';
+const nativePriorities = typeof SpiceEngine?.trackPriority === 'function';
+
+const soundCloud = new SoundCloudClient(
+  (url, init) => fetch(url, init),
+  Platform.OS === 'ios' ? applePlayableStream : undefined,
+);
+
+const PRIORITY_PREF = 'engine_track_priorities';
+let priorityCache: { payload: string; scores: Map<string, number> } | null = null;
+
+function jsPriorities() {
+  const payload = prefs.getString(PRIORITY_PREF, '[]');
+  if (priorityCache?.payload !== payload) priorityCache = { payload, scores: parseTrackPriorities(payload) };
+  return priorityCache;
+}
 
 function native() {
   if (!SpiceEngine) throw new Error(UNAVAILABLE);
@@ -125,6 +146,7 @@ export const engine = {
       SpiceEngine.addListener('onTrackRepeated', () => listeners.onTrackRepeated()),
       SpiceEngine.addListener('onCrossfadeCompleted', (event) => listeners.onCrossfadeCompleted(event.trackKey)),
       SpiceEngine.addListener('onCrossfadeFailed', (event) => listeners.onCrossfadeFailed(event.trackKey)),
+      SpiceEngine.addListener('onRemoteCommand', (event) => listeners.onRemoteCommand(event.command)),
     ];
     return () => subscriptions.forEach((subscription) => subscription.remove());
   },
@@ -134,11 +156,16 @@ export const engine = {
     return toPlayerState(await SpiceEngine.connect());
   },
 
+  /** Search sources this build can reach; YouTube needs the Android engine's extractor. */
+  searchProviders: (nativeResolves ? ['All', 'YouTube', 'SoundCloud'] : ['SoundCloud']) as readonly SearchProvider[],
+
   async search(query: string, limit: number, provider: SearchProvider): Promise<Track[]> {
+    if (!nativeResolves) return provider === 'YouTube' ? [] : soundCloud.search(query.trim(), Math.min(Math.max(limit, 1), 30));
     return (await native().search(query, limit, provider)).map(fromEngineTrack);
   },
 
   async resolvePlayable(track: Track, quality: StreamQuality): Promise<ResolvedPlayback> {
+    if (!nativeResolves) return soundCloud.resolvePlayable(track, quality);
     const playback = await native().resolvePlayable(toEngineTrack(track), quality);
     return { track: fromEngineTrack(playback.track), stream: playback.stream, usedFallback: playback.usedFallback };
   },
@@ -185,19 +212,26 @@ export const engine = {
   },
 
   trackPriority(trackKey: string): number {
-    return SpiceEngine ? SpiceEngine.trackPriority(trackKey) : 0;
+    if (!nativePriorities) return jsPriorities().scores.get(trackKey) ?? 0;
+    return native().trackPriority(trackKey);
   },
   recordTrackFeedback(trackKey: string, feedback: EngineFeedback): number {
-    return SpiceEngine ? SpiceEngine.recordTrackFeedback(trackKey, feedback) : 0;
+    if (!nativePriorities) {
+      const update = updateTrackPriorityPayload(jsPriorities().payload, trackKey, feedback);
+      prefs.set(PRIORITY_PREF, update.payload);
+      return update.updatedScore;
+    }
+    return native().recordTrackFeedback(trackKey, feedback);
   },
   trackPriorityPayload(): string {
-    return SpiceEngine ? SpiceEngine.trackPriorityPayload() : '[]';
+    return nativePriorities ? native().trackPriorityPayload() : jsPriorities().payload;
   },
   replaceTrackPriorities(payload: string): void {
-    SpiceEngine?.replaceTrackPriorities(payload);
+    if (nativePriorities) native().replaceTrackPriorities(payload);
+    else prefs.set(PRIORITY_PREF, payload);
   },
   drainBackgroundHistory(): (Track & { playedAt: number })[] {
-    if (!SpiceEngine) return [];
+    if (!SpiceEngine || typeof SpiceEngine.drainBackgroundHistory !== 'function') return [];
     return SpiceEngine.drainBackgroundHistory().map((entry: EngineHistoryEntry) => ({
       ...fromEngineTrack(entry),
       playedAt: entry.playedAt,

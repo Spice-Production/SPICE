@@ -30,6 +30,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'xyz.spiceapp.mobile',
+    infoPlist: {
+      // Keeps the app, and so the JS queue, running while audio plays.
+      UIBackgroundModes: ['audio'],
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: applicationId,

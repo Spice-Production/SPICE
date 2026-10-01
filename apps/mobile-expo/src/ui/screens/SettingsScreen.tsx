@@ -5,6 +5,7 @@ import { Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { profileInitials } from '../../core/format';
 import { ACCENT_THEMES, STREAM_QUALITIES, type AuthMode } from '../../core/models';
 import { CROSSFADE_OPTIONS_MS } from '../../core/playback';
+import { engine } from '../../engine/engine';
 import { useController, useSpice } from '../context';
 import { Icon } from '../icons';
 import {
@@ -386,12 +387,18 @@ function AppearanceSection() {
         onChange={(value) => controller.setSurfaceTheme(value)}
       />
       <Divider />
-      <SectionHeader title="Search sources" description="Combine providers or keep searches on one of them." />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <Chip label="YouTube + SoundCloud" selected={provider === 'All'} onPress={() => controller.setSearchProvider('All')} />
-        <Chip label="YouTube" icon="youtube" selected={provider === 'YouTube'} onPress={() => controller.setSearchProvider('YouTube')} />
-        <Chip label="SoundCloud" icon="cloud" selected={provider === 'SoundCloud'} onPress={() => controller.setSearchProvider('SoundCloud')} />
-      </View>
+      {engine.searchProviders.length > 1 ? (
+        <>
+          <SectionHeader title="Search sources" description="Combine providers or keep searches on one of them." />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Chip label="YouTube + SoundCloud" selected={provider === 'All'} onPress={() => controller.setSearchProvider('All')} />
+            <Chip label="YouTube" icon="youtube" selected={provider === 'YouTube'} onPress={() => controller.setSearchProvider('YouTube')} />
+            <Chip label="SoundCloud" icon="cloud" selected={provider === 'SoundCloud'} onPress={() => controller.setSearchProvider('SoundCloud')} />
+          </View>
+        </>
+      ) : (
+        <SectionHeader title="Search sources" description="This build searches and plays from SoundCloud." />
+      )}
     </Card>
   );
 }
