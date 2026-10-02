@@ -100,6 +100,8 @@ import { pairedCredentialStore, sessionStore } from '../data/secure';
 import { EMPTY_PLAYER_STATE, engine, type PlayerState } from '../engine/engine';
 import type { AppUpdateInfo } from '../core/update';
 import { appUpdatesSupported, downloadUpdate, findLatestUpdate, installUpdate } from '../data/update';
+import { LanTransport, lanSignalToJson, lanTimestamp, parseLanTimestamp } from '../core/lan';
+import { createLanPeerConnection } from './lanWebrtc';
 import { awaitRemoteEvent } from './realtime';
 import { Mutex, Store, delay } from './store';
 import type { UiState } from './types';
@@ -198,6 +200,9 @@ export class SpiceController {
   private downloadCancelled = false;
   private unsubscribeEngine: (() => void) | null = null;
   private unsubscribeLikeMirror: (() => void) | null = null;
+  private lan: LanTransport | null = null;
+  private lastLanFingerprint: string | null = null;
+  private readonly bootedAtMs = Date.now();
   private unsubscribeLibrary: (() => void) | null = null;
 
   constructor() {
@@ -1241,6 +1246,7 @@ export class SpiceController {
 
   private handlePlayerState(player: PlayerState) {
     this.set({ player });
+    this.broadcastLanState();
     const restoring = this.restoreLocalPlaybackContextIfNeeded(player);
     if (!restoring) this.updateObservedShuffleState(player);
     this.evaluatePlaybackTransition(player);
@@ -2388,6 +2394,7 @@ export class SpiceController {
     this.set({ selectedPlaybackDeviceId: normalized, connectStatus: `Player controls now target ${target.displayName}.` });
     if (previous && previous !== normalized) this.sendRemoteCommand(previous, 'connect', { connected: false });
     if (previous !== normalized) this.sendRemoteCommand(normalized, 'connect', { connected: true });
+    void this.lan?.ensureConnection(normalized);
     if (target.isOnline && this.state.currentTrack) this.handoffPlaybackToSelectedDevice();
   }
 
@@ -2397,6 +2404,7 @@ export class SpiceController {
     const removed = before.remoteDevices.find((device) => device.deviceId === deviceId);
     if (!removed) return;
     const wasSelected = before.selectedPlaybackDeviceId === deviceId;
+    this.lan?.disconnect(deviceId);
     this.optimisticallyForgottenRemoteDeviceIds.add(deviceId);
     if (wasSelected) {
       this.clearOptimisticRemoteState(deviceId);
@@ -2488,9 +2496,16 @@ export class SpiceController {
       return;
     }
     const target = this.state.remoteDevices.find((device) => device.deviceId === deviceId);
-    if (target && !target.isOnline) {
+    if (target && !target.isOnline && !this.state.lanConnectedDeviceIds.includes(deviceId)) {
       options.onFailure?.(new Error(`${target.displayName} is offline.`));
       this.set({ message: `${target.displayName} is offline.` });
+      return;
+    }
+    if (command !== LAN_SIGNAL_COMMAND && this.lan?.sendCommand(deviceId, command, payload)) {
+      options.onSuccess?.();
+      if (!options.quiet && command !== 'handoff') {
+        this.set({ connectStatus: `Sent ${command} directly over the same network.` });
+      }
       return;
     }
     this.withRemoteAccess((token) => this.api.sendRemoteCommand(token, deviceId, this.remoteDeviceId, command, payload))
@@ -2686,7 +2701,107 @@ export class SpiceController {
     this.connectAbort = null;
     this.connectRealtimeAvailable = false;
     this.clearTimer('connectRefreshTimer');
+    this.lan?.dispose();
+    this.lan = null;
+    this.lastLanFingerprint = null;
     if (this.state.lanConnectedDeviceIds.length > 0) this.set({ lanConnectedDeviceIds: [] });
+  }
+
+  // --- Same-network direct link -------------------------------------------
+
+  /** Commands and state travel directly when both devices share a network; the cloud stays the fallback. */
+  private startLanTransport() {
+    try {
+      this.lan = new LanTransport({
+        localDeviceId: this.remoteDeviceId,
+        createPeerConnection: createLanPeerConnection,
+        createSessionId: () => Crypto.randomUUID(),
+        sendSignal: (targetDeviceId, signal) =>
+          this.withRemoteAccess((token) =>
+            this.api.sendRemoteCommand(token, targetDeviceId, this.remoteDeviceId, LAN_SIGNAL_COMMAND, lanSignalToJson(signal)),
+          ).then(
+            () => true,
+            () => false,
+          ),
+        onCommand: (command) => {
+          // A live channel is not a durable queue: stamp the receipt time so
+          // clock skew between devices cannot make a direct command look stale.
+          void this.applyRemoteCommands([{ ...command, createdAt: lanTimestamp() }]).then(() =>
+            setTimeout(() => this.broadcastLanState(true), COMMAND_STATE_SETTLE_MS),
+          );
+        },
+        onState: (peerDeviceId, state) => this.applyLanState(peerDeviceId, state),
+        onPeersChanged: (connected) => this.applyLanPeers(connected),
+      });
+    } catch {
+      this.lan = null;
+      this.set({ connectStatus: 'Same-network connection is unavailable; Spice Connect will use cloud fallback.' });
+      return;
+    }
+    this.broadcastLanState(true);
+    const selected = this.state.selectedPlaybackDeviceId;
+    if (selected) void this.lan.ensureConnection(selected);
+  }
+
+  private broadcastLanState(force = false) {
+    if (!this.lan) return;
+    const fingerprint = this.deviceFingerprint();
+    if (!force && fingerprint === this.lastLanFingerprint) return;
+    this.lastLanFingerprint = fingerprint;
+    const playback = this.playbackSnapshot();
+    this.lan.broadcastState({
+      deviceId: this.remoteDeviceId,
+      displayName: DISPLAY_NAME,
+      currentTrack: playback.track,
+      queue: this.state.playbackQueue.slice(0, 80),
+      queueIndex: Math.max(this.state.queueIndex, 0),
+      isPlaying: playback.isPlaying,
+      shuffleEnabled: playback.player.shuffleEnabled,
+      repeatMode: playback.player.repeatMode,
+      progressMs: playback.progressMs,
+      durationMs: playback.durationMs,
+      volume: playback.player.volume,
+      updatedAt: lanTimestamp(),
+      lastSeenSeconds: 0,
+      rememberedUntil: '',
+      isOnline: true,
+      observedAtMs: Date.now(),
+    });
+  }
+
+  private applyLanPeers(connected: string[]) {
+    const state = this.state;
+    const selected = state.selectedPlaybackDeviceId;
+    const name = state.remoteDevices.find((device) => device.deviceId === selected)?.displayName ?? 'the selected device';
+    this.set({
+      lanConnectedDeviceIds: connected,
+      connectStatus: connected.includes(selected)
+        ? `Same-network direct link active with ${name}.`
+        : state.lanConnectedDeviceIds.includes(selected)
+          ? 'Same-network link ended; commands will use cloud fallback.'
+          : state.connectStatus,
+    });
+  }
+
+  private applyLanState(peerDeviceId: string, incoming: RemoteDevice) {
+    const existing = this.state.remoteDevices.find((device) => device.deviceId === peerDeviceId);
+    if (!existing) return;
+    const merged: RemoteDevice = {
+      ...incoming,
+      displayName: existing.displayName,
+      lastSeenSeconds: 0,
+      rememberedUntil: existing.rememberedUntil,
+      isOnline: true,
+      observedAtMs: Date.now(),
+    };
+    if (this.acknowledgesOptimisticState(merged, existing)) this.clearOptimisticRemoteState(peerDeviceId);
+    this.set({
+      remoteDevices: this.state.remoteDevices.map((device) => (device.deviceId === peerDeviceId ? merged : device)),
+      connectStatus:
+        this.state.selectedPlaybackDeviceId === peerDeviceId
+          ? `Same-network direct link active with ${existing.displayName}.`
+          : this.state.connectStatus,
+    });
   }
 
   private startSpiceConnect() {
@@ -2696,6 +2811,7 @@ export class SpiceController {
     this.pendingWakeup = null;
     const abort = new AbortController();
     this.connectAbort = abort;
+    this.startLanTransport();
     void this.runConnectPollLoop(abort.signal);
     void this.runConnectRealtimeLoop(abort.signal);
   }
@@ -3105,8 +3221,16 @@ export class SpiceController {
       case 'handoff':
         await this.applyIncomingHandoff(command);
         return;
+      case LAN_SIGNAL_COMMAND: {
+        // Only negotiate with signals sent since this app started.
+        const createdAtMs = parseLanTimestamp(command.createdAt);
+        if (createdAtMs !== null && createdAtMs >= this.bootedAtMs) {
+          await this.lan?.handleSignal(command.sourceDeviceId, command.payloadJson);
+        }
+        return;
+      }
       default:
-        // 'connect' and LAN signaling need no local action in this build.
+        // 'connect' needs no local action.
         return;
     }
   }

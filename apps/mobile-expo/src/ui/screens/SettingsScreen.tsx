@@ -536,9 +536,8 @@ function AboutSection() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1, gap: 2 }}>
             <Txt variant="heading">SPICE for Android</Txt>
-            <Txt variant="caption">Version {version} · React Native preview</Txt>
+            <Txt variant="caption">Version {version}</Txt>
           </View>
-          <Badge label="Preview" tone="accent" />
         </View>
         <Txt variant="caption">
           Installed over the previous Android app, this build keeps its library, settings, and sign-in.

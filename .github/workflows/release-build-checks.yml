@@ -147,16 +147,28 @@ jobs:
       - name: Install Android SDK Packages
         run: sdkmanager 'platforms;android-36' 'platform-tools' 'build-tools;36.0.0'
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/mobile-expo/package-lock.json
+
       - name: Build Android release APK
         env:
           GRADLE_OPTS: -Dorg.gradle.daemon=false
-          # This workflow only validates the release build and never publishes it.
-          # Tag releases deliberately omit this opt-in and require the stable key.
-          SPICE_ANDROID_ALLOW_EPHEMERAL_SIGNING: '1'
+          # The release ships the Expo app under the established Android identity.
+          # This workflow only validates the build and never publishes it, so it
+          # signs with the debug key; tag releases require the stable key.
+          SPICE_ANDROID_APPLICATION_ID: xyz.spiceapp.mobile
+          SPICE_ANDROID_APP_NAME: Spice
+          SPICE_ANDROID_ABIS: arm64-v8a,armeabi-v7a
         run: |
-          chmod +x apps/mobile/android/gradlew
-          bash apps/mobile/scripts/android-release-ci.sh
+          npm --prefix apps/mobile-expo ci
+          npm --prefix apps/mobile-expo run android:release
 
-      - name: Verify APK signature
+      - name: Verify APK signature and identity
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          APK=apps/mobile-expo/android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | grep -q "^package: name='xyz.spiceapp.mobile' "

@@ -12,8 +12,8 @@ Spice is a unified repository for an Electron desktop client, the SPICE Next.js 
 - `scripts/`: desktop helpers, including in-repository native runtime preparation.
 - `test/`: Node tests for root desktop logic.
 - `apps/backend/`: Next.js backend plus Windows/Linux local-runtime builders and tests.
-- `apps/mobile/`: native Android app and npm command wrappers.
-- `apps/mobile-expo/`: React Native (Expo) rewrite of the Android client; a standalone npm project with its own lockfile. See `apps/mobile-expo/AGENTS.md`.
+- `apps/mobile-expo/`: the Android (and iOS) client, built with React Native (Expo); a standalone npm project with its own lockfile. Releases ship this app under the `xyz.spiceapp.mobile` identity. See `apps/mobile-expo/AGENTS.md`.
+- `apps/mobile/`: the previous Kotlin Android app, kept as the reference the Expo app was ported from. It is no longer built for releases.
 - `native-runtime/`: generated prepared runtime content; do not assume it is checked in or current.
 - `src/extensions/`: bundled browser-extension assets; keep changes narrow and intentional.
 

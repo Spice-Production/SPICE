@@ -29,6 +29,18 @@ if (!env.ANDROID_HOME && !env.ANDROID_SDK_ROOT) {
   if (sdk) env.ANDROID_HOME = sdk;
 }
 
+// A published release must carry the stable SPICE key; a debug-signed APK
+// could never install over the existing app.
+if (mode === 'release' && env.SPICE_ANDROID_REQUIRE_RELEASE_SIGNING === '1') {
+  const missing = ['STORE_FILE', 'STORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD']
+    .map((name) => `SPICE_ANDROID_SIGNING_${name}`)
+    .filter((name) => !env[name]);
+  if (missing.length > 0 || !existsSync(env.SPICE_ANDROID_SIGNING_STORE_FILE)) {
+    console.error(`Android release signing is incomplete: ${missing.join(', ') || 'the keystore file is missing'}.`);
+    process.exit(1);
+  }
+}
+
 // Debug builds only need a phone (arm64) and an emulator (x86_64) ABI.
 const abis = env.SPICE_ANDROID_ABIS ?? (mode === 'debug' ? 'arm64-v8a,x86_64' : '');
 const gradleArgs = [...tasks[mode], '--no-daemon', ...(abis ? [`-PreactNativeArchitectures=${abis}`] : [])];
