@@ -127,39 +127,45 @@ jobs:
             echo "SPICE_ANDROID_KEYSTORE_BASE64 is required for a stable signed Android release."
             exit 1
           fi
-          mkdir -p apps/mobile/android/app/signing
-          printf '%s' "$SPICE_ANDROID_KEYSTORE_BASE64" | base64 --decode > apps/mobile/android/app/signing/release.jks
-          test -s apps/mobile/android/app/signing/release.jks
+          printf '%s' "$SPICE_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/spice-release.jks"
+          test -s "$RUNNER_TEMP/spice-release.jks"
 
       - name: Build Android Release APK
         env:
           GRADLE_OPTS: -Dorg.gradle.daemon=false
-          SPICE_ANDROID_SIGNING_STORE_FILE: ${{ github.workspace }}/apps/mobile/android/app/signing/release.jks
+          SPICE_ANDROID_SIGNING_STORE_FILE: ${{ runner.temp }}/spice-release.jks
           SPICE_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.SPICE_ANDROID_KEYSTORE_PASSWORD }}
           SPICE_ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.SPICE_ANDROID_KEY_ALIAS }}
           SPICE_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.SPICE_ANDROID_KEY_PASSWORD }}
+          # The Expo app ships under the established Android identity, so it
+          # installs over the Kotlin app and imports its data.
+          SPICE_ANDROID_APPLICATION_ID: xyz.spiceapp.mobile
+          SPICE_ANDROID_APP_NAME: Spice
+          SPICE_ANDROID_ABIS: arm64-v8a,armeabi-v7a
+          SPICE_ANDROID_REQUIRE_RELEASE_SIGNING: '1'
         run: |
-          chmod +x apps/mobile/android/gradlew
-          npm --prefix apps/mobile run android:release:ci
+          npm --prefix apps/mobile-expo ci
+          npm --prefix apps/mobile-expo run check
+          npm --prefix apps/mobile-expo run android:engine:test
+          npm --prefix apps/mobile-expo run android:release
 
       - name: Stage Android Release APK
         run: |
           VERSION="v$(node -p "require('./package.json').version")"
-          SIGNED_APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          SIGNED_APK="apps/mobile-expo/android/app/build/outputs/apk/release/app-release.apk"
           ASSET_DIR="dist-mobile"
           if [ -f "$SIGNED_APK" ]; then
             APK="$SIGNED_APK"
             SIGNING_KIND="signed"
           else
             echo "Expected signed release APK not found."
-            find apps/mobile/android/app/build/outputs/apk/release -type f -maxdepth 3 || true
-            find apps/mobile/android/app/build/outputs -type f || true
+            find apps/mobile-expo/android/app/build/outputs -type f || true
             exit 1
           fi
           ASSET="$ASSET_DIR/Spice-Android-${VERSION}-release-${SIGNING_KIND}.apk"
           if [ ! -f "$APK" ]; then
             echo "Expected release APK not found at $APK"
-            find apps/mobile/android/app/build/outputs -type f || true
+            find apps/mobile-expo/android/app/build/outputs -type f || true
             exit 1
           fi
           mkdir -p "$ASSET_DIR"
