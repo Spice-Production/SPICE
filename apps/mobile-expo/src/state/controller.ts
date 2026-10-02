@@ -90,6 +90,7 @@ import {
   isSegmentedStream,
   openDownload as openDownloadFile,
   shareDownload as shareDownloadFile,
+  startMp3Download,
   startTrackDownload,
   type ActiveDownload,
 } from '../data/downloads';
@@ -97,6 +98,8 @@ import { LibraryRepository } from '../data/library';
 import { PREF, prefs } from '../data/prefs';
 import { pairedCredentialStore, sessionStore } from '../data/secure';
 import { EMPTY_PLAYER_STATE, engine, type PlayerState } from '../engine/engine';
+import type { AppUpdateInfo } from '../core/update';
+import { appUpdatesSupported, downloadUpdate, findLatestUpdate, installUpdate } from '../data/update';
 import { awaitRemoteEvent } from './realtime';
 import { Mutex, Store, delay } from './store';
 import type { UiState } from './types';
@@ -194,6 +197,7 @@ export class SpiceController {
   private activeDownload: ActiveDownload | null = null;
   private downloadCancelled = false;
   private unsubscribeEngine: (() => void) | null = null;
+  private unsubscribeLikeMirror: (() => void) | null = null;
   private unsubscribeLibrary: (() => void) | null = null;
 
   constructor() {
@@ -266,6 +270,7 @@ export class SpiceController {
       downloadPlaylistId: null,
       downloadPlaylistCompleted: 0,
       downloadPlaylistTotal: 0,
+      appUpdate: { status: 'idle' },
       pendingRemoteDownloadTrack: null,
       lyricsTrackId: null,
       lyricsPayload: null,
@@ -314,11 +319,25 @@ export class SpiceController {
       onTrackRepeated: () => this.handleTrackRepeated(),
       onCrossfadeCompleted: (trackKey) => this.handleCrossfadeCompleted(trackKey),
       onCrossfadeFailed: (trackKey) => this.handleCrossfadeFailed(trackKey),
-      onRemoteCommand: (command) => (command === 'next' ? this.playNext() : this.playPrevious()),
+      onRemoteCommand: (command) => {
+        if (command === 'next') this.playNext();
+        else if (command === 'previous') this.playPrevious();
+        else if (this.state.currentTrack) void this.toggleLike(this.state.currentTrack);
+      },
+    });
+    // Keep the notification's heart in step with the current track's Like.
+    let notifiedLike: string | null = null;
+    this.unsubscribeLikeMirror = this.store.subscribe(() => {
+      const track = this.state.currentTrack;
+      const signature = track ? `${track.id}:${this.isLiked(track.id)}` : '';
+      if (signature === notifiedLike) return;
+      notifiedLike = signature;
+      engine.setLiked(track ? this.isLiked(track.id) : false);
     });
     void engine.connect().then((state) => this.handlePlayerState(state));
     this.drainBackgroundHistory();
     void this.initializeLibraryAndHome();
+    void this.checkForAppUpdate(true);
     const session = this.state.accountSession;
     if (session) this.verifyRestoredAccountSession(session);
     if (this.shouldStartSpiceConnect()) this.startSpiceConnect();
@@ -326,6 +345,7 @@ export class SpiceController {
 
   stop(): void {
     this.unsubscribeEngine?.();
+    this.unsubscribeLikeMirror?.();
     this.unsubscribeLibrary?.();
     this.connectAbort?.abort();
     this.activeDownload?.cancel();
@@ -2084,20 +2104,74 @@ export class SpiceController {
     const label = (status: string) => [prefix, status].filter(Boolean).join(': ');
     this.set({ downloadProgress: label('Resolving a direct audio stream') });
     const playback = await engine.resolvePlayable(track, this.state.quality);
-    if (isSegmentedStream(playback.stream)) {
+    if (!engine.mp3Downloads && isSegmentedStream(playback.stream)) {
       throw new Error('This track only streams in segments here, so it cannot be saved as a single file yet.');
     }
     this.set({ downloadProgress: label('Direct stream ready; starting download') });
-    const active = startTrackDownload(playback.track, playback.stream, ({ bytesWritten, totalBytes }) => {
-      const percent = totalBytes > 0 ? Math.min(100, Math.floor((bytesWritten / totalBytes) * 100)) : null;
+    const report = (percent: number | null) =>
       this.set({ downloadProgress: label(percent === null ? 'Downloading audio' : `Downloading ${percent}%`) });
-    });
+    const active = engine.mp3Downloads
+      ? startMp3Download(playback.track, playback.stream, report)
+      : startTrackDownload(playback.track, playback.stream, ({ bytesWritten, totalBytes }) =>
+          report(totalBytes > 0 ? Math.min(100, Math.floor((bytesWritten / totalBytes) * 100)) : null),
+        );
     this.activeDownload = active;
     try {
       const result = await active.done;
       return this.library.addDownload(playback.track, result.filePath, result.fileName, result.bytes, result.mimeType);
     } finally {
       this.activeDownload = null;
+    }
+  }
+
+  // --- App updates -------------------------------------------------------
+
+  private downloadedUpdate: Awaited<ReturnType<typeof downloadUpdate>> | null = null;
+
+  /** `quiet` checks (on launch) stay silent unless an update exists. */
+  async checkForAppUpdate(quiet = false): Promise<void> {
+    if (!appUpdatesSupported) return;
+    const current = this.state.appUpdate.status;
+    if (current === 'checking' || current === 'downloading' || current === 'ready') return;
+    if (!quiet) this.set({ appUpdate: { status: 'checking' } });
+    try {
+      const update = await findLatestUpdate();
+      if (update) this.set({ appUpdate: { status: 'available', update } });
+      else if (!quiet) this.set({ appUpdate: { status: 'current' } });
+    } catch (failure) {
+      if (!quiet) this.set({ appUpdate: { status: 'error', error: errorMessage(failure, 'Could not check for an update.'), update: null } });
+    }
+  }
+
+  async downloadAndInstallAppUpdate(): Promise<void> {
+    const state = this.state.appUpdate;
+    if (state.status === 'ready' && this.downloadedUpdate) {
+      await this.installDownloadedUpdate(state.update);
+      return;
+    }
+    const update = state.status === 'available' || state.status === 'error' ? state.update : null;
+    if (!update) return;
+    this.set({ appUpdate: { status: 'downloading', update, percent: 0 } });
+    try {
+      this.downloadedUpdate = await downloadUpdate(update, (percent) => {
+        const latest = this.state.appUpdate;
+        if (latest.status === 'downloading' && latest.percent !== percent) {
+          this.set({ appUpdate: { status: 'downloading', update, percent } });
+        }
+      });
+      this.set({ appUpdate: { status: 'ready', update } });
+      await this.installDownloadedUpdate(update);
+    } catch (failure) {
+      this.set({ appUpdate: { status: 'error', error: errorMessage(failure, 'The update could not be downloaded.'), update } });
+    }
+  }
+
+  private async installDownloadedUpdate(update: AppUpdateInfo): Promise<void> {
+    if (!this.downloadedUpdate) return;
+    try {
+      await installUpdate(this.downloadedUpdate);
+    } catch (failure) {
+      this.set({ appUpdate: { status: 'error', error: errorMessage(failure, 'Android could not open the installer.'), update } });
     }
   }
 

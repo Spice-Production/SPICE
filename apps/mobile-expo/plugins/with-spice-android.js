@@ -1,7 +1,7 @@
 // Native Android settings the Expo config cannot express directly.
 const fs = require('node:fs');
 const path = require('node:path');
-const { AndroidConfig, withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
+const { AndroidConfig, withAndroidManifest, withAppBuildGradle, withDangerousMod } = require('expo/config-plugins');
 
 // Cleartext stays off except for loopback, which the optional SPICE local
 // runtime fallback (adb reverse tcp:3939) and Metro in debug builds use.
@@ -32,6 +32,39 @@ function withNetworkSecurityConfig(config) {
   });
 }
 
+// Release builds sign with the SPICE upload key when CI provides it (the same
+// variables the Kotlin app used), so the app installs over the existing one.
+// Without them the template's debug key is kept for local test builds.
+const SIGNING_CONFIG = `
+        spiceRelease {
+            def spiceStore = System.getenv("SPICE_ANDROID_SIGNING_STORE_FILE")
+            if (spiceStore) {
+                storeFile file(spiceStore)
+                storePassword System.getenv("SPICE_ANDROID_SIGNING_STORE_PASSWORD")
+                keyAlias System.getenv("SPICE_ANDROID_SIGNING_KEY_ALIAS")
+                keyPassword System.getenv("SPICE_ANDROID_SIGNING_KEY_PASSWORD")
+            }
+        }`;
+
+function withReleaseSigning(config) {
+  return withAppBuildGradle(config, (modConfig) => {
+    let gradle = modConfig.modResults.contents;
+    if (gradle.includes('spiceRelease')) return modConfig;
+    const signingBlock = /signingConfigs \{/;
+    const releaseSigning = /(release \{[\s\S]*?)signingConfig signingConfigs\.debug/;
+    if (!signingBlock.test(gradle) || !releaseSigning.test(gradle)) {
+      throw new Error('with-spice-android: the app build.gradle signing blocks were not found.');
+    }
+    gradle = gradle.replace(signingBlock, (match) => `${match}${SIGNING_CONFIG}`);
+    gradle = gradle.replace(
+      releaseSigning,
+      '$1signingConfig System.getenv("SPICE_ANDROID_SIGNING_STORE_FILE") ? signingConfigs.spiceRelease : signingConfigs.debug',
+    );
+    modConfig.modResults.contents = gradle;
+    return modConfig;
+  });
+}
+
 module.exports = function withSpiceAndroid(config) {
-  return withNetworkSecurityConfig(config);
+  return withReleaseSigning(withNetworkSecurityConfig(config));
 };

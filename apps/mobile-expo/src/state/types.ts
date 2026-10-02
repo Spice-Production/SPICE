@@ -1,3 +1,4 @@
+import type { AppUpdateInfo } from '../core/update';
 import type {
   AccentTheme,
   AccountBlock,
@@ -88,4 +89,11 @@ export type UiState = {
   connectStatus: string;
   player: PlayerState;
   message: string | null;
+  appUpdate: AppUpdateState;
 };
+
+export type AppUpdateState =
+  | { status: 'idle' | 'checking' | 'current' }
+  | { status: 'available' | 'ready'; update: AppUpdateInfo }
+  | { status: 'downloading'; update: AppUpdateInfo; percent: number }
+  | { status: 'error'; error: string; update: AppUpdateInfo | null };

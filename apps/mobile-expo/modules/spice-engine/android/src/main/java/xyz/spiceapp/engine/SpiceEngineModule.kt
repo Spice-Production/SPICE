@@ -1,6 +1,7 @@
 package xyz.spiceapp.engine
 
 import android.content.Context
+import android.net.Uri
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.functions.Queues
@@ -12,6 +13,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import xyz.spiceapp.engine.download.MediaDownloadClient
+import xyz.spiceapp.engine.migration.LegacyMigration
 import xyz.spiceapp.engine.playback.BackgroundHistoryStore
 import xyz.spiceapp.engine.playback.MobilePlaybackServiceContext
 import xyz.spiceapp.engine.playback.MobileTrackFeedback
@@ -35,6 +39,7 @@ class SpiceEngineModule : Module() {
 
     private val priorities by lazy { TrackPriorityStore(context) }
     private val backgroundHistory by lazy { BackgroundHistoryStore(context) }
+    private val downloads by lazy { MediaDownloadClient(context) }
 
     override fun definition() = ModuleDefinition {
         Name("SpiceEngine")
@@ -45,8 +50,8 @@ class SpiceEngineModule : Module() {
             "onTrackRepeated",
             "onCrossfadeCompleted",
             "onCrossfadeFailed",
-            // Emitted by the iOS engine only; declared so JS can subscribe everywhere.
             "onRemoteCommand",
+            "onDownloadProgress",
         )
 
         OnDestroy {
@@ -76,6 +81,34 @@ class SpiceEngineModule : Module() {
             )
         }
 
+        // --- Downloads -----------------------------------------------------
+
+        AsyncFunction("downloadAudio") Coroutine { fileLabel: String, sourceUrl: String, processId: String, outputDirectory: String ->
+            val directory = java.io.File(Uri.parse(outputDirectory).path ?: outputDirectory)
+            val result = withContext(Dispatchers.IO) {
+                downloads.downloadAudio(fileLabel, sourceUrl, processId, directory) { progress ->
+                    sendEvent(
+                        "onDownloadProgress",
+                        mapOf(
+                            "processId" to processId,
+                            "progress" to progress.progress.toDouble(),
+                            "etaSeconds" to progress.etaSeconds.toDouble(),
+                            "line" to progress.line,
+                        ),
+                    )
+                }
+            }
+            mapOf(
+                "filePath" to result.filePath,
+                "fileName" to result.fileName,
+                "bytes" to result.bytes.toDouble(),
+                "exitCode" to result.exitCode,
+                "errorOutput" to result.errorOutput.takeLast(600),
+            )
+        }
+
+        AsyncFunction("cancelDownload") { processId: String -> downloads.cancel(processId) }
+
         // --- Playback (MediaController calls must stay on the main thread) ----
 
         AsyncFunction("connect") {
@@ -98,6 +131,7 @@ class SpiceEngineModule : Module() {
         }.runOnQueue(Queues.MAIN)
         AsyncFunction("stop") { ensureConnection().stop() }.runOnQueue(Queues.MAIN)
         AsyncFunction("clearError") { ensureConnection().clearError() }.runOnQueue(Queues.MAIN)
+        AsyncFunction("setLiked") { liked: Boolean -> ensureConnection().setLiked(liked) }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("updatePlaybackContextSettings") { quality: String, crossfadeDurationMs: Double ->
             ensureConnection().updatePlaybackContextSettings(
@@ -148,6 +182,10 @@ class SpiceEngineModule : Module() {
         Function("replaceTrackPriorities") { payload: String -> priorities.replace(payload) }
 
         Function("drainBackgroundHistory") { backgroundHistory.drain() }
+
+        // --- Upgrade from the Kotlin app ---------------------------------------
+
+        Function("legacyData") { LegacyMigration(context).collect() }
     }
 
     private fun ensureConnection(): PlayerConnection {
@@ -158,6 +196,7 @@ class SpiceEngineModule : Module() {
             onTrackRepeated = { sendEvent("onTrackRepeated", emptyMap<String, Any?>()) },
             onCrossfadeCompleted = { trackKey -> sendEvent("onCrossfadeCompleted", mapOf("trackKey" to trackKey)) },
             onCrossfadeFailed = { trackKey -> sendEvent("onCrossfadeFailed", mapOf("trackKey" to trackKey)) },
+            onRemoteCommand = { command -> sendEvent("onRemoteCommand", mapOf("command" to command)) },
         )
         connection = created
         stateJob = scope.launch {

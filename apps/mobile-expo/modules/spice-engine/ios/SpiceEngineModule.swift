@@ -55,6 +55,8 @@ public class SpiceEngineModule: Module {
     AsyncFunction("setRepeatMode") { (mode: String) in self.player.setRepeatMode(mode) }.runOnQueue(.main)
     AsyncFunction("stop") { self.player.stop() }.runOnQueue(.main)
     AsyncFunction("clearError") { self.player.clearError() }.runOnQueue(.main)
+    // Android mirrors Like into its notification; the iOS lock screen has no such button.
+    AsyncFunction("setLiked") { (_: Bool) in }
 
     // The Android playback service reads these to continue the queue; JS owns it here.
     AsyncFunction("updatePlaybackContextSettings") { (_: String, _: Double) in }

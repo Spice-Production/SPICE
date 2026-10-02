@@ -79,7 +79,7 @@ export type EngineListeners = {
   onTrackRepeated(): void;
   onCrossfadeCompleted(trackKey: string): void;
   onCrossfadeFailed(trackKey: string): void;
-  onRemoteCommand(command: 'next' | 'previous'): void;
+  onRemoteCommand(command: 'next' | 'previous' | 'toggleLike'): void;
 };
 
 const UNAVAILABLE = 'The SPICE native audio engine is not available in this build.';
@@ -156,6 +156,26 @@ export const engine = {
     return toPlayerState(await SpiceEngine.connect());
   },
 
+  /** Whether downloads are converted to MP3 natively (Android). */
+  mp3Downloads: typeof SpiceEngine?.downloadAudio === 'function',
+
+  /** Converts a direct stream into an MP3; `onLine` receives yt-dlp progress. */
+  downloadAudio(
+    fileLabel: string,
+    sourceUrl: string,
+    processId: string,
+    outputDirectory: string,
+    onProgress: (percent: number | null) => void,
+  ) {
+    const subscription = native().addListener('onDownloadProgress', (event) => {
+      if (event.processId === processId) onProgress(event.progress >= 0 ? Math.min(100, Math.floor(event.progress)) : null);
+    });
+    return native()
+      .downloadAudio(fileLabel, sourceUrl, processId, outputDirectory)
+      .finally(() => subscription.remove());
+  },
+  cancelDownload: (processId: string) => void SpiceEngine?.cancelDownload(processId),
+
   /** Search sources this build can reach; YouTube needs the Android engine's extractor. */
   searchProviders: (nativeResolves ? ['All', 'YouTube', 'SoundCloud'] : ['SoundCloud']) as readonly SearchProvider[],
 
@@ -182,6 +202,8 @@ export const engine = {
   setRepeatMode: (mode: RepeatMode) => void SpiceEngine?.setRepeatMode(mode),
   stop: () => void SpiceEngine?.stop(),
   clearError: () => void SpiceEngine?.clearError(),
+  /** Shows the current track's Like state on the media notification. */
+  setLiked: (liked: boolean) => void SpiceEngine?.setLiked(liked),
   updatePlaybackContextSettings: (quality: StreamQuality, crossfadeDurationMs: number) =>
     void SpiceEngine?.updatePlaybackContextSettings(quality, crossfadeDurationMs),
 
@@ -229,6 +251,9 @@ export const engine = {
   replaceTrackPriorities(payload: string): void {
     if (nativePriorities) native().replaceTrackPriorities(payload);
     else prefs.set(PRIORITY_PREF, payload);
+  },
+  legacyData() {
+    return SpiceEngine && typeof SpiceEngine.legacyData === 'function' ? SpiceEngine.legacyData() : null;
   },
   drainBackgroundHistory(): (Track & { playedAt: number })[] {
     if (!SpiceEngine || typeof SpiceEngine.drainBackgroundHistory !== 'function') return [];

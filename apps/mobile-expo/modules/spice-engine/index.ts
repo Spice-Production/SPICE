@@ -72,6 +72,16 @@ export type EngineCrossfadeArgs = {
   historyCursorTarget: number;
 };
 
+export type EngineDownloadResult = { filePath: string; fileName: string; bytes: number; exitCode: number; errorOutput: string };
+
+export type EngineLegacyData = {
+  databaseCopied: boolean;
+  preferences: Record<string, string>;
+  connectPreferences: Record<string, string>;
+  session: string | null;
+  pairedCredential: string | null;
+};
+
 export type EngineHistoryEntry = EngineTrack & { playedAt: number };
 
 type SpiceEngineEvents = {
@@ -80,13 +90,17 @@ type SpiceEngineEvents = {
   onTrackRepeated(event: Record<string, never>): void;
   onCrossfadeCompleted(event: { trackKey: string }): void;
   onCrossfadeFailed(event: { trackKey: string }): void;
-  /** iOS lock-screen skip buttons; Android's playback service handles them natively. */
-  onRemoteCommand(event: { command: 'next' | 'previous' }): void;
+  /** iOS lock-screen skip buttons, and the Android notification's Like button. */
+  onRemoteCommand(event: { command: 'next' | 'previous' | 'toggleLike' }): void;
+  onDownloadProgress(event: { processId: string; progress: number; etaSeconds: number; line: string }): void;
 };
 
 declare class SpiceEngineModule extends NativeModule<SpiceEngineEvents> {
   search(query: string, limit: number, provider: EngineSearchProvider): Promise<EngineTrack[]>;
   resolvePlayable(track: EngineTrack, quality: EngineQuality): Promise<EngineResolvedPlayback>;
+  /** Android only: converts a direct stream to an MP3 in `outputDirectory`. */
+  downloadAudio(fileLabel: string, sourceUrl: string, processId: string, outputDirectory: string): Promise<EngineDownloadResult>;
+  cancelDownload(processId: string): Promise<boolean>;
   connect(): Promise<EnginePlayerState>;
   play(track: EngineTrack, streamUrl: string, context: EnginePlaybackContext | null): Promise<void>;
   toggle(): Promise<void>;
@@ -98,6 +112,7 @@ declare class SpiceEngineModule extends NativeModule<SpiceEngineEvents> {
   setRepeatMode(mode: EngineRepeatMode): Promise<void>;
   stop(): Promise<void>;
   clearError(): Promise<void>;
+  setLiked(liked: boolean): Promise<void>;
   updatePlaybackContextSettings(quality: EngineQuality, crossfadeDurationMs: number): Promise<void>;
   prepareCrossfade(args: EngineCrossfadeArgs): Promise<boolean>;
   startPreparedCrossfade(durationMs: number): Promise<boolean>;
@@ -109,6 +124,8 @@ declare class SpiceEngineModule extends NativeModule<SpiceEngineEvents> {
   trackPriorityPayload(): string;
   replaceTrackPriorities(payload: string): void;
   drainBackgroundHistory(): EngineHistoryEntry[];
+  /** Android only: data left by the Kotlin app this one replaced, or null. */
+  legacyData(): EngineLegacyData | null;
 }
 
 /**

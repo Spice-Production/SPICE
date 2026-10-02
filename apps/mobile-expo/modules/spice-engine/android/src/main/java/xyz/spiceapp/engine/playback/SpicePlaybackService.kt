@@ -1,5 +1,6 @@
 package xyz.spiceapp.engine.playback
 
+import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +15,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -27,6 +30,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import xyz.spiceapp.engine.R
+import xyz.spiceapp.engine.RepeatMode
 import xyz.spiceapp.engine.resolve.StreamResolver
 import xyz.spiceapp.engine.Track
 import xyz.spiceapp.engine.serviceQueueKey
@@ -66,6 +71,7 @@ class SpicePlaybackService : MediaSessionService() {
     private var backgroundResolveFailureCount = 0
     private var backgroundFeedbackRecordedForTrackKey = ""
     private var serviceQueueNavigationInProgress = false
+    private var currentTrackLiked = false
 
     private val sessionCallback = object : MediaSession.Callback {
         @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
@@ -75,6 +81,8 @@ class SpicePlaybackService : MediaSessionService() {
         ): MediaSession.ConnectionResult {
             if (controller.packageName == packageName) {
                 backgroundOwnership = false
+                currentTrackLiked = false
+                handler.post { refreshNotificationButtons() }
                 backgroundResolveGeneration += 1L
                 backgroundResolveJob?.cancel()
                 backgroundResolveJob = null
@@ -86,6 +94,10 @@ class SpicePlaybackService : MediaSessionService() {
                 .add(START_CROSSFADE_COMMAND)
                 .add(CANCEL_CROSSFADE_COMMAND)
                 .add(SYNC_PLAYBACK_CONTEXT_COMMAND)
+                .add(TOGGLE_SHUFFLE_COMMAND)
+                .add(CYCLE_REPEAT_COMMAND)
+                .add(TOGGLE_LIKE_COMMAND)
+                .add(SET_LIKED_COMMAND)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands)
@@ -117,6 +129,15 @@ class SpicePlaybackService : MediaSessionService() {
                 }
                 ACTION_SYNC_PLAYBACK_CONTEXT -> {
                     playbackContextStore.load()
+                    refreshNotificationButtons()
+                    SessionResult.RESULT_SUCCESS
+                }
+                ACTION_TOGGLE_SHUFFLE -> handleNotificationButton(BUTTON_SHUFFLE)
+                ACTION_CYCLE_REPEAT -> handleNotificationButton(BUTTON_REPEAT)
+                ACTION_TOGGLE_LIKE -> handleNotificationButton(BUTTON_LIKE)
+                ACTION_SET_LIKED -> {
+                    currentTrackLiked = args.getBoolean(ARG_LIKED)
+                    refreshNotificationButtons()
                     SessionResult.RESULT_SUCCESS
                 }
                 else -> SessionResult.RESULT_ERROR_NOT_SUPPORTED
@@ -162,7 +183,119 @@ class SpicePlaybackService : MediaSessionService() {
         activePlayer = player
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(sessionCallback)
+            .apply { launchAppIntent()?.let(::setSessionActivity) }
             .build()
+        configureNotification()
+        refreshNotificationButtons()
+    }
+
+    /** Tapping the media notification returns to the app. */
+    private fun launchAppIntent(): PendingIntent? {
+        val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return null
+        return PendingIntent.getActivity(
+            this,
+            0,
+            launch,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+    private fun configureNotification() {
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(R.drawable.spice_notification)
+            },
+        )
+    }
+
+    /**
+     * Shuffle, repeat, and Like sit beside the transport controls. Like needs the
+     * app's library, so it is only offered while the app is connected.
+     */
+    @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+    private fun refreshNotificationButtons() {
+        val session = mediaSession ?: return
+        val shuffleOn = activePlayer?.shuffleModeEnabled == true
+        val repeat = playbackContextStore.load()?.repeatMode ?: RepeatMode.Off
+        val buttons = buildList {
+            add(
+                CommandButton.Builder(if (shuffleOn) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
+                    .setDisplayName(if (shuffleOn) "Shuffle on" else "Shuffle off")
+                    .setSessionCommand(TOGGLE_SHUFFLE_COMMAND)
+                    .build(),
+            )
+            add(
+                CommandButton.Builder(
+                    when (repeat) {
+                        RepeatMode.Off -> CommandButton.ICON_REPEAT_OFF
+                        RepeatMode.All -> CommandButton.ICON_REPEAT_ALL
+                        RepeatMode.One -> CommandButton.ICON_REPEAT_ONE
+                    },
+                )
+                    .setDisplayName(
+                        when (repeat) {
+                            RepeatMode.Off -> "Repeat off"
+                            RepeatMode.All -> "Repeat all"
+                            RepeatMode.One -> "Repeat one"
+                        },
+                    )
+                    .setSessionCommand(CYCLE_REPEAT_COMMAND)
+                    .build(),
+            )
+            if (!backgroundOwnership) {
+                add(
+                    CommandButton.Builder(
+                        if (currentTrackLiked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED,
+                    )
+                        .setDisplayName(if (currentTrackLiked) "Liked" else "Like")
+                        .setSessionCommand(TOGGLE_LIKE_COMMAND)
+                        .build(),
+                )
+            }
+        }
+        session.setMediaButtonPreferences(buttons)
+    }
+
+    private fun handleNotificationButton(button: String): Int {
+        if (!backgroundOwnership) {
+            // The app owns shuffle rounds, repeat, and the library while it runs.
+            mediaSession?.broadcastCustomCommand(
+                NOTIFICATION_BUTTON_COMMAND,
+                Bundle().apply { putString(ARG_BUTTON, button) },
+            )
+            return SessionResult.RESULT_SUCCESS
+        }
+        val player = activePlayer ?: return SessionResult.RESULT_ERROR_INVALID_STATE
+        val context = playbackContextStore.load()
+        when (button) {
+            BUTTON_SHUFFLE -> {
+                val enabled = !player.shuffleModeEnabled
+                player.shuffleModeEnabled = enabled
+                if (context != null) {
+                    val currentKey = context.queue.getOrNull(context.queueIndex)?.serviceQueueKey()
+                    playbackContextStore.save(
+                        context.copy(
+                            shuffleEnabled = enabled,
+                            shuffleRoundTrackKeys = if (enabled && currentKey != null) listOf(currentKey) else emptyList(),
+                            shuffleRoundPlayCount = if (enabled && currentKey != null) 1 else 0,
+                        ),
+                    )
+                }
+            }
+            BUTTON_REPEAT -> {
+                val next = when (context?.repeatMode ?: RepeatMode.Off) {
+                    RepeatMode.Off -> RepeatMode.All
+                    RepeatMode.All -> RepeatMode.One
+                    RepeatMode.One -> RepeatMode.Off
+                }
+                player.repeatMode = if (next == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                if (context != null) playbackContextStore.save(context.copy(repeatMode = next))
+            }
+            else -> return SessionResult.RESULT_ERROR_NOT_SUPPORTED
+        }
+        refreshNotificationButtons()
+        return SessionResult.RESULT_SUCCESS
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
@@ -174,6 +307,7 @@ class SpicePlaybackService : MediaSessionService() {
             return
         }
         backgroundOwnership = true
+        refreshNotificationButtons()
         scheduleBackgroundContinuation()
     }
 
@@ -247,6 +381,10 @@ class SpicePlaybackService : MediaSessionService() {
                     ) {
                         scheduleBackgroundContinuation(500L)
                     }
+                }
+
+                override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                    if (player === activePlayer) refreshNotificationButtons()
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -695,6 +833,7 @@ class SpicePlaybackService : MediaSessionService() {
         preparedTrackKey = ""
         clearPreparedMetadata()
         mediaSession?.setPlayer(incoming)
+        refreshNotificationButtons()
         outgoing.release()
         if (completedTrack != null) {
             playbackContextStore.load()?.let { context ->
