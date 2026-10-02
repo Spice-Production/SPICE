@@ -9,6 +9,20 @@ internal const val ACTION_SYNC_PLAYBACK_CONTEXT = "xyz.spiceapp.engine.SYNC_PLAY
 internal const val ACTION_CROSSFADE_COMPLETED = "xyz.spiceapp.engine.CROSSFADE_COMPLETED"
 internal const val ACTION_CROSSFADE_FAILED = "xyz.spiceapp.engine.CROSSFADE_FAILED"
 
+// Media notification buttons. The service handles a press itself while it owns
+// the queue in the background; otherwise it forwards it to the app.
+internal const val ACTION_TOGGLE_SHUFFLE = "xyz.spiceapp.engine.TOGGLE_SHUFFLE"
+internal const val ACTION_CYCLE_REPEAT = "xyz.spiceapp.engine.CYCLE_REPEAT"
+internal const val ACTION_TOGGLE_LIKE = "xyz.spiceapp.engine.TOGGLE_LIKE"
+internal const val ACTION_SET_LIKED = "xyz.spiceapp.engine.SET_LIKED"
+internal const val ACTION_NOTIFICATION_BUTTON = "xyz.spiceapp.engine.NOTIFICATION_BUTTON"
+
+internal const val ARG_BUTTON = "button"
+internal const val ARG_LIKED = "liked"
+internal const val BUTTON_SHUFFLE = "shuffle"
+internal const val BUTTON_REPEAT = "repeat"
+internal const val BUTTON_LIKE = "like"
+
 internal const val ARG_TRACK_KEY = "track_key"
 internal const val ARG_MEDIA_ID = "media_id"
 internal const val ARG_STREAM_URL = "stream_url"
@@ -31,3 +45,8 @@ internal val CANCEL_CROSSFADE_COMMAND = SessionCommand(ACTION_CANCEL_CROSSFADE, 
 internal val SYNC_PLAYBACK_CONTEXT_COMMAND = SessionCommand(ACTION_SYNC_PLAYBACK_CONTEXT, android.os.Bundle.EMPTY)
 internal val CROSSFADE_COMPLETED_COMMAND = SessionCommand(ACTION_CROSSFADE_COMPLETED, android.os.Bundle.EMPTY)
 internal val CROSSFADE_FAILED_COMMAND = SessionCommand(ACTION_CROSSFADE_FAILED, android.os.Bundle.EMPTY)
+internal val TOGGLE_SHUFFLE_COMMAND = SessionCommand(ACTION_TOGGLE_SHUFFLE, android.os.Bundle.EMPTY)
+internal val CYCLE_REPEAT_COMMAND = SessionCommand(ACTION_CYCLE_REPEAT, android.os.Bundle.EMPTY)
+internal val TOGGLE_LIKE_COMMAND = SessionCommand(ACTION_TOGGLE_LIKE, android.os.Bundle.EMPTY)
+internal val SET_LIKED_COMMAND = SessionCommand(ACTION_SET_LIKED, android.os.Bundle.EMPTY)
+internal val NOTIFICATION_BUTTON_COMMAND = SessionCommand(ACTION_NOTIFICATION_BUTTON, android.os.Bundle.EMPTY)

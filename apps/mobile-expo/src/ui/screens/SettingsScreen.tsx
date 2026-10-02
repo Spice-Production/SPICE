@@ -5,6 +5,7 @@ import { Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { profileInitials } from '../../core/format';
 import { ACCENT_THEMES, STREAM_QUALITIES, type AuthMode } from '../../core/models';
 import { CROSSFADE_OPTIONS_MS } from '../../core/playback';
+import { appUpdatesSupported } from '../../data/update';
 import { engine } from '../../engine/engine';
 import { useController, useSpice } from '../context';
 import { Icon } from '../icons';
@@ -470,6 +471,62 @@ const LICENSES = [
   { name: 'Lucide', license: 'ISC', purpose: 'Icon geometry shared with the SPICE web app.', url: 'https://github.com/lucide-icons/lucide' },
 ];
 
+function UpdateCard() {
+  const controller = useController();
+  const state = useSpice((s) => s.appUpdate);
+  const update = 'update' in state ? state.update : null;
+  const description =
+    state.status === 'checking'
+      ? 'Checking GitHub for a newer release…'
+      : state.status === 'current'
+        ? 'You have the latest release.'
+        : state.status === 'available'
+          ? `Version ${state.update.version} is available.`
+          : state.status === 'downloading'
+            ? `Downloading version ${state.update.version}: ${state.percent}%`
+            : state.status === 'ready'
+              ? `Version ${state.update.version} is downloaded and ready to install.`
+              : state.status === 'error'
+                ? state.error
+                : 'Updates come from the official SPICE releases on GitHub.';
+  return (
+    <Card>
+      <SectionHeader title="Updates" description={description} />
+      {update?.releaseNotes && state.status !== 'error' ? (
+        <Txt variant="caption" lines={6}>
+          {update.releaseNotes}
+        </Txt>
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {update ? (
+          <Button
+            label={state.status === 'ready' ? 'Install' : state.status === 'error' ? 'Try again' : 'Download and install'}
+            icon="download"
+            variant="primary"
+            size="sm"
+            loading={state.status === 'downloading'}
+            onPress={() => void controller.downloadAndInstallAppUpdate()}
+            style={{ flex: 1 }}
+          />
+        ) : (
+          <Button
+            label="Check for updates"
+            icon="refresh"
+            variant="secondary"
+            size="sm"
+            loading={state.status === 'checking'}
+            onPress={() => void controller.checkForAppUpdate()}
+            style={{ flex: 1 }}
+          />
+        )}
+        {update ? (
+          <Button label="Release page" variant="ghost" size="sm" onPress={() => void Linking.openURL(update.releasePageUrl)} />
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
 function AboutSection() {
   const theme = useTheme();
   const version = Constants.expoConfig?.version ?? 'dev';
@@ -484,9 +541,10 @@ function AboutSection() {
           <Badge label="Preview" tone="accent" />
         </View>
         <Txt variant="caption">
-          This build runs next to the current Android app so you can compare them. Your data stays separate until the new app replaces the old one.
+          Installed over the previous Android app, this build keeps its library, settings, and sign-in.
         </Txt>
       </Card>
+      {appUpdatesSupported ? <UpdateCard /> : null}
       <Card>
         <SectionHeader title="Terms" description="Private sideload build for power users. No store distribution or provider endorsement is implied." />
         {TERMS.map((term) => (

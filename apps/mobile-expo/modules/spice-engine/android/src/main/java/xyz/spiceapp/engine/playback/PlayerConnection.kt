@@ -56,6 +56,7 @@ class PlayerConnection(
     private val onTrackRepeated: () -> Unit = {},
     private val onCrossfadeCompleted: (String) -> Unit = {},
     private val onCrossfadeFailed: (String) -> Unit = {},
+    private val onRemoteCommand: (String) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val playbackContextStore = MobilePlaybackServiceContextStore(appContext)
@@ -75,6 +76,11 @@ class PlayerConnection(
         ): ListenableFuture<SessionResult> {
             val trackKey = args.getString(ARG_TRACK_KEY).orEmpty()
             when (command.customAction) {
+                ACTION_NOTIFICATION_BUTTON -> when (args.getString(ARG_BUTTON)) {
+                    BUTTON_SHUFFLE -> toggleShuffle()
+                    BUTTON_REPEAT -> cycleRepeat()
+                    BUTTON_LIKE -> onRemoteCommand("toggleLike")
+                }
                 ACTION_CROSSFADE_COMPLETED -> {
                     handledEndedForItem = false
                     sourceRetryCount = 0
@@ -317,6 +323,15 @@ class PlayerConnection(
 
     fun cancelPreparedCrossfade() {
         runWithController(::cancelPreparedCrossfade)
+    }
+
+    /** Mirrors the current track's Like into the notification's heart button. */
+    fun setLiked(liked: Boolean) {
+        runWithController { activeController ->
+            if (activeController.isSessionCommandAvailable(SET_LIKED_COMMAND)) {
+                activeController.sendCustomCommand(SET_LIKED_COMMAND, Bundle().apply { putBoolean(ARG_LIKED, liked) })
+            }
+        }
     }
 
     fun toggleShuffle() {

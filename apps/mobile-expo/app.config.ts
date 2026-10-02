@@ -13,7 +13,9 @@ const [major, minor, patch] = match.slice(1).map(Number) as [number, number, num
 if (minor > 999 || patch > 999) throw new Error('SPICE minor and patch versions must stay below 1000 for versionCode ordering');
 const versionCode = major * 1_000_000 + minor * 1_000 + patch;
 
-// The preview installs next to the current Kotlin app until it replaces it.
+// Test builds install next to the current Kotlin app. The release pipeline sets
+// SPICE_ANDROID_APPLICATION_ID=xyz.spiceapp.mobile (and the app name) so the
+// signed release installs over it and imports its data.
 const applicationId = process.env.SPICE_ANDROID_APPLICATION_ID ?? 'xyz.spiceapp.mobile.next';
 const appName = process.env.SPICE_ANDROID_APP_NAME ?? 'Spice Next';
 
@@ -47,8 +49,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: 'resize',
-    // The engine module declares what playback needs; downloads stay in app storage.
-    permissions: [],
+    // The engine module declares what playback needs; downloads stay in app
+    // storage. Installing a downloaded update needs the installer permission.
+    permissions: ['android.permission.REQUEST_INSTALL_PACKAGES'],
     blockedPermissions: [
       'android.permission.SYSTEM_ALERT_WINDOW',
       'android.permission.READ_EXTERNAL_STORAGE',
@@ -86,6 +89,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           targetSdkVersion: 36,
           // NewPipe Extractor is published through JitPack.
           extraMavenRepos: ['https://jitpack.io'],
+          // yt-dlp's bundled Python and FFmpeg must be extracted to run.
+          useLegacyPackaging: true,
         },
       },
     ],

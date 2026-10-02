@@ -3,7 +3,10 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
+import * as Crypto from 'expo-crypto';
+
 import type { DownloadedTrack, ResolvedStream, Track } from '../core/models';
+import { engine } from '../engine/engine';
 
 export type DownloadProgress = { bytesWritten: number; totalBytes: number };
 
@@ -67,7 +70,32 @@ export function startTrackDownload(
   return { cancel: () => task.cancel(), done };
 }
 
+/** Converts any resolved stream, segmented or not, into a tagged MP3 (Android). */
+export function startMp3Download(
+  track: Track,
+  stream: ResolvedStream,
+  onPercent: (percent: number | null) => void,
+): ActiveDownload {
+  const processId = `spice-download-${Crypto.randomUUID()}`;
+  const done = engine
+    .downloadAudio(`${track.artist} - ${track.title}`, stream.url, processId, downloadsDirectory().uri, onPercent)
+    .then((result) => {
+      if (result.exitCode !== 0 || !result.filePath) {
+        throw new Error(result.errorOutput.trim().split('\n').pop() || 'The MP3 conversion did not finish.');
+      }
+      const filePath = result.filePath.startsWith('file://') ? result.filePath : `file://${result.filePath}`;
+      return { filePath, fileName: result.fileName, bytes: result.bytes, mimeType: 'audio/mpeg' };
+    });
+  return { cancel: () => engine.cancelDownload(processId), done };
+}
+
+function isContentUri(path: string): boolean {
+  return path.startsWith('content://');
+}
+
 export function downloadFileExists(download: DownloadedTrack): boolean {
+  // Downloads the Kotlin app published to the shared Music folder.
+  if (isContentUri(download.filePath)) return true;
   try {
     return new File(download.filePath).exists;
   } catch {
@@ -85,6 +113,14 @@ export function deleteDownloadFile(download: DownloadedTrack): void {
 }
 
 export async function openDownload(download: DownloadedTrack): Promise<void> {
+  if (isContentUri(download.filePath)) {
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: download.filePath,
+      type: download.mimeType,
+      flags: FLAG_GRANT_READ_URI_PERMISSION,
+    });
+    return;
+  }
   const file = new File(download.filePath);
   if (!file.exists) throw new Error('That downloaded file is missing.');
   if (Platform.OS === 'android') {
