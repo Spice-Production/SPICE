@@ -348,7 +348,8 @@
   letter-spacing: 0;
 }
 
-.root[data-surface='csharp'] :where(a) {
+/* Zero specificity: only anchors without a class of their own are restyled. */
+:where(.root[data-surface='csharp']) a {
   color: var(--csg-link);
   text-decoration: underline dotted;
 }

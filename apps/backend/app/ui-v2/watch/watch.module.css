@@ -1021,3 +1021,77 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   Same window treatment as the music player: a bevelled frame over the
+   wallpaper, veiled regions, grey navigation buttons, a sunken content well. */
+[data-surface='csharp'] .sidebar {
+  background: rgba(27, 27, 37, 0.9);
+}
+
+[data-surface='csharp'] .main {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  border-radius: 0;
+  background: rgba(10, 10, 16, 0.84);
+}
+
+[data-surface='csharp'] .brandText {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-display);
+  font-size: 11px;
+  text-shadow: 2px 2px 0 var(--csg-navy);
+}
+
+[data-surface='csharp'] .navItem {
+  height: 30px;
+  margin-bottom: 3px;
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+  transition: none;
+}
+
+[data-surface='csharp'] .navItem:hover {
+  background: var(--csg-face-hover);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .navItem:active,
+[data-surface='csharp'] .navItem[aria-current='page'] {
+  border-color: var(--csg-sunken);
+  background: var(--csg-face-pressed);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .topbar {
+  border-bottom: 1px solid var(--csg-dark);
+  box-shadow: 0 1px 0 rgba(227, 227, 227, 0.35);
+}
+
+@media (min-width: 769px) {
+  [data-surface='csharp'] .shell {
+    inset: clamp(10px, 2.6vh, 30px) max(clamp(10px, 2vw, 28px), calc((100% - 1260px) / 2));
+    border: 3px solid;
+    border-color: var(--csg-raised);
+    box-shadow:
+      0 0 0 1px #000,
+      10px 10px 0 rgba(0, 0, 0, 0.45);
+  }
+
+  [data-surface='csharp'] .shell::before {
+    /* Window colour behind the content well's margins. */
+    content: '';
+    grid-column: 2;
+    grid-row: 1;
+    z-index: -1;
+    background: rgba(27, 27, 37, 0.9);
+  }
+
+  [data-surface='csharp'] .main {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 6px 6px 6px 0;
+  }
+}
