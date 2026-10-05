@@ -133,3 +133,86 @@
     padding: 16px 16px 32px;
   }
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   The app becomes one window in the middle of the wallpaper, like the
+   fixed-width personal sites it borrows from. Phones keep the full screen. */
+@media (min-width: 769px) {
+  [data-surface='csharp'] .shell {
+    inset: clamp(10px, 2.6vh, 30px) max(clamp(10px, 2vw, 28px), calc((100% - 1260px) / 2));
+    grid-template-rows: auto minmax(0, 1fr) var(--sx-player-height);
+    grid-template-areas:
+      'title title'
+      'sidebar main'
+      'player player';
+    border: 3px solid;
+    border-color: var(--csg-raised);
+    /* Each region carries its own veil so the wallpaper reads through. */
+    background: transparent;
+    box-shadow:
+      0 0 0 1px #000,
+      10px 10px 0 rgba(0, 0, 0, 0.45);
+    transition: none;
+  }
+
+  [data-surface='csharp'] .shell[data-player-placement='top'] {
+    grid-template-rows: auto var(--sx-player-height) minmax(0, 1fr);
+    grid-template-areas:
+      'title title'
+      'player player'
+      'sidebar main';
+  }
+
+  [data-surface='csharp'] .shell[data-player-mode='mini'] {
+    grid-template-rows: auto minmax(0, 1fr) 0;
+  }
+
+  [data-surface='csharp'] .shell[data-player-mode='mini'][data-player-placement='top'] {
+    grid-template-rows: auto 0 minmax(0, 1fr);
+  }
+
+  [data-surface='csharp'] .mainArea,
+  [data-surface='csharp'] .shell[data-topbar='floating'] .mainArea,
+  [data-surface='csharp'] .shell[data-player-placement='top'] .mainArea,
+  [data-surface='csharp'] .shell[data-player-mode='mini'] .mainArea {
+    margin: 6px 6px 6px 0;
+    border: 2px solid;
+    border-color: var(--csg-sunken);
+    border-radius: 0;
+    background: rgba(10, 10, 16, 0.84);
+  }
+
+  [data-surface='csharp'] .sidebarArea {
+    background: rgba(27, 27, 37, 0.9);
+  }
+
+  [data-surface='csharp'] .shell::before {
+    /* Fills the main area's margins with the window colour. */
+    content: '';
+    grid-area: main;
+    z-index: -1;
+    background: rgba(27, 27, 37, 0.9);
+  }
+
+  [data-surface='csharp'] .playerArea {
+    border-top: 1px solid var(--csg-dark);
+    background: rgba(27, 27, 37, 0.92);
+    box-shadow: inset 0 1px 0 var(--csg-light);
+  }
+
+  [data-surface='csharp'] .shell[data-player-placement='top'] .playerArea {
+    border-top: none;
+    border-bottom: 1px solid var(--csg-light);
+    box-shadow: inset 0 -1px 0 var(--csg-dark);
+  }
+}
+
+@media (max-width: 768px) {
+  [data-surface='csharp'] .shell {
+    background: rgba(13, 13, 20, 0.9);
+  }
+}
+
+[data-surface='csharp'] .page {
+  animation: none;
+}

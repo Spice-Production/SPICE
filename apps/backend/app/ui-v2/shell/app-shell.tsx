@@ -15,6 +15,7 @@ import { PlayerRegion } from '../player/player-region';
 import { Alert, IconButton, Sheet, useIsMobile } from '../primitives';
 import { CommandMenu } from './command-menu';
 import { MobileNav } from './mobile-nav';
+import { RetroTitleBar } from './retro-titlebar';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import s from './shell.module.css';
@@ -65,6 +66,8 @@ export function AppShell() {
       data-topbar={m.topbarLayout}
       data-density={m.playerBarDensity}
     >
+      {m.visualSurface === 'csharp' && !isMobile ? <RetroTitleBar /> : null}
+
       {!isMobile ? (
         <div className={s.sidebarArea}>
           <Sidebar collapsed={m.sidebarHidden} />

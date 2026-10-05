@@ -170,3 +170,8 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* ── "C# guy" surface ─────────────────────────────────────────── */
+[data-surface='csharp'] .title {
+  color: var(--csg-mint);
+}

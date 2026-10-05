@@ -519,3 +519,71 @@
     transform: scaleY(1);
   }
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   Framed covers, zebra-striped track tables with a coloured header row, and
+   the classic navy selection bar. */
+[data-surface='csharp'] .art {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+}
+
+[data-surface='csharp'] .trackMain .art,
+[data-surface='csharp'] .tile .art {
+  border-width: 1px;
+}
+
+[data-surface='csharp'] .card:hover,
+[data-surface='csharp'] .card:focus-within {
+  background: var(--sx-hover);
+  outline: 1px dotted var(--sx-fg-subtle);
+}
+
+[data-surface='csharp'] .cardTitle[data-active='true'] {
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .tile {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--sx-surface);
+}
+
+[data-surface='csharp'] .tile:hover {
+  background: var(--sx-surface-hover);
+}
+
+[data-surface='csharp'] .trackListHeader {
+  border-bottom: none;
+  background: #17367f;
+  color: var(--csg-yellow);
+}
+
+[data-surface='csharp'] .trackRow:nth-child(even) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-surface='csharp'] .trackRow:hover,
+[data-surface='csharp'] .trackRow:focus-within,
+[data-surface='csharp'] .trackRow[data-menu-open='true'] {
+  background: var(--csg-select);
+}
+
+[data-surface='csharp'] .trackRow[data-active='true'] {
+  background: rgba(127, 255, 212, 0.1);
+  outline: 1px dotted var(--csg-mint);
+  outline-offset: -1px;
+}
+
+[data-surface='csharp'] .trackRow[data-active='true'] .trackTitle {
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .cardPlay,
+[data-surface='csharp'] .tilePlay {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
