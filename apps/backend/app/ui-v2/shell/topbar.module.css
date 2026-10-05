@@ -698,3 +698,50 @@
   flex-shrink: 0;
   color: var(--sx-accent-text);
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   The search box is a terminal line: sunken, navy, with a `$` prompt. */
+[data-surface='csharp'] .topbar,
+[data-surface='csharp'] .topbar[data-layout='floating'] {
+  border-bottom: 1px solid var(--csg-dark);
+  background: transparent;
+  box-shadow: 0 1px 0 rgba(227, 227, 227, 0.35);
+}
+
+[data-surface='csharp'] .searchForm {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  background: var(--csg-navy);
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .searchForm::before {
+  content: '$';
+  color: var(--csg-mint);
+  font-family: var(--sx-font-mono);
+  font-size: var(--sx-text-sm);
+}
+
+/* The icon sets its display inline, so hiding it needs the override. */
+[data-surface='csharp'] .searchForm > svg:first-child {
+  display: none !important;
+}
+
+[data-surface='csharp'] .searchInput {
+  color: var(--csg-mint);
+  caret-color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .tray,
+[data-surface='csharp'] .profilePanel {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+}
+
+[data-surface='csharp'] .resultRow:hover,
+[data-surface='csharp'] .resultRow[data-active='true'],
+[data-surface='csharp'] .profileSwitchRow:hover {
+  background: var(--csg-select);
+  color: #fff;
+}

@@ -316,3 +316,65 @@
   min-height: 52px;
   padding: 6px;
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   Navigation as raised grey buttons (the current page stays pressed and gets
+   a gemini-style arrow); playlists sit in a sunken list. */
+[data-surface='csharp'] .wordmark {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-display);
+  font-size: 11px;
+  text-shadow: 2px 2px 0 var(--csg-navy);
+}
+
+[data-surface='csharp'] .navItem {
+  height: 30px;
+  margin-bottom: 3px;
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .navItem:hover {
+  background: var(--csg-face-hover);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .navItem:active,
+[data-surface='csharp'] .navItem[aria-current='page'] {
+  border-color: var(--csg-sunken);
+  background: var(--csg-face-pressed);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .navItem[aria-current='page'] .navLabel::before {
+  content: '=> ';
+}
+
+[data-surface='csharp'] .sectionLabel {
+  color: var(--csg-mint);
+  font-size: var(--sx-text-sm);
+}
+
+[data-surface='csharp'] .sectionLabel::before {
+  content: '## ';
+  color: var(--sx-fg-subtle);
+}
+
+[data-surface='csharp'] .playlists {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  background: rgba(0, 16, 48, 0.7);
+}
+
+[data-surface='csharp'] .playlistItem:hover,
+[data-surface='csharp'] .playlistItem[aria-current='page'],
+[data-surface='csharp'] .playlistItem[data-active='true'] {
+  background: var(--csg-select);
+  color: #fff;
+}
+
+[data-surface='csharp'] .playlistArt {
+  border: 1px solid var(--csg-dark);
+}

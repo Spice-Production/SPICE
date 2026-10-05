@@ -87,6 +87,7 @@ import {
 } from './shuffle-history';
 import { buildHomeHistoryShelves } from './home-history';
 import { ACCENT_THEME_VARS, ARTWORK_RADIUS, cssDeclarations, SURFACE_THEME_VARS } from './theme-presets';
+import { Musializer } from './musializer/musializer';
 import {
   createThemeCssVariables,
   DEFAULT_PURPLE_PALETTE,
@@ -810,7 +811,7 @@ export type SearchProvider = 'hybrid' | 'youtube_music' | 'youtube_videos' | 'so
 export type StreamProtocol = 'proxy' | 'web' | 'embed';
 export type ProfileSyncStatus = 'idle' | 'playing' | 'scrobbled' | 'error';
 export type AccentTheme = 'pink' | 'blue' | 'orange' | 'green' | 'gold' | 'crimson' | 'deeppurple';
-export type VisualSurface = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight';
+export type VisualSurface = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight' | 'csharp';
 export type ArtworkShape = 'rounded' | 'soft' | 'circle';
 export type MotionLevel = 'full' | 'calm' | 'off';
 export type InterfaceScale = 'compact' | 'comfortable' | 'spacious';
@@ -1012,6 +1013,7 @@ const VISUAL_SURFACE_LABELS: Record<VisualSurface, string> = {
   solid: 'Flat Graphite',
   aurora: 'Aurora Glow',
   daylight: 'Daylight',
+  csharp: 'C# guy',
 };
 
 const ARTWORK_SHAPE_LABELS: Record<ArtworkShape, string> = {
@@ -1529,7 +1531,8 @@ const isVisualSurface = (value: string | null): value is VisualSurface =>
   || value === 'glass'
   || value === 'solid'
   || value === 'aurora'
-  || value === 'daylight';
+  || value === 'daylight'
+  || value === 'csharp';
 
 const isArtworkShape = (value: string | null): value is ArtworkShape =>
   value === 'rounded' || value === 'soft' || value === 'circle';
@@ -20165,26 +20168,36 @@ const getMaskedEmail = (email: string) => {
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 {expandedTab === 'controls' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Audio visualization mock */}
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '60px', width: '100%', padding: '12px 24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      {[...Array(24)].map((_, i) => {
-                        const baseVal = 20 + Math.abs(Math.sin((i + playerProgress) * 0.5)) * 60;
-                        const randHeight = playerIsPlaying ? baseVal + Math.abs(Math.sin(i * 12.9898 + playerProgress)) * 20 : 15;
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              width: '3%',
-                              height: `${Math.min(100, Math.max(5, randHeight))}%`,
-                              background: 'var(--accent-pink)',
-                              borderRadius: '4px',
-                              transition: 'height 0.1s ease',
-                              boxShadow: '0 0 8px var(--accent-pink)'
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
+                    {/* Audio visualization: the mock bars, or the Musializer port on the "C# guy" surface */}
+                    {(() => {
+                      const mockBars = (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '60px', width: '100%', padding: '12px 24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          {[...Array(24)].map((_, i) => {
+                            const baseVal = 20 + Math.abs(Math.sin((i + playerProgress) * 0.5)) * 60;
+                            const randHeight = playerIsPlaying ? baseVal + Math.abs(Math.sin(i * 12.9898 + playerProgress)) * 20 : 15;
+                            return (
+                              <div
+                                key={i}
+                                style={{
+                                  width: '3%',
+                                  height: `${Math.min(100, Math.max(5, randHeight))}%`,
+                                  background: 'var(--accent-pink)',
+                                  borderRadius: '4px',
+                                  transition: 'height 0.1s ease',
+                                  boxShadow: '0 0 8px var(--accent-pink)'
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                      if (visualSurface !== 'csharp' || motionLevel === 'off') return mockBars;
+                      return (
+                        <div className="csharp-musializer">
+                          <Musializer audioElements={audioSlotRefs} playing={playerIsPlaying} fallback={mockBars} />
+                        </div>
+                      );
+                    })()}
 
                     {/* Progress seeker */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: listenTogetherHostSessionId ? 0.7 : 1 }}>

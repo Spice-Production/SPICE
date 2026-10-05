@@ -1514,3 +1514,270 @@
     opacity: 0;
   }
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   Win9x controls: raised grey buttons that press in, sunken fields, windows
+   with hard shadows, and markdown-style heading markers. */
+[data-surface='csharp'] .button {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+  transition: none;
+}
+
+[data-surface='csharp'] .button:hover {
+  background: var(--csg-face-hover);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .button:active,
+[data-surface='csharp'] .button[data-active='true'],
+[data-surface='csharp'] .button[aria-pressed='true'] {
+  border-color: var(--csg-sunken);
+  background: var(--csg-face-pressed);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .button-accent,
+[data-surface='csharp'] .button-accent:hover {
+  background: var(--sx-accent);
+  color: #fff;
+}
+
+[data-surface='csharp'] .button-destructive,
+[data-surface='csharp'] .button-destructive:hover {
+  background: #b3261e;
+  color: #fff;
+}
+
+[data-surface='csharp'] .button-secondary {
+  background: var(--sx-surface-hover);
+  color: var(--sx-fg);
+}
+
+[data-surface='csharp'] .button-secondary:hover {
+  background: #3a3a50;
+  color: #fff;
+}
+
+/* Toolbar buttons stay flat until pointed at, like an old browser's. */
+[data-surface='csharp'] .button-ghost,
+[data-surface='csharp'] .button-outline {
+  background: transparent;
+  color: var(--sx-fg-muted);
+}
+
+[data-surface='csharp'] .button-ghost {
+  border-color: transparent;
+}
+
+[data-surface='csharp'] .button-ghost:hover,
+[data-surface='csharp'] .button-outline:hover {
+  border-color: var(--csg-raised);
+  background: var(--sx-hover);
+  color: var(--sx-fg);
+}
+
+[data-surface='csharp'] .button-ghost:active,
+[data-surface='csharp'] .button-ghost[data-active='true'],
+[data-surface='csharp'] .button-ghost[aria-pressed='true'] {
+  border-color: var(--csg-sunken);
+  background: var(--sx-active);
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .button-link,
+[data-surface='csharp'] .button-link:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--csg-link);
+  text-decoration: underline dotted;
+}
+
+[data-surface='csharp'] .button[aria-disabled='true'],
+[data-surface='csharp'] .button:disabled {
+  color: #6b6b74;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-surface='csharp'] .input,
+[data-surface='csharp'] .textarea,
+[data-surface='csharp'] .select {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  background: var(--csg-navy);
+  color: var(--csg-mint);
+  caret-color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .input:focus-visible,
+[data-surface='csharp'] .textarea:focus-visible,
+[data-surface='csharp'] .select:focus-visible {
+  border-color: var(--csg-sunken);
+  box-shadow: 0 0 0 1px var(--csg-yellow);
+}
+
+[data-surface='csharp'] .select option {
+  background: var(--csg-navy);
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .card,
+[data-surface='csharp'] .settingsSection,
+[data-surface='csharp'] .alert {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+}
+
+[data-surface='csharp'] .card-interactive:hover {
+  border-color: var(--csg-raised);
+  background: var(--sx-surface-hover);
+}
+
+[data-surface='csharp'] .dialog,
+[data-surface='csharp'] .sheet,
+[data-surface='csharp'] .popover {
+  border: 3px solid;
+  border-color: var(--csg-raised);
+  box-shadow:
+    0 0 0 1px #000,
+    6px 6px 0 rgba(0, 0, 0, 0.55);
+  animation: none;
+}
+
+[data-surface='csharp'] .popover {
+  border-width: 2px;
+}
+
+[data-surface='csharp'] .dialogTitle,
+[data-surface='csharp'] .sheetTitle {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-display);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+[data-surface='csharp'] .menuItem:hover,
+[data-surface='csharp'] .menuItem:focus-visible,
+[data-surface='csharp'] .menuItem[data-active='true'] {
+  background: var(--csg-select);
+  color: #fff;
+}
+
+[data-surface='csharp'] .menuItem:hover > svg,
+[data-surface='csharp'] .menuItem:focus-visible > svg,
+[data-surface='csharp'] .menuItem:hover .menuItemDescription,
+[data-surface='csharp'] .menuItem:focus-visible .menuItemDescription {
+  color: #fff;
+}
+
+[data-surface='csharp'] .tabs-segmented,
+[data-surface='csharp'] .tabs-pills {
+  gap: 3px;
+  padding: 0;
+  background: transparent;
+}
+
+[data-surface='csharp'] .tabs-segmented .tab,
+[data-surface='csharp'] .tabs-pills .tab {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .tabs-segmented .tab[aria-selected='true'],
+[data-surface='csharp'] .tabs-pills .tab[aria-selected='true'] {
+  border-color: var(--csg-sunken);
+  background: var(--csg-face-pressed);
+  color: var(--csg-ink);
+  box-shadow: none;
+}
+
+[data-surface='csharp'] .tabs-underline .tab[aria-selected='true'] {
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .switch,
+[data-surface='csharp'] .checkbox {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  border-radius: 0;
+  background: var(--csg-navy);
+}
+
+[data-surface='csharp'] .switch {
+  padding: 0;
+}
+
+[data-surface='csharp'] .switchThumb {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  border-radius: 0;
+  background: var(--csg-face);
+  box-shadow: none;
+}
+
+[data-surface='csharp'] .badge {
+  border: 1px solid currentColor;
+  border-radius: 0;
+}
+
+[data-surface='csharp'] .kbd {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+}
+
+[data-surface='csharp'] .progress {
+  border: 2px solid;
+  border-color: var(--csg-sunken);
+  background: var(--csg-navy);
+}
+
+[data-surface='csharp'] .separator {
+  border-top: 1px solid var(--csg-dark);
+  border-bottom: 1px solid rgba(227, 227, 227, 0.45);
+  background: transparent;
+}
+
+[data-surface='csharp'] .pageTitle {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-display);
+  font-size: clamp(15px, 1.9vw, 22px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-shadow: 3px 3px 0 var(--csg-navy);
+}
+
+[data-surface='csharp'] .pageTitle::before,
+[data-surface='csharp'] .sectionTitle::before,
+[data-surface='csharp'] .settingsSectionTitle::before {
+  color: var(--sx-fg-subtle);
+  font-weight: 400;
+  text-shadow: none;
+}
+
+[data-surface='csharp'] .pageTitle::before {
+  content: '# ';
+}
+
+[data-surface='csharp'] .sectionTitle::before,
+[data-surface='csharp'] .settingsSectionTitle::before {
+  content: '## ';
+}
+
+[data-surface='csharp'] .sectionTitle,
+[data-surface='csharp'] .settingsSectionTitle,
+[data-surface='csharp'] .cardTitle,
+[data-surface='csharp'] .emptyTitle {
+  color: var(--csg-mint);
+}
+
+[data-surface='csharp'] .pageEyebrow {
+  color: var(--csg-yellow);
+  text-transform: uppercase;
+}

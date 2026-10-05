@@ -337,3 +337,36 @@
   margin-top: 0;
   margin-left: -4px;
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   A square, raised play key; the seek and volume tracks are sunken grooves. */
+[data-surface='csharp'] .playButton {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+  color: var(--csg-ink);
+  transition: none;
+}
+
+[data-surface='csharp'] .playButton:hover {
+  background: var(--csg-face-hover);
+  transform: none;
+}
+
+[data-surface='csharp'] .playButton:active {
+  border-color: var(--csg-sunken);
+  background: var(--csg-face-pressed);
+  transform: none;
+}
+
+[data-surface='csharp'] .seekTime {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-mono);
+}
+
+[data-surface='csharp'] .volumeVerticalPanel,
+[data-surface='csharp'] .volumePopover {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+}

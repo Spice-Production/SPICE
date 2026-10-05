@@ -252,3 +252,38 @@
     font-size: var(--sx-text-xl);
   }
 }
+
+/* ── "C# guy" surface ───────────────────────────────────────────
+   The full-screen view keeps the wallpaper behind a dark veil, and the
+   Controls tab hosts the Musializer port in a sunken frame. */
+[data-surface='csharp'] .overlay {
+  background:
+    linear-gradient(rgba(10, 10, 18, 0.88), rgba(10, 10, 18, 0.88)),
+    var(--spice-app-background, var(--sx-bg));
+  animation: none;
+}
+
+[data-surface='csharp'] .bgTint {
+  display: none;
+}
+
+[data-surface='csharp'] .trackTitle {
+  color: var(--csg-mint);
+  font-family: var(--sx-font-display);
+  font-size: clamp(13px, 1.5vw, 18px);
+  line-height: 1.6;
+  text-shadow: 3px 3px 0 var(--csg-navy);
+}
+
+[data-surface='csharp'] .art {
+  border: 3px solid;
+  border-color: var(--csg-raised);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+}
+
+.musializer {
+  height: 100%;
+  min-height: 220px;
+  border: 3px solid;
+  border-color: var(--csg-sunken);
+}

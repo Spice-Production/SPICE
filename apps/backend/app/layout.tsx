@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import OfflineShellRegistration from "./offline-shell-registration";
@@ -15,6 +15,21 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Pixel fonts for the "C# guy" surface. Not preloaded: the browser only
+// downloads them once that surface is selected.
+const pixelSans = Pixelify_Sans({
+  variable: "--font-spice-pixel",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const pixelDisplay = Press_Start_2P({
+  variable: "--font-spice-pixel-display",
+  weight: "400",
+  subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -38,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${pixelSans.variable} ${pixelDisplay.variable}`} suppressHydrationWarning>
       <head>
         {/* Marks UI v2 preview testers before hydration so the classic shell does not flash. */}
         <script dangerouslySetInnerHTML={{ __html: SPICE_UI_V2_BOOT_SCRIPT }} />

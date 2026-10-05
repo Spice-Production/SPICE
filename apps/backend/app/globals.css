@@ -6593,3 +6593,211 @@ html[data-spice-ui="v2"] .app,
 html[data-spice-ui="v2"] .media-shell {
   visibility: hidden;
 }
+
+/* ── "C# guy" surface (classic interface) ────────────────────────
+   Web 1.0 desktop look: square corners, pixel type, bevelled grey buttons,
+   sunken navy fields, dark windows over the wallpaper. The palette itself
+   comes from SURFACE_THEME_VARS.csharp in theme-presets.ts. */
+.app.surface--csharp {
+  --csg-light: #e3e3e3;
+  --csg-dark: #2b2b36;
+  --csg-face: #c3c3c3;
+  --csg-face-hover: #d6d6d6;
+  --csg-face-pressed: #a8a8a8;
+  --csg-ink: #06080f;
+  --csg-mint: #7fffd4;
+  --csg-yellow: #ffe94d;
+  --csg-navy: #002050;
+  --csg-select: #2f55a4;
+  --csg-raised: var(--csg-light) var(--csg-dark) var(--csg-dark) var(--csg-light);
+  --csg-sunken: var(--csg-dark) var(--csg-light) var(--csg-light) var(--csg-dark);
+  --csg-font: var(--font-spice-pixel), 'Courier New', ui-monospace, monospace;
+  --csg-font-display: var(--font-spice-pixel-display), var(--font-spice-pixel), monospace;
+  color-scheme: dark;
+}
+
+/* The classic interface styles many elements inline, so the shape and type
+   of this surface are imposed wholesale. */
+.app.surface--csharp,
+.app.surface--csharp *,
+.app.surface--csharp *::before,
+.app.surface--csharp *::after {
+  border-radius: 0 !important;
+  font-family: var(--csg-font) !important;
+  letter-spacing: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.app.surface--csharp .main {
+  background: rgba(13, 13, 20, 0.9);
+}
+
+.app.surface--csharp .sidebar,
+.app.surface--csharp .now-playing,
+.app.surface--csharp .app-topbar,
+.app.surface--csharp .queue-drawer,
+.app.surface--csharp .lyrics-drawer,
+.app.surface--csharp .mini-player,
+.app.surface--csharp .modal,
+.app.surface--csharp .app-topbar__profile-menu {
+  border: 3px solid !important;
+  border-color: var(--csg-raised) !important;
+  background: rgba(27, 27, 37, 0.97) !important;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+.app.surface--csharp .expanded-player {
+  background:
+    linear-gradient(rgba(10, 10, 18, 0.9), rgba(10, 10, 18, 0.9)),
+    var(--spice-app-background) !important;
+}
+
+.app.surface--csharp .sidebar__nav-item,
+.app.surface--csharp .btn,
+.app.surface--csharp .now-playing__btn--play,
+.app.surface--csharp .settings-page-nav__item,
+.app.surface--csharp .sidebar__add-btn {
+  border: 2px solid !important;
+  border-color: var(--csg-raised) !important;
+  background: var(--csg-face) !important;
+  color: var(--csg-ink) !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+.app.surface--csharp .sidebar__nav-item {
+  margin-bottom: 3px;
+}
+
+.app.surface--csharp .sidebar__nav-item:hover,
+.app.surface--csharp .btn:hover,
+.app.surface--csharp .settings-page-nav__item:hover {
+  background: var(--csg-face-hover) !important;
+  transform: none !important;
+}
+
+.app.surface--csharp .sidebar__nav-item.active,
+.app.surface--csharp .sidebar__nav-item:active,
+.app.surface--csharp .btn:active,
+.app.surface--csharp .settings-page-nav__item.active,
+.app.surface--csharp .settings-page-nav__item[aria-current='true'] {
+  border-color: var(--csg-sunken) !important;
+  background: var(--csg-face-pressed) !important;
+}
+
+.app.surface--csharp .sidebar__nav-item svg,
+.app.surface--csharp .btn svg,
+.app.surface--csharp .settings-page-nav__item svg {
+  color: var(--csg-ink) !important;
+}
+
+.app.surface--csharp .btn--primary {
+  background: var(--accent-pink) !important;
+  color: #fff !important;
+}
+
+.app.surface--csharp .btn--ghost {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.app.surface--csharp .app-topbar__search,
+.app.surface--csharp .search-bar,
+.app.surface--csharp input[type='text'],
+.app.surface--csharp input[type='search'],
+.app.surface--csharp input[type='email'],
+.app.surface--csharp input[type='password'],
+.app.surface--csharp input[type='url'],
+.app.surface--csharp input[type='number'],
+.app.surface--csharp select,
+.app.surface--csharp textarea {
+  border: 2px solid !important;
+  border-color: var(--csg-sunken) !important;
+  background: var(--csg-navy) !important;
+  color: var(--csg-mint) !important;
+  caret-color: var(--csg-mint);
+  box-shadow: none !important;
+}
+
+.app.surface--csharp .app-topbar__search input,
+.app.surface--csharp .search-bar input {
+  border: none !important;
+  background: transparent !important;
+}
+
+.app.surface--csharp .section__title,
+.app.surface--csharp .sidebar__section-title,
+.app.surface--csharp .sidebar__logo-text {
+  color: var(--csg-mint) !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+.app.surface--csharp .section__title {
+  font-family: var(--csg-font-display) !important;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  text-shadow: 3px 3px 0 var(--csg-navy);
+}
+
+.app.surface--csharp .section__title::before,
+.app.surface--csharp .sidebar__section-title::before {
+  content: '## ';
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+.app.surface--csharp .quick-card,
+.app.surface--csharp .library-item,
+.app.surface--csharp .card__art-wrapper,
+.app.surface--csharp .now-playing__art,
+.app.surface--csharp .expanded-player__art-box {
+  border: 2px solid !important;
+  border-color: var(--csg-raised) !important;
+  box-shadow: none !important;
+}
+
+.app.surface--csharp .quick-card:hover,
+.app.surface--csharp .library-item:hover,
+.app.surface--csharp .sidebar__playlist-item:hover,
+.app.surface--csharp .app-topbar__result-item:hover {
+  background: var(--csg-select) !important;
+  color: #fff !important;
+  transform: none !important;
+}
+
+.app.surface--csharp .now-playing__title {
+  color: var(--csg-mint) !important;
+}
+
+.app.surface--csharp .csharp-musializer {
+  height: 220px;
+  border: 3px solid;
+  border-color: var(--csg-sunken);
+}
+
+.app.surface--csharp ::selection {
+  background: var(--csg-select);
+  color: #fff;
+}
+
+.app.surface--csharp * {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+
+.app.surface--csharp ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+.app.surface--csharp ::-webkit-scrollbar-track {
+  background: repeating-conic-gradient(#c3c3c3 0% 25%, #dedede 0% 50%) 0 0 / 2px 2px;
+}
+
+.app.surface--csharp ::-webkit-scrollbar-thumb {
+  border: 2px solid;
+  border-color: var(--csg-raised);
+  background: var(--csg-face);
+}

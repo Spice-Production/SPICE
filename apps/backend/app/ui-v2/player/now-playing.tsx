@@ -12,6 +12,8 @@
 
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 
+import { Musializer } from '../../musializer/musializer';
+
 import { useTrackMenu } from '../actions';
 import { useSpiceUi } from '../context';
 import { artistNames, TrackArtwork } from '../media';
@@ -63,6 +65,20 @@ const TAB_ITEMS = [
   { value: 'queue' as const, label: 'Up next', icon: 'list' as const },
   { value: 'controls' as const, label: 'Controls', icon: 'audioLines' as const },
 ];
+
+/** The "C# guy" surface swaps the waveform for the Musializer port. */
+function ThemedVisualizer() {
+  const m = useSpiceUi();
+  if (m.visualSurface !== 'csharp' || m.motionLevel === 'off') return <AudioVisualizer />;
+  return (
+    <Musializer
+      className={s.musializer}
+      audioElements={m.audioSlotRefs}
+      playing={m.playerIsPlaying}
+      fallback={<AudioVisualizer />}
+    />
+  );
+}
 
 function AudioVisualizer() {
   const m = useSpiceUi();
@@ -202,7 +218,7 @@ export function NowPlaying() {
                     <QueueContent />
                   </div>
                 ) : null}
-                {m.expandedTab === 'controls' ? <AudioVisualizer /> : null}
+                {m.expandedTab === 'controls' ? <ThemedVisualizer /> : null}
               </div>
             </div>
           </div>

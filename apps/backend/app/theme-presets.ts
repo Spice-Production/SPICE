@@ -5,7 +5,10 @@
  */
 
 export type AccentThemeId = 'pink' | 'blue' | 'orange' | 'green' | 'gold' | 'crimson' | 'deeppurple';
-export type VisualSurfaceId = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight';
+export type VisualSurfaceId = 'midnight' | 'glass' | 'solid' | 'aurora' | 'daylight' | 'csharp';
+
+/** Wallpaper of the "C# guy" surface, served from /public. */
+export const CSHARP_GUY_WALLPAPER = '/themes/csharp-guy/negev.webp';
 export type ArtworkShapeId = 'rounded' | 'soft' | 'circle';
 
 export const ACCENT_THEME_VARS: Record<AccentThemeId, Record<string, string>> = {
@@ -137,6 +140,26 @@ export const SURFACE_THEME_VARS: Record<VisualSurfaceId, Record<string, string>>
     '--border-glass': 'rgba(32, 24, 45, 0.12)',
     '--spice-app-background': 'radial-gradient(circle at 16% 8%, rgba(var(--accent-pink-rgb), 0.1), transparent 30%), #f7f5fa',
     '--spice-panel-filter': 'blur(22px)',
+  },
+  // "C# guy": a Web 1.0 desktop. Dark bevelled windows over a wallpaper; the
+  // interfaces add the borders, pixel fonts, and chrome on top of these.
+  csharp: {
+    '--body-bg': '#0b0b12',
+    '--card-bg': 'rgba(27, 27, 37, 0.94)',
+    '--border-color': '#55556a',
+    '--bg-primary': '#0b0b12',
+    '--bg-surface': '#1b1b25',
+    '--bg-surface-hover': '#2a2a3a',
+    '--bg-surface-active': '#34344a',
+    '--bg-glass': 'rgba(20, 20, 30, 0.94)',
+    '--bg-glass-hover': 'rgba(34, 34, 50, 0.96)',
+    '--text-primary': '#f2f2f2',
+    '--text-secondary': '#b9c2d6',
+    '--text-muted': '#8a93a8',
+    '--border-subtle': '#3c3c4c',
+    '--border-glass': '#55556a',
+    '--spice-app-background': `#5b84c4 url('${CSHARP_GUY_WALLPAPER}') center top / cover no-repeat`,
+    '--spice-panel-filter': 'none',
   },
 };
 

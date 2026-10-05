@@ -1,5 +1,9 @@
 # SPICE Walkthrough
 
+## v1.0.182
+
+- [Spice.Music main] New surface style "C# guy" (Settings, Surface style): a Web 1.0 desktop look with the app as a bevelled window over a wallpaper, pixel fonts, raised grey buttons, sunken terminal-style fields, a title bar with a now-playing ticker, and markdown-style heading markers. It works in both the classic and the new interface, and Spice Movies follows it. While it is active, the Controls tab of the full-screen player shows a web port of Musializer (github.com/tsoding/musializer, MIT): the same FFT, logarithmic bins, smoothing, smear, and glow shader, driven by the audio that is actually playing. The visualizer needs a Chromium-based browser or the desktop app; elsewhere, and for tracks that play through the embedded video player, the previous waveform or a "no signal" note is shown.
+
 ## v1.0.181
 
 - [Spice.Movies main] Spice Movies joins the new interface preview: Movies, TV Series, and both watch pages get the minimalist shell (sidebar, topbar search, release bell, profile menu with default source), poster shelves, a quieter billboard, My List shelves, a list-status menu, segmented source tabs, and an episode grid. The preview choice now lives in a `spice_ui` cookie on the parent domain too, so it follows you between music and movies, and watch pages render the chosen interface on the server (no flash, never two players). Movies also picks up your accent, surface, custom palette, artwork shape, and motion settings. Classic stays the default; switch from either profile menu or with `?ui=v2` / `?ui=classic`.
