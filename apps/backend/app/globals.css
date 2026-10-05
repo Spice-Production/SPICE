@@ -6772,7 +6772,8 @@ html[data-spice-ui="v2"] .media-shell {
 }
 
 .app.surface--csharp .csharp-musializer {
-  height: 220px;
+  /* 220px of visualizer inside the 3px frame. */
+  height: 226px;
   border: 3px solid;
   border-color: var(--csg-sunken);
 }
