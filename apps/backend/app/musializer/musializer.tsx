@@ -111,7 +111,8 @@ export function Musializer({
   return (
     <div className={className ? `${s.frame} ${className}` : s.frame} aria-hidden="true">
       <canvas ref={canvasRef} className={s.canvas} />
-      {noSignal ? <span className={s.hint}>NO SIGNAL: this track plays through the embedded video player</span> : null}
+      {/* Nothing to analyse (the track plays through the embedded video player). */}
+      {noSignal ? <div className={s.standIn}>{fallback}</div> : null}
     </div>
   );
 }

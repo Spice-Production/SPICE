@@ -74,8 +74,9 @@ export function createAudioTap(getElements: () => ReadonlyArray<HTMLMediaElement
       binding = { stream, trackId: '', node: null };
       bindings.set(element, binding);
     }
-    // Loading another track replaces the stream's audio track, so follow it.
-    const track = stream.getAudioTracks().find((candidate) => candidate.readyState === 'live');
+    // Loading another song adds a new audio track to the stream, while the
+    // previous one stays "live" but silent. The newest live track carries sound.
+    const track = stream.getAudioTracks().findLast((candidate) => candidate.readyState === 'live');
     const trackId = track?.id ?? '';
     if (trackId === binding.trackId) return;
     binding.node?.disconnect();
