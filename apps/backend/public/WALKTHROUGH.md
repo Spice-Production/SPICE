@@ -1,5 +1,10 @@
 # SPICE Walkthrough
 
+## v1.0.183
+
+- [Spice.Music main] On the "C# guy" surface in the new interface, the full-screen player's Lyrics tab now shows the lyrics and the Musializer visualizer side by side on wide screens (1180px and up), in a wider layout so both halves stay readable. Narrower windows keep lyrics only, and the Controls tab still shows the visualizer on its own.
+- [Spice.Music main] Fixed the Musializer visualizer going silent after switching songs until the page was reloaded: it kept listening to the previous song's audio track. The "no signal" note is gone; when a track plays through the embedded video player, the regular waveform is shown inside the visualizer frame instead.
+
 ## v1.0.182
 
 - [Spice.Music main] New surface style "C# guy" (Settings, Surface style): a Web 1.0 desktop look with the app as a bevelled window over a wallpaper, pixel fonts, raised grey buttons, sunken terminal-style fields, a title bar with a now-playing ticker, and markdown-style heading markers. It works in both the classic and the new interface, and Spice Movies follows it. While it is active, the Controls tab of the full-screen player shows a web port of Musializer (github.com/tsoding/musializer, MIT): the same FFT, logarithmic bins, smoothing, smear, and glow shader, driven by the audio that is actually playing. The visualizer needs a Chromium-based browser or the desktop app; elsewhere, and for tracks that play through the embedded video player, the previous waveform or a "no signal" note is shown.

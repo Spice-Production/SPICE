@@ -185,6 +185,24 @@
   overflow: hidden;
 }
 
+.lyricsSolo {
+  min-height: 0;
+  height: 100%;
+}
+
+/* Lyrics beside the visualizer ("C# guy" surface on wide screens). */
+.lyricsSplit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+}
+
+.grid[data-wide='true'] {
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  max-width: 1520px;
+}
+
 /* Only the line list scrolls, so the karaoke header stays put. */
 .lyricsScroll {
   flex: 1 1 auto;

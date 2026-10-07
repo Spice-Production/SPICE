@@ -12,12 +12,13 @@
 
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 
+import { audioTapSupported } from '../../musializer/audio-tap';
 import { Musializer } from '../../musializer/musializer';
 
 import { useTrackMenu } from '../actions';
 import { useSpiceUi } from '../context';
 import { artistNames, TrackArtwork } from '../media';
-import { DropdownMenu, IconButton, Portal, Tabs } from '../primitives';
+import { DropdownMenu, IconButton, Portal, Tabs, useMediaQuery } from '../primitives';
 import { DevicePicker } from './device-picker';
 import { LyricsHeader, LyricsView } from './lyrics-view';
 import { QueueContent } from './queue-panel';
@@ -103,6 +104,10 @@ export function NowPlaying() {
   const collapseRef = useRef<HTMLButtonElement>(null);
   const liked = m.likedTracks.has(m.playerTrack.id);
   const menuEntries = trackMenuFor(m.playerTrack);
+  // On the "C# guy" surface a wide screen shows the lyrics beside the
+  // Musializer port, in a wider grid so both halves keep a readable width.
+  const wideScreen = useMediaQuery('(min-width: 1180px)');
+  const lyricsBesideVisualizer = wideScreen && m.visualSurface === 'csharp' && m.motionLevel !== 'off' && audioTapSupported();
   const tintUrl = m.playerTrack.artworkUrl || m.playerTrack.album?.artworkUrl;
 
   // Move focus into the overlay on open (it renders after the whole page in
@@ -156,7 +161,7 @@ export function NowPlaying() {
         </header>
 
         <div className={s.body}>
-          <div className={s.grid}>
+          <div className={s.grid} data-wide={lyricsBesideVisualizer ? 'true' : undefined}>
             <div className={s.leftCol}>
               <TrackArtwork track={m.playerTrack} className={s.art} eager />
               <div className={s.meta}>
@@ -208,9 +213,12 @@ export function NowPlaying() {
               <Tabs value={m.expandedTab} onValueChange={m.setExpandedTab} items={TAB_ITEMS} label="Expanded player panels" fullWidth />
               <div className={s.tabPanel}>
                 {m.expandedTab === 'lyrics' ? (
-                  <div className={s.lyricsPane}>
-                    <LyricsHeader />
-                    <LyricsView className={s.lyricsScroll} />
+                  <div className={lyricsBesideVisualizer ? s.lyricsSplit : s.lyricsSolo}>
+                    <div className={s.lyricsPane}>
+                      <LyricsHeader />
+                      <LyricsView className={s.lyricsScroll} />
+                    </div>
+                    {lyricsBesideVisualizer ? <ThemedVisualizer /> : null}
                   </div>
                 ) : null}
                 {m.expandedTab === 'queue' ? (

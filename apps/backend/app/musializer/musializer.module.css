@@ -16,15 +16,18 @@
   height: 100%;
 }
 
-.hint {
+/* The interface's own waveform stands in while there is no audio to analyse. */
+.standIn {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 10px;
-  color: #8a8a8a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-align: center;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
   pointer-events: none;
+}
+
+.standIn > * {
+  flex: 1;
+  min-width: 0;
 }
