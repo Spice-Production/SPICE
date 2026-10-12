@@ -1,5 +1,26 @@
 # Spice
 
+#  Project Status: Indefinite Hiatus
+
+**Spice** is currently on an indefinite hiatus and is no longer actively maintained or updated.
+
+---
+
+###  Recommended Alternative
+For an actively maintained alternative with similar functionality, we recommend using **Noctorium(https://noctorium.vercel.app/)**. 
+
+---
+
+###  Repository Notes
+* **Issues & Pull Requests:** Open issues and PRs are currently unmonitored and will not be merged.
+* **Forks:** Feel free to fork this repository under the MIT license if you'd like to maintain your own version.
+
+Thank you to everyone who contributed and supported this project!
+
+---
+---
+---
+
 Spice is a unified music application repository containing:
 
 - an Electron desktop client for YouTube Music, SoundCloud, and SPICE Music;
