@@ -169,12 +169,13 @@ export async function reportProgress(
 }
 
 export function watchPageHref(entry: { kind: string; tmdbId: string; season?: number; episode?: number }): string {
-  if (entry.kind === 'show') {
+  if (entry.kind === 'show' || entry.kind === 'anime') {
     const params = new URLSearchParams();
     if (entry.season) params.set('s', String(entry.season));
     if (entry.episode) params.set('e', String(entry.episode));
     const query = params.toString();
-    return `/shows/watch/${entry.tmdbId}${query ? `?${query}` : ''}`;
+    const base = entry.kind === 'anime' ? `/anime/watch/${entry.tmdbId}` : `/shows/watch/${entry.tmdbId}`;
+    return `${base}${query ? `?${query}` : ''}`;
   }
   return `/movie/watch/${entry.tmdbId}`;
 }

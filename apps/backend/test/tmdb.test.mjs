@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { browseMovies, browseShows, getMovieDetails, getSeasonEpisodes, getShowDetails, searchMovies, searchShows, tmdbApiKey } from '../lib/tmdb.ts';
+import { browseAnime, browseMovies, browseShows, getMovieDetails, getSeasonEpisodes, getShowDetails, searchAnime, searchMovies, searchShows, tmdbApiKey } from '../lib/tmdb.ts';
 
 const okFetch = (payload) => async () => ({
   ok: true,
@@ -154,4 +154,81 @@ test('season episodes map with stills and runtimes', async () => {
   assert.deepEqual(eps[0], { episodeNumber: 1, name: 'Pilot', overview: 'Begins.', stillUrl: 'https://image.tmdb.org/t/p/w780/s.jpg', runtimeMinutes: 58 });
   assert.deepEqual(await getSeasonEpisodes('1396', 0, okFetch({}), 'key'), []);
   assert.deepEqual(await getSeasonEpisodes('abc', 1, okFetch({}), 'key'), []);
+});
+
+test('anime browse covers series shelves, fallback, and anime movies', async () => {
+  const seenUrls = [];
+  const fetchMock = async (url) => {
+    seenUrls.push(String(url));
+    if (String(url).includes('/3/discover/movie')) {
+      return okFetch({
+        results: [
+          { id: 372058, title: 'Your Name.', release_date: '2016-08-26', poster_path: '/p.jpg', backdrop_path: '/b.jpg', overview: 'Body swap.' },
+        ],
+      })();
+    }
+    return okFetch({
+      results: [
+        { id: 95479, name: 'JUJUTSU KAISEN', first_air_date: '2020-10-03', poster_path: '/j.jpg', backdrop_path: '/jb.jpg', overview: 'Curses.' },
+      ],
+    })();
+  };
+
+  for (const list of ['trending', 'popular', 'top_rated', 'airing']) {
+    const items = await browseAnime(list, 10, fetchMock, 'key', new Date('2026-11-20T00:00:00Z'));
+    assert.equal(items.length, 1);
+    assert.equal(items[0].mediaType, 'tv');
+  }
+  assert.match(seenUrls[0], /with_genres=16/);
+  assert.match(seenUrls[0], /with_original_language=ja/);
+  assert.match(seenUrls[0], /air_date\.gte=2026-09-21/);
+
+  const movies = await browseAnime('movies', 10, fetchMock, 'key');
+  assert.equal(movies.length, 1);
+  assert.equal(movies[0].mediaType, 'movie');
+  assert.equal(movies[0].title, 'Your Name.');
+
+  let calls = 0;
+  const fallbackItems = await browseAnime(
+    'trending',
+    10,
+    async () => {
+      calls += 1;
+      if (calls === 1) return okFetch({ results: [] })();
+      return okFetch({ results: [{ id: 209867, name: 'Frieren', first_air_date: '2023-09-29', poster_path: '/f.jpg', backdrop_path: null, overview: '' }] })();
+    },
+    'key',
+  );
+  assert.equal(calls, 2);
+  assert.equal(fallbackItems[0].title, 'Frieren');
+
+  await assert.rejects(browseAnime('nope', 12, okFetch({ results: [] }), 'key'));
+  const err = await browseAnime('popular', 12, okFetch({ results: [] }), null).catch((e) => e);
+  assert.equal(err.code, 'tmdb_key_missing');
+});
+
+test('anime search filters to animation and prioritizes Japanese anime across TV and movies', async () => {
+  const fetchMock = async (url) => {
+    if (String(url).includes('/3/search/tv')) {
+      return okFetch({
+        results: [
+          { id: 1, name: 'Live Action', first_air_date: '2020-01-01', genre_ids: [18], original_language: 'ja', popularity: 999 },
+          { id: 2, name: 'Western Cartoon', first_air_date: '2020-01-01', genre_ids: [16], original_language: 'en', origin_country: ['US'], popularity: 500 },
+          { id: 209867, name: 'Frieren', first_air_date: '2023-09-29', genre_ids: [16, 10759], original_language: 'ja', origin_country: ['JP'], popularity: 200 },
+        ],
+      })();
+    }
+    return okFetch({
+      results: [
+        { id: 372058, title: 'Your Name.', release_date: '2016-08-26', genre_ids: [16, 10749], original_language: 'ja', popularity: 250 },
+      ],
+    })();
+  };
+
+  const hits = await searchAnime('frieren', 12, fetchMock, 'key');
+  assert.equal(hits.length, 2);
+  assert.equal(hits[0].title, 'Your Name.');
+  assert.equal(hits[0].mediaType, 'movie');
+  assert.equal(hits[1].title, 'Frieren');
+  assert.equal(hits[1].mediaType, 'tv');
 });

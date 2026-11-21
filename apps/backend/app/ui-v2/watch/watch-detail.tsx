@@ -2,7 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element -- TMDB artwork URLs are not configured for next/image. */
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+
+import { PLAYER_IFRAME_SANDBOX } from '@/lib/movie-provider';
 
 import { WATCH_LIST_STATUS_LABELS, WATCH_LIST_STATUS_ORDER } from '../../watch-client';
 import { useMovieSources, useShowPlayer, type ShowPlayerProps } from '../../watch-player-state';
@@ -23,44 +25,59 @@ export interface WatchDetailInfo {
   posterUrl?: string | null;
 }
 
-function DetailPage({
+function DetailShell({
   kind,
-  info,
+  backdropUrl,
   children,
 }: {
-  kind: 'movie' | 'show';
-  info: WatchDetailInfo;
+  kind: 'movie' | 'show' | 'anime';
+  backdropUrl?: string | null;
   children: (sessionKey: string, onSignedIn: (token: string) => void) => ReactNode;
 }) {
   const session = useWatchSession();
-  const back = kind === 'show' ? { href: '/shows', label: 'TV Series' } : { href: '/movie', label: 'Movies' };
+  const back =
+    kind === 'anime'
+      ? { href: '/anime', label: 'Anime' }
+      : kind === 'show'
+        ? { href: '/shows', label: 'TV Series' }
+        : { href: '/movie', label: 'Movies' };
+  const active = kind === 'anime' ? 'anime' : kind === 'show' ? 'shows' : 'movies';
   return (
     <WatchHost>
-      <WatchShell active={kind === 'show' ? 'shows' : 'movies'} session={session} back={back}>
-        <header className={s.detailHero}>
-          {info.backdropUrl ? <img src={info.backdropUrl} alt="" aria-hidden="true" className={s.detailBackdrop} /> : null}
-          <div className={s.heroScrim} />
-          <div className={s.detailHeroBody}>
-            {info.posterUrl ? <img src={info.posterUrl} alt="" className={s.detailPoster} /> : null}
-            <div className={s.detailText}>
-              <h1 className={s.detailTitle}>{info.title}</h1>
-              {info.tagline ? <p className={s.detailTagline}>“{info.tagline}”</p> : null}
-              {info.meta && info.meta.length > 0 ? (
-                <div className={s.detailMeta}>
-                  {info.meta.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-              {info.overview ? <p className={s.detailOverview}>{info.overview}</p> : null}
+      <WatchShell active={active} session={session} back={back}>
+        <div className={s.detailRoot}>
+          {backdropUrl ? (
+            <div className={s.detailBackdropBand} aria-hidden="true">
+              <img src={backdropUrl} alt="" className={s.detailBackdrop} />
+              <div className={s.detailBackdropScrim} />
             </div>
-          </div>
-        </header>
-        <div className={cn(s.page, s.detailPage)}>{children(session.token ?? 'signed-out', session.onSignedIn)}</div>
+          ) : null}
+          <div className={cn(s.page, s.detailPage)}>{children(session.token ?? 'signed-out', session.onSignedIn)}</div>
+        </div>
       </WatchShell>
     </WatchHost>
+  );
+}
+
+function DetailCard({ info }: { info: WatchDetailInfo }) {
+  return (
+    <header className={s.detailCard}>
+      {info.posterUrl ? <img src={info.posterUrl} alt="" className={s.detailPoster} /> : null}
+      <div className={s.detailText}>
+        <h1 className={s.detailTitle}>{info.title}</h1>
+        {info.tagline ? <p className={s.detailTagline}>“{info.tagline}”</p> : null}
+        {info.meta && info.meta.length > 0 ? (
+          <div className={s.detailMeta}>
+            {info.meta.map((item) => (
+              <Badge key={item} variant="outline">
+                {item}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+        {info.overview ? <p className={s.detailOverview}>{info.overview}</p> : null}
+      </div>
+    </header>
   );
 }
 
@@ -127,27 +144,52 @@ function SourceTabs({ sources, activeId, onPick }: { sources: { id: string; labe
   if (sources.length < 2) return null;
   return (
     <div className={s.sources}>
-      <span className={s.sourcesLabel}>Source</span>
+      <span className={s.sourcesLabel}>Server</span>
       <Tabs label="Stream source" size="sm" value={activeId} onValueChange={onPick} items={sources.map((source) => ({ value: source.id, label: source.label }))} />
     </div>
   );
 }
 
+function AdShieldBadge() {
+  return (
+    <Badge
+      variant="success"
+      icon="shield"
+      title="Strict iframe sandbox active: popups, new tabs, and page redirects are blocked."
+    >
+      Ad Shield
+    </Badge>
+  );
+}
+
 function PlayerFrame({ src, title }: { src: string; title: string }) {
   const [ready, setReady] = useState(false);
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (ready) return;
+    const timer = setTimeout(() => setSlow(true), 7000);
+    return () => clearTimeout(timer);
+  }, [ready, src]);
+
   return (
     <div className={s.frame}>
       {!ready ? (
         <div className={s.frameLoading}>
           <Spinner size={20} label="Loading player" />
-          <span>Loading player…</span>
+          <div className={s.frameLoadingText}>
+            <span>Loading player…</span>
+            {slow ? <span className={s.frameSlowHint}>Taking a while? Try switching servers below.</span> : null}
+          </div>
         </div>
       ) : null}
       <iframe
         src={src}
         title={title}
+        sandbox={PLAYER_IFRAME_SANDBOX}
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
         allowFullScreen
+        referrerPolicy="origin"
         onLoad={() => setReady(true)}
         className={s.frameIframe}
       />
@@ -160,8 +202,11 @@ function MoviePlayerV2({ tmdbId, title }: { tmdbId: string; title: string }) {
   if (!sources.activeUrl) return null;
   return (
     <>
-      <SourceTabs sources={sources.list} activeId={sources.activeId} onPick={sources.pick} />
       <PlayerFrame key={sources.activeId} src={sources.activeUrl} title={`${title} player`} />
+      <div className={s.sourceBar}>
+        <SourceTabs sources={sources.list} activeId={sources.activeId} onPick={sources.pick} />
+        <AdShieldBadge />
+      </div>
     </>
   );
 }
@@ -176,26 +221,57 @@ export function MovieWatchView({
   sync: Omit<WatchSyncProps, 'kind' | 'tmdbId'>;
 }) {
   return (
-    <DetailPage kind="movie" info={info}>
+    <DetailShell kind="movie" backdropUrl={info.backdropUrl}>
       {(sessionKey, onSignedIn) => (
         <>
-          <WatchSyncBar key={sessionKey} kind="movie" tmdbId={tmdbId} onSignedIn={onSignedIn} {...sync} />
           <MoviePlayerV2 tmdbId={tmdbId} title={sync.title} />
+          <WatchSyncBar key={sessionKey} kind="movie" tmdbId={tmdbId} onSignedIn={onSignedIn} {...sync} />
+          <DetailCard info={info} />
         </>
       )}
-    </DetailPage>
+    </DetailShell>
   );
 }
 
-function ShowPlayerV2({ player, sessionKey, onSignedIn }: { player: ShowPlayerProps; sessionKey: string; onSignedIn: (token: string) => void }) {
+function ShowPlayerV2({
+  kind = 'show',
+  info,
+  player,
+  sessionKey,
+  onSignedIn,
+}: {
+  kind?: 'show' | 'anime';
+  info: WatchDetailInfo;
+  player: ShowPlayerProps;
+  sessionKey: string;
+  onSignedIn: (token: string) => void;
+}) {
   const show = useShowPlayer(player);
   const { tmdbId, title, posterUrl, year, releaseDate } = player;
   const frameKey = `${show.providerId}:${show.season}:${show.episode}`;
   return (
     <>
+      {show.activeUrl ? (
+        <PlayerFrame key={frameKey} src={show.activeUrl} title={`${title} S${show.season} E${show.episode} player`} />
+      ) : (
+        <EmptyState icon={kind === 'anime' ? 'sparkles' : 'tv'} title="No source carries this episode" description="Try another provider." />
+      )}
+
+      <div className={s.sourceBar}>
+        <SourceTabs sources={show.providerUrls} activeId={show.providerId} onPick={show.pickProvider} />
+        <div className={s.sourceBarRight}>
+          <AdShieldBadge />
+          {show.hasNext ? (
+            <Button size="sm" iconRight="arrowRight" onClick={() => show.pickEpisode(show.episode + 1)}>
+              Next episode
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
       <WatchSyncBar
         key={sessionKey}
-        kind="show"
+        kind={kind}
         tmdbId={tmdbId}
         title={title}
         posterUrl={posterUrl}
@@ -206,40 +282,33 @@ function ShowPlayerV2({ player, sessionKey, onSignedIn }: { player: ShowPlayerPr
         episodeLabel={`S${show.season} E${show.episode} watched`}
         onSignedIn={onSignedIn}
       />
-      <SourceTabs sources={show.providerUrls} activeId={show.providerId} onPick={show.pickProvider} />
-      {show.activeUrl ? (
-        <PlayerFrame key={frameKey} src={show.activeUrl} title={`${title} S${show.season} E${show.episode} player`} />
-      ) : (
-        <EmptyState icon="tv" title="No source carries this episode" description="Try another provider." />
-      )}
 
       {show.current ? (
         <div className={s.episodeNow}>
           <div className={s.episodeNowText}>
             <h2 className={s.episodeNowTitle}>
-              E{show.current.episodeNumber} · {show.current.name}
+              S{show.season} E{show.current.episodeNumber} · {show.current.name}
             </h2>
             {show.current.overview ? <p className={s.episodeNowOverview}>{show.current.overview}</p> : null}
           </div>
-          {show.hasNext ? (
-            <Button iconRight="arrowRight" onClick={() => show.pickEpisode(show.episode + 1)}>
-              Next episode
-            </Button>
-          ) : null}
         </div>
       ) : null}
+
+      <DetailCard info={info} />
 
       <section className={s.episodes} aria-label="Episodes">
         <div className={s.episodesHeader}>
           <h2 className={s.episodesTitle}>Episodes</h2>
-          <Select
-            label="Season"
-            size="sm"
-            value={String(show.season)}
-            options={show.available.map((season) => ({ value: String(season.seasonNumber), label: `${season.name} (${season.episodeCount})` }))}
-            onChange={(value) => show.selectSeason(Number(value))}
-            wrapperClassName={s.seasonSelect}
-          />
+          {show.available.length > 0 ? (
+            <Select
+              label="Season"
+              size="sm"
+              value={String(show.season)}
+              options={show.available.map((season) => ({ value: String(season.seasonNumber), label: `${season.name} (${season.episodeCount})` }))}
+              onChange={(value) => show.selectSeason(Number(value))}
+              wrapperClassName={s.seasonSelect}
+            />
+          ) : null}
         </div>
         {show.listError ? <Alert variant="danger">{show.listError}</Alert> : null}
         {show.loadingList ? (
@@ -269,10 +338,12 @@ function ShowPlayerV2({ player, sessionKey, onSignedIn }: { player: ShowPlayerPr
                       </span>
                     ) : null}
                   </span>
-                  <span className={s.episodeName}>
-                    E{ep.episodeNumber} · {ep.name}
+                  <span className={s.episodeMeta}>
+                    <span className={s.episodeName}>
+                      E{ep.episodeNumber} · {ep.name}
+                    </span>
+                    {ep.runtimeMinutes ? <span className={s.episodeRuntime}>{ep.runtimeMinutes} min</span> : null}
                   </span>
-                  {ep.runtimeMinutes ? <span className={s.episodeRuntime}>{ep.runtimeMinutes} min</span> : null}
                 </button>
               );
             })}
@@ -283,10 +354,10 @@ function ShowPlayerV2({ player, sessionKey, onSignedIn }: { player: ShowPlayerPr
   );
 }
 
-export function ShowWatchView({ info, player }: { info: WatchDetailInfo; player: ShowPlayerProps }) {
+export function ShowWatchView({ kind = 'show', info, player }: { kind?: 'show' | 'anime'; info: WatchDetailInfo; player: ShowPlayerProps }) {
   return (
-    <DetailPage kind="show" info={info}>
-      {(sessionKey, onSignedIn) => <ShowPlayerV2 player={player} sessionKey={sessionKey} onSignedIn={onSignedIn} />}
-    </DetailPage>
+    <DetailShell kind={kind} backdropUrl={info.backdropUrl}>
+      {(sessionKey, onSignedIn) => <ShowPlayerV2 kind={kind} info={info} player={player} sessionKey={sessionKey} onSignedIn={onSignedIn} />}
+    </DetailShell>
   );
 }

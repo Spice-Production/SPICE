@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { allowedEmbedFrameOrigins } from "./lib/movie-provider";
 
 type BuildTarget = 'local' | 'vercel' | 'selfhost';
 const configuredTarget = process.env.SPICE_RUNTIME_TARGET?.trim().toLowerCase();
@@ -35,13 +36,42 @@ const publicApiCorsHeaders = [
   { key: "Access-Control-Expose-Headers", value: "Accept-Ranges, Content-Length, Content-Range, Content-Type" },
 ];
 
+const mediaPagePaths = [
+  "/movie",
+  "/movie/:path*",
+  "/shows",
+  "/shows/:path*",
+  "/anime",
+  "/anime/:path*",
+];
+const mediaSecurityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: `frame-src 'self' ${allowedEmbedFrameOrigins().join(" ")}`,
+  },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), interest-cohort=(), browsing-topics=()",
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin",
+  },
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   async headers() {
-    return publicApiPaths.map((source) => ({
-      source,
-      headers: publicApiCorsHeaders,
-    }));
+    return [
+      ...publicApiPaths.map((source) => ({
+        source,
+        headers: publicApiCorsHeaders,
+      })),
+      ...mediaPagePaths.map((source) => ({
+        source,
+        headers: mediaSecurityHeaders,
+      })),
+    ];
   },
   env: {
     NEXT_PUBLIC_SPICE_RUNTIME_TARGET: runtimeTarget,

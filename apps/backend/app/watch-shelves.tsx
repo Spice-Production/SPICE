@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import {
   WATCH_LIST_STATUS_LABELS,
   WATCH_LIST_STATUS_ORDER,
@@ -14,10 +16,10 @@ import {
 import { PlayIcon } from './media-icons';
 
 /**
- * Synced shelves shared by movies, shows, and later anime: one
- * continue-watching rail plus the list grouped into Watching / Watch
- * Later / Completed / Dropped, fed by a single /api/watch/state call.
- * Cards link straight into the right player.
+ * Synced shelves shared by movies, shows, and anime: one
+ * continue-watching rail plus a compact tabbed "My List" rail across
+ * Watching / Watch Later / Completed / Dropped so personal shelves never
+ * bury the discovery catalog on mobile.
  */
 export function WatchShelves({
   kind,
@@ -32,6 +34,8 @@ export function WatchShelves({
 }) {
   const list = state.watchlist.filter((entry) => entry.kind === kind);
   const resume = state.continueWatching.filter((entry) => entry.kind === kind);
+  const [pickedStatus, setPickedStatus] = useState<WatchListStatus | null>(null);
+
   if (list.length === 0 && resume.length === 0) return null;
 
   const shelfOf = (entry: WatchEntry): WatchListStatus => {
@@ -39,8 +43,16 @@ export function WatchShelves({
     return status && (WATCH_LIST_STATUS_ORDER as string[]).includes(status) ? status : 'watch_later';
   };
 
+  const buckets = WATCH_LIST_STATUS_ORDER.map((status) => ({
+    status,
+    items: list.filter((entry) => shelfOf(entry) === status),
+  })).filter((bucket) => bucket.items.length > 0);
+
+  const activeBucket =
+    (pickedStatus && buckets.find((bucket) => bucket.status === pickedStatus)) ?? buckets[0] ?? null;
+
   return (
-    <div style={{ display: 'grid', gap: '1.25rem', marginBottom: '1.75rem' }}>
+    <div style={{ display: 'grid', gap: '1.25rem', marginBottom: '1.6rem' }}>
       {resume.length > 0 && (
         <section aria-label="Continue watching">
           <ShelfTitle>Continue watching</ShelfTitle>
@@ -62,52 +74,75 @@ export function WatchShelves({
           </ShelfRow>
         </section>
       )}
-      {WATCH_LIST_STATUS_ORDER.map((status) => {
-        const items = list.filter((entry) => shelfOf(entry) === status);
-        if (items.length === 0) return null;
-        return (
-          <section key={status} aria-label={WATCH_LIST_STATUS_LABELS[status]}>
-            <ShelfTitle>
-              {WATCH_LIST_STATUS_LABELS[status]} <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.85rem' }}>{items.length}</span>
-            </ShelfTitle>
-            <ShelfRow>
-              {items.map((entry) => (
-                <div key={entry.tmdbId} style={{ position: 'relative', opacity: status === 'dropped' ? 0.55 : 1 }}>
-                  <a href={watchPageHref(entry)} style={cardLinkStyle}>
-                    <ShelfCard title={entry.title} posterUrl={entry.posterUrl} subtitle={entry.year ?? undefined} />
-                  </a>
+      {activeBucket && (
+        <section aria-label="My List">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>My List</h2>
+            <div role="tablist" aria-label="List status" style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {buckets.map((bucket) => {
+                const selected = bucket.status === activeBucket.status;
+                return (
                   <button
+                    key={bucket.status}
                     type="button"
-                    aria-label={`Remove ${entry.title} from your list`}
-                    title="Remove from My List"
-                    onClick={() => {
-                      void toggleWatchlist(
-                        token,
-                        { kind, tmdbId: entry.tmdbId, title: entry.title },
-                        true,
-                      ).then(() => onToggle(entry.tmdbId, false));
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setPickedStatus(bucket.status)}
+                    style={{
+                      background: selected ? 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))' : 'rgba(255,255,255,0.06)',
+                      border: selected ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '999px',
+                      color: selected ? '#fff' : 'var(--text-secondary, #cbd5e1)',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '5px 11px',
+                      whiteSpace: 'nowrap',
                     }}
-                    style={removeStyle}
                   >
-                    ×
+                    {WATCH_LIST_STATUS_LABELS[bucket.status]} · {bucket.items.length}
                   </button>
-                </div>
-              ))}
-            </ShelfRow>
-          </section>
-        );
-      })}
+                );
+              })}
+            </div>
+          </div>
+          <ShelfRow>
+            {activeBucket.items.map((entry) => (
+              <div key={entry.tmdbId} style={{ position: 'relative', flex: 'none', opacity: activeBucket.status === 'dropped' ? 0.58 : 1 }}>
+                <a href={watchPageHref(entry)} style={cardLinkStyle}>
+                  <ShelfCard title={entry.title} posterUrl={entry.posterUrl} subtitle={entry.year ?? undefined} />
+                </a>
+                <button
+                  type="button"
+                  aria-label={`Remove ${entry.title} from your list`}
+                  title="Remove from My List"
+                  onClick={() => {
+                    void toggleWatchlist(
+                      token,
+                      { kind, tmdbId: entry.tmdbId, title: entry.title },
+                      true,
+                    ).then(() => onToggle(entry.tmdbId, false));
+                  }}
+                  style={removeStyle}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </ShelfRow>
+        </section>
+      )}
     </div>
   );
 }
 
 function ShelfTitle({ children }: { children: React.ReactNode }) {
-  return <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.6rem' }}>{children}</h2>;
+  return <h2 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '0 0 0.6rem' }}>{children}</h2>;
 }
 
 function ShelfRow({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: '0.7rem', overflowX: 'auto', paddingBottom: '0.35rem' }}>{children}</div>
+    <div style={{ display: 'flex', gap: '0.65rem', overflowX: 'auto', paddingBottom: '0.35rem', scrollbarWidth: 'none' }}>{children}</div>
   );
 }
 
@@ -138,10 +173,10 @@ function ShelfCard({
             position: 'absolute',
             left: '0.4rem',
             bottom: '0.4rem',
-            background: 'rgba(0,0,0,0.72)',
+            background: 'rgba(0,0,0,0.75)',
             borderRadius: '999px',
             color: '#fff',
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
             padding: '0.15rem 0.5rem',
             display: 'inline-flex',
             alignItems: 'center',
@@ -157,10 +192,10 @@ function ShelfCard({
             position: 'absolute',
             left: '0.4rem',
             bottom: '0.4rem',
-            background: 'rgba(0,0,0,0.72)',
+            background: 'rgba(0,0,0,0.75)',
             borderRadius: '999px',
             color: '#cbd5e1',
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
             padding: '0.1rem 0.5rem',
           }}
         >
@@ -171,29 +206,32 @@ function ShelfCard({
   );
 }
 
-const cardLinkStyle: React.CSSProperties = { textDecoration: 'none', color: 'inherit' };
+const cardLinkStyle: React.CSSProperties = { textDecoration: 'none', color: 'inherit', display: 'block' };
 
 const cardStyle: React.CSSProperties = {
   position: 'relative',
-  width: '112px',
-  height: '168px',
-  borderRadius: '12px',
+  width: '116px',
+  height: '174px',
+  borderRadius: '11px',
   overflow: 'hidden',
   background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))',
 };
 
 const removeStyle: React.CSSProperties = {
   position: 'absolute',
-  top: '0.25rem',
-  right: '0.25rem',
-  width: '1.5rem',
-  height: '1.5rem',
+  top: '0.3rem',
+  right: '0.3rem',
+  width: '1.65rem',
+  height: '1.65rem',
   borderRadius: '999px',
-  border: '1px solid rgba(255,255,255,0.2)',
-  background: 'rgba(0,0,0,0.7)',
+  border: '1px solid rgba(255,255,255,0.22)',
+  background: 'rgba(0,0,0,0.78)',
   color: '#fff',
   cursor: 'pointer',
-  fontSize: '0.9rem',
+  fontSize: '0.95rem',
   lineHeight: 1,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 0,
 };

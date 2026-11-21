@@ -5,10 +5,12 @@ import { notFound } from 'next/navigation';
 import { buildMovieEmbedUrl, normalizeTmdbMovieId } from '@/lib/movie-provider';
 import { getMovieDetails } from '@/lib/tmdb';
 
-import MoviePlayer from './movie-player';
-import WatchSync from '../../../watch-sync';
+import { ChevronLeftIcon } from '../../../media-icons';
 import { resolveSpiceUiV2ForRequest, SPICE_UI_V2_COOKIE } from '../../../ui-v2/preference';
 import { MovieWatchView } from '../../../ui-v2/watch/watch-detail';
+import { WatchPageStyles } from '../../../watch-frame';
+import WatchSync from '../../../watch-sync';
+import MoviePlayer from './movie-player';
 
 interface WatchParams {
   tmdbId: string;
@@ -64,49 +66,40 @@ export default async function MovieWatchPage({
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: '#050509',
-        color: 'var(--text-primary, #f1f5f9)',
-        fontFamily: 'var(--font-geist-sans), Inter, sans-serif',
-        paddingBottom: '48px',
-      }}
-    >
+    <main className="watch-page">
+      <WatchPageStyles />
       {details?.backdropUrl && (
-        <div style={{ position: 'relative', height: '300px', overflow: 'hidden' }}>
+        <div className="watch-backdrop" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={details.backdropUrl} alt="" aria-hidden style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #050509 2%, rgba(5,5,9,0.4) 60%, rgba(5,5,9,0.15))' }} />
+          <img src={details.backdropUrl} alt="" />
+          <div className="watch-backdrop__fade" />
         </div>
       )}
-      <div style={{ maxWidth: '1080px', margin: details?.backdropUrl ? '-120px auto 0' : '0 auto', padding: '32px 24px 0', position: 'relative' }}>
-        <Link href="/movie" style={{ color: 'var(--accent-pink, #c084fc)', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem' }}>
-          ← Back to movies
+      <div className="watch-shell">
+        <Link href="/movie" className="watch-back">
+          <ChevronLeftIcon size={16} /> Back to movies
         </Link>
-        <h1 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', margin: '12px 0 6px', lineHeight: 1.1 }}>
-          {details?.title ?? `Movie ${tmdbId}`}
-        </h1>
-        {details?.tagline && (
-          <p style={{ color: 'var(--accent-pink, #c084fc)', fontStyle: 'italic', fontSize: '0.95rem', margin: '0 0 6px 0' }}>
-            “{details.tagline}”
-          </p>
-        )}
-        {meta && <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: '0 0 10px 0' }}>{meta}</p>}
-        {details?.overview && (
-          <p style={{ color: '#d4d4d8', fontSize: '0.92rem', lineHeight: 1.6, margin: '0 0 22px 0', maxWidth: '720px' }}>
-            {details.overview}
-          </p>
-        )}
-        <WatchSync
-          kind="movie"
-          tmdbId={tmdbId}
-          title={details?.title ?? `Movie ${tmdbId}`}
-          posterUrl={details?.posterUrl ?? null}
-          year={details?.year ?? null}
-          releaseDate={details?.releaseDate ?? null}
-        />
+
         <MoviePlayer tmdbId={tmdbId} title={details?.title ?? `Movie ${tmdbId}`} />
+
+        <section className="watch-details">
+          <h1 className="watch-title">{details?.title ?? `Movie ${tmdbId}`}</h1>
+          {details?.tagline && (
+            <p style={{ color: 'var(--accent-pink, #c084fc)', fontStyle: 'italic', fontSize: '0.92rem', margin: '0 0 6px 0' }}>
+              “{details.tagline}”
+            </p>
+          )}
+          {meta && <p className="watch-meta">{meta}</p>}
+          <WatchSync
+            kind="movie"
+            tmdbId={tmdbId}
+            title={details?.title ?? `Movie ${tmdbId}`}
+            posterUrl={details?.posterUrl ?? null}
+            year={details?.year ?? null}
+            releaseDate={details?.releaseDate ?? null}
+          />
+          {details?.overview && <p className="watch-overview">{details.overview}</p>}
+        </section>
       </div>
     </main>
   );

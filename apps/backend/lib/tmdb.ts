@@ -349,6 +349,177 @@ export interface TmdbEpisode {
   runtimeMinutes: number | null;
 }
 
+export type TmdbAnimeBrowseList = 'trending' | 'popular' | 'top_rated' | 'airing' | 'movies';
+
+export interface TmdbAnimeHit extends TmdbShowHit {
+  mediaType: 'tv' | 'movie';
+}
+
+interface TmdbAnimeItem extends TmdbSearchItem, TmdbShowItem {
+  genre_ids?: unknown;
+  original_language?: unknown;
+  origin_country?: unknown;
+  popularity?: unknown;
+}
+
+const ANIMATION_GENRE_ID = 16;
+
+function isJapaneseOrigin(item: TmdbAnimeItem): boolean {
+  if (item.original_language === 'ja') return true;
+  if (Array.isArray(item.origin_country) && item.origin_country.includes('JP')) return true;
+  return false;
+}
+
+function hasAnimationGenre(item: TmdbAnimeItem): boolean {
+  return Array.isArray(item.genre_ids) && item.genre_ids.includes(ANIMATION_GENRE_ID);
+}
+
+function toAnimeHit(item: TmdbAnimeItem, mediaType: 'tv' | 'movie'): TmdbAnimeHit | null {
+  const base = mediaType === 'movie' ? toHit(item) : toShowHit(item);
+  if (!base) return null;
+  return { ...base, mediaType };
+}
+
+function daysAgoIso(days: number, now: Date): string {
+  const d = new Date(now.getTime() - days * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
+const TMDB_ANIME_LISTS = new Set<TmdbAnimeBrowseList>(['trending', 'popular', 'top_rated', 'airing', 'movies']);
+
+/** Curated anime shelves from TMDB discover endpoints (Japanese animation). */
+export async function browseAnime(
+  list: TmdbAnimeBrowseList,
+  limit = 12,
+  fetchFn: typeof fetch = fetch,
+  apiKey: string | null = tmdbApiKey(),
+  now: Date = new Date(),
+): Promise<TmdbAnimeHit[]> {
+  const key = requireApiKey(apiKey);
+  if (!TMDB_ANIME_LISTS.has(list)) throw new Error(`unknown anime browse list: ${String(list)}`);
+
+  if (list === 'movies') {
+    return fetchList(
+      '/3/discover/movie',
+      {
+        with_genres: String(ANIMATION_GENRE_ID),
+        with_original_language: 'ja',
+        sort_by: 'popularity.desc',
+        'vote_count.gte': '50',
+        include_adult: 'false',
+        page: '1',
+      },
+      limit,
+      fetchFn,
+      key,
+      (items) => (items as TmdbAnimeItem[]).map((item) => toAnimeHit(item, 'movie')).filter((hit): hit is TmdbAnimeHit => hit !== null),
+      'tmdb anime browse failed',
+    );
+  }
+
+  const baseParams: Record<string, string> = {
+    with_genres: String(ANIMATION_GENRE_ID),
+    with_original_language: 'ja',
+    sort_by: 'popularity.desc',
+    include_adult: 'false',
+    page: '1',
+  };
+
+  if (list === 'trending') {
+    const recent = await fetchList(
+      '/3/discover/tv',
+      { ...baseParams, 'air_date.gte': daysAgoIso(60, now) },
+      limit,
+      fetchFn,
+      key,
+      (items) => (items as TmdbAnimeItem[]).map((item) => toAnimeHit(item, 'tv')).filter((hit): hit is TmdbAnimeHit => hit !== null),
+      'tmdb anime browse failed',
+    );
+    if (recent.length > 0) return recent;
+  }
+
+  const params =
+    list === 'top_rated'
+      ? { ...baseParams, sort_by: 'vote_average.desc', 'vote_count.gte': '300' }
+      : list === 'airing'
+        ? { ...baseParams, with_status: '0' }
+        : baseParams;
+
+  return fetchList(
+    '/3/discover/tv',
+    params,
+    limit,
+    fetchFn,
+    key,
+    (items) => (items as TmdbAnimeItem[]).map((item) => toAnimeHit(item, 'tv')).filter((hit): hit is TmdbAnimeHit => hit !== null),
+    'tmdb anime browse failed',
+  );
+}
+
+/**
+ * Search anime across TMDB TV & movie catalogs: filters to Animation
+ * (genre 16) and prioritizes Japanese-origin anime when present.
+ */
+export async function searchAnime(
+  query: string,
+  limit = 12,
+  fetchFn: typeof fetch = fetch,
+  apiKey: string | null = tmdbApiKey(),
+): Promise<TmdbAnimeHit[]> {
+  const q = query?.trim();
+  if (!q) throw new Error('missing q');
+  const key = requireApiKey(apiKey);
+  const bounded = boundLimit(limit, 12);
+
+  const buildUrl = (path: string) => {
+    const url = new URL(`https://api.themoviedb.org${path}`);
+    url.searchParams.set('api_key', key);
+    url.searchParams.set('query', q);
+    url.searchParams.set('include_adult', 'false');
+    url.searchParams.set('page', '1');
+    return url.toString();
+  };
+
+  const [tvRes, movieRes] = await Promise.all([fetchFn(buildUrl('/3/search/tv')), fetchFn(buildUrl('/3/search/movie'))]);
+  if (!tvRes.ok && !movieRes.ok) throw new Error(`tmdb anime search failed (${tvRes.status})`);
+
+  const tvPayload = tvRes.ok ? ((await tvRes.json()) as { results?: TmdbAnimeItem[] }) : { results: [] };
+  const moviePayload = movieRes.ok ? ((await movieRes.json()) as { results?: TmdbAnimeItem[] }) : { results: [] };
+
+  const candidates: { hit: TmdbAnimeHit; jp: boolean; popularity: number }[] = [];
+  const collect = (items: unknown, mediaType: 'tv' | 'movie') => {
+    if (!Array.isArray(items)) return;
+    for (const raw of items) {
+      const item = raw as TmdbAnimeItem;
+      if (!hasAnimationGenre(item)) continue;
+      const hit = toAnimeHit(item, mediaType);
+      if (!hit) continue;
+      candidates.push({
+        hit,
+        jp: isJapaneseOrigin(item),
+        popularity: typeof item.popularity === 'number' ? item.popularity : 0,
+      });
+    }
+  };
+  collect(tvPayload.results, 'tv');
+  collect(moviePayload.results, 'movie');
+
+  const hasJp = candidates.some((c) => c.jp);
+  const filtered = hasJp ? candidates.filter((c) => c.jp) : candidates;
+  filtered.sort((a, b) => b.popularity - a.popularity);
+
+  const seen = new Set<string>();
+  const out: TmdbAnimeHit[] = [];
+  for (const entry of filtered) {
+    const keyId = `${entry.hit.mediaType}:${entry.hit.tmdbId}`;
+    if (seen.has(keyId)) continue;
+    seen.add(keyId);
+    out.push(entry.hit);
+    if (out.length >= bounded) break;
+  }
+  return out;
+}
+
 /** Episode list for one season, feeding the episode picker. */
 export async function getSeasonEpisodes(
   tmdbId: string,
