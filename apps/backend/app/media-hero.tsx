@@ -3,9 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { toggleWatchlist, type WatchKind } from './watch-client';
-
 import { PlayIcon } from './media-icons';
+import { toggleWatchlist, watchPageHref, type WatchKind } from './watch-client';
 
 export interface HeroItem {
   tmdbId: string;
@@ -20,7 +19,8 @@ const ROTATE_MS = 8000;
 /**
  * Billboard hero: the trending shelf scrolls by itself behind the header —
  * each backdrop fades in with its title, a Play button, and a My List
- * toggle, plus dots to jump. Pauses on nothing fancy: it just loops.
+ * toggle, plus dots to jump. Tightens vertically on phones so the first
+ * shelves stay visible above the fold.
  */
 export default function MediaHero({
   kicker,
@@ -51,7 +51,7 @@ export default function MediaHero({
   if (!current) return null;
 
   const saved = savedIds.has(current.tmdbId);
-  const watchHref = kind === 'show' ? `/shows/watch/${current.tmdbId}` : `/movie/watch/${current.tmdbId}`;
+  const watchHref = watchPageHref({ kind, tmdbId: current.tmdbId });
 
   async function onToggle() {
     const item = current;
@@ -68,7 +68,41 @@ export default function MediaHero({
   }
 
   return (
-    <section style={{ position: 'relative', overflow: 'hidden' }} aria-label={kicker}>
+    <section className="media-hero" aria-label={kicker}>
+      <style>{`
+        .media-hero {
+          position: relative;
+          overflow: hidden;
+        }
+        .media-hero__content {
+          position: relative;
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 68px 24px 40px;
+        }
+        .media-hero__overview {
+          color: #d4d4d8;
+          font-size: 0.92rem;
+          line-height: 1.55;
+          margin: 0 0 18px 0;
+          max-width: 540px;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        @media (max-width: 640px) {
+          .media-hero__content {
+            padding: 36px 14px 24px;
+          }
+          .media-hero__overview {
+            font-size: 0.84rem;
+            line-height: 1.45;
+            margin-bottom: 14px;
+            -webkit-line-clamp: 2;
+          }
+        }
+      `}</style>
       {slides.map((slide, i) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -82,27 +116,43 @@ export default function MediaHero({
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: i === index % slides.length ? 0.5 : 0,
+            opacity: i === index % slides.length ? 0.52 : 0,
             transition: 'opacity 900ms ease',
           }}
         />
       ))}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #050509 4%, rgba(5,5,9,0.55) 55%, rgba(5,5,9,0.25))' }} />
-      <div style={{ position: 'relative', maxWidth: '1080px', margin: '0 auto', padding: '88px 24px 64px' }}>
-        <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: '0 0 10px 0', letterSpacing: '0.08em' }}>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to top, var(--bg-primary, #050509) 6%, rgba(5,5,9,0.58) 55%, rgba(5,5,9,0.22))',
+        }}
+      />
+      <div className="media-hero__content">
+        <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.72rem', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '0.1em' }}>
           {kicker}
         </p>
-        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.2rem)', lineHeight: 1.05, margin: '0 0 10px 0', maxWidth: '640px' }}>
+        <h1 style={{ fontSize: 'clamp(1.65rem, 4.6vw, 3rem)', lineHeight: 1.06, margin: '0 0 8px 0', maxWidth: '620px' }}>
           {current.title}
         </h1>
-        {current.overview && (
-          <p style={{ color: '#d4d4d8', fontSize: '0.95rem', lineHeight: 1.6, margin: '0 0 22px 0', maxWidth: '560px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {current.overview}
-          </p>
-        )}
+        {current.overview && <p className="media-hero__overview">{current.overview}</p>}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link href={watchHref} style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', borderRadius: '12px', color: '#fff', padding: '12px 28px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <PlayIcon size={16} /> Watch now
+          <Link
+            href={watchHref}
+            style={{
+              background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))',
+              borderRadius: '11px',
+              color: '#fff',
+              padding: '10px 22px',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <PlayIcon size={15} /> Watch now
           </Link>
           {token && (
             <button type="button" onClick={() => void onToggle()} disabled={busy} style={listStyle}>
@@ -111,7 +161,7 @@ export default function MediaHero({
           )}
         </div>
         {slides.length > 1 && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '22px' }} role="tablist" aria-label="Trending picks">
+          <div style={{ display: 'flex', gap: '7px', marginTop: '18px' }} role="tablist" aria-label="Trending picks">
             {slides.map((slide, i) => (
               <button
                 key={slide.tmdbId}
@@ -122,12 +172,12 @@ export default function MediaHero({
                 title={slide.title}
                 onClick={() => setIndex(i)}
                 style={{
-                  width: i === index % slides.length ? '26px' : '10px',
-                  height: '10px',
+                  width: i === index % slides.length ? '24px' : '9px',
+                  height: '9px',
                   borderRadius: '999px',
                   border: 'none',
                   cursor: 'pointer',
-                  background: i === index % slides.length ? '#a855f7' : 'rgba(255,255,255,0.3)',
+                  background: i === index % slides.length ? 'var(--accent-cyan, #a855f7)' : 'rgba(255,255,255,0.32)',
                   transition: 'width 300ms ease',
                   padding: 0,
                 }}
@@ -143,9 +193,10 @@ export default function MediaHero({
 const listStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.1)',
   border: '1px solid rgba(255,255,255,0.2)',
-  borderRadius: '12px',
+  borderRadius: '11px',
   color: '#fff',
   cursor: 'pointer',
+  fontSize: '0.9rem',
   fontWeight: 700,
-  padding: '12px 22px',
+  padding: '10px 18px',
 };

@@ -77,7 +77,10 @@ test('progress tracks episode granularity and refuses season numbers on movies',
 test('browse surfaces share a sidebar frame, profile menu, and billboard hero', async () => {
   const chrome = await read('app/media-chrome.tsx');
   assert.match(chrome, /TV Series/, 'sidebar links to series');
+  assert.match(chrome, /Anime/, 'sidebar links to anime');
   assert.match(chrome, /href="\/movie"/, 'sidebar links to movies');
+  assert.match(chrome, /href="\/anime"/, 'sidebar links to anime');
+  assert.match(chrome, /media-bottom-nav/, 'mobile bottom bar replaces double header');
   assert.match(chrome, /spice_cloud_user/, 'profile menu shows the account');
   assert.match(chrome, /Sign out/, 'profile menu signs out');
   assert.match(chrome, /removeItem\('spice_cloud_token'\)/, 'sign-out clears the token');
@@ -96,15 +99,24 @@ test('browse surfaces share a sidebar frame, profile menu, and billboard hero', 
   const showsPage = await read('app/shows/page.tsx');
   assert.match(showsPage, /<MediaChrome active="shows"/, 'shows home sits in the frame');
   assert.match(showsPage, /<MediaHero/, 'shows home gets the same billboard');
+  const animePage = await read('app/anime/page.tsx');
+  assert.match(animePage, /<MediaChrome active="anime"/, 'anime home sits in the frame');
+  assert.match(animePage, /<MediaHero/, 'anime home gets the same billboard');
+  assert.match(animePage, /Anime movies/, 'anime home surfaces anime movies too');
+  assert.match(animePage, /<WatchBrowseView/, 'anime home supports UI v2');
+  const v2Shell = await read('app/ui-v2/watch/watch-shell.tsx');
+  assert.match(v2Shell, /href: '\/anime'/, 'UI v2 sidebar and mobile bar link to anime');
 });
 
 test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async () => {
   const files = [
+    'app/media-browse.tsx',
     'app/media-chrome.tsx',
     'app/media-hero.tsx',
     'app/media-icons.tsx',
     'app/media-signin.tsx',
     'app/watch-client.ts',
+    'app/watch-frame.tsx',
     'app/watch-shelves.tsx',
     'app/watch-sync.tsx',
     'app/movie/page.tsx',
@@ -113,6 +125,8 @@ test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async (
     'app/shows/page.tsx',
     'app/shows/watch/[id]/page.tsx',
     'app/shows/watch/[id]/show-player.tsx',
+    'app/anime/page.tsx',
+    'app/anime/watch/[id]/page.tsx',
     'app/watch-sync-state.ts',
     'app/watch-player-state.ts',
     'app/ui-v2/watch/browse-view.tsx',
@@ -129,23 +143,32 @@ test('browse UI speaks SVG: no pictographic emoji, one shared icon set', async (
     assert.doesNotMatch(source, pictographic, `${file} must use SVG icons, not emoji`);
   }
   const icons = await read('app/media-icons.tsx');
-  for (const name of ['FilmIcon', 'TvIcon', 'MusicIcon', 'UserIcon', 'PlayIcon']) {
+  for (const name of ['FilmIcon', 'TvIcon', 'AnimeIcon', 'MusicIcon', 'UserIcon', 'PlayIcon', 'SearchIcon', 'CloseIcon', 'ChevronLeftIcon', 'ShieldIcon']) {
     assert.match(icons, new RegExp(`export function ${name}`), `${name} lives in the shared set`);
   }
   const chrome = await read('app/media-chrome.tsx');
   assert.match(chrome, /FilmIcon/, 'sidebar movies icon is SVG');
+  assert.match(chrome, /AnimeIcon/, 'sidebar anime icon is SVG');
   assert.match(chrome, /spice-movies-icon\.svg/, 'sidebar brand wears the Movies mark');
   assert.match(chrome, /fetchAccountProfile/, 'profile menu loads the synced music profile');
   assert.match(chrome, /profile\?\.avatarUrl/, 'profile button and menu render the synced PFP with an initial-letter fallback');
   assert.match(chrome, /function SourcePicker/, 'default source uses a themed picker, not a native select');
   assert.doesNotMatch(chrome, /<select/, 'no native select left to render washed-out options');
+  const showPlayer = await read('app/shows/watch/[id]/show-player.tsx');
+  assert.doesNotMatch(showPlayer, /<select/, 'season selector uses themed tabs instead of a native select');
+  const watchFrame = await read('app/watch-frame.tsx');
+  assert.match(watchFrame, /sandbox=\{PLAYER_IFRAME_SANDBOX\}/, 'classic player iframe enforces strict sandbox');
+  assert.doesNotMatch(watchFrame, /allow-popups|allow-top-navigation/, 'classic player blocks popup and top-navigation escapes');
+  const v2Detail = await read('app/ui-v2/watch/watch-detail.tsx');
+  assert.match(v2Detail, /sandbox=\{PLAYER_IFRAME_SANDBOX\}/, 'UI v2 player iframe enforces strict sandbox');
+  assert.doesNotMatch(v2Detail, /allow-popups|allow-top-navigation/, 'UI v2 player blocks popup and top-navigation escapes');
   const client = await read('app/watch-client.ts');
   assert.match(client, /\/api\/sync\/profiles/, 'avatars resolve from the synced profiles endpoint');
   assert.match(client, /spice_cloud_profile_id/, 'the active music profile wins, first profile otherwise');
 });
 
-test('movies and shows wear their own clapperboard favicon, not the music note', async () => {
-  for (const route of ['app/movie/icon.svg', 'app/shows/icon.svg']) {
+test('movies, shows, and anime wear their own clapperboard favicon, not the music note', async () => {
+  for (const route of ['app/movie/icon.svg', 'app/shows/icon.svg', 'app/anime/icon.svg']) {
     const icon = await read(route);
     assert.match(icon, /<svg/, `${route} is an SVG favicon`);
     assert.match(icon, /spice-movies-gradient/, `${route} carries the Movies mark`);
@@ -158,7 +181,8 @@ test('movies and shows wear their own clapperboard favicon, not the music note',
 test('browse shelves and players share one client and one toggle island', async () => {
   const client = await read('app/watch-client.ts');
   assert.match(client, /spice_cloud_token/, 'same token the music player stores — no second login per page');
-  assert.match(client, /\/shows\/watch\//, 'resume links land on the episode');
+  assert.match(client, /\/shows\/watch\//, 'resume links land on the show episode');
+  assert.match(client, /\/anime\/watch\//, 'resume links land on the anime episode');
   const shelves = await read('app/watch-shelves.tsx');
   assert.match(shelves, /Continue watching/, 'resume rail present');
   assert.match(shelves, /My List/, 'watchlist rail present');
@@ -170,5 +194,7 @@ test('browse shelves and players share one client and one toggle island', async 
   const moviePage = await read('app/movie/watch/[tmdbId]/page.tsx');
   assert.match(moviePage, /<WatchSync/, 'film page syncs');
   const showPlayer = await read('app/shows/watch/[id]/show-player.tsx');
-  assert.match(showPlayer, /<WatchSync/, 'series player syncs per episode');
+  assert.match(showPlayer, /<WatchSync/, 'series and anime player syncs per episode');
+  const animeWatch = await read('app/anime/watch/[id]/page.tsx');
+  assert.match(animeWatch, /kind="anime"/, 'anime watch page tracks progress under anime kind');
 });

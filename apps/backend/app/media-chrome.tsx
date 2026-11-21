@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { DEFAULT_STREAM_PROVIDER_ID, loadPreferredProvider, savePreferredProvider, streamProviders } from '@/lib/movie-provider';
 
-import { FilmIcon, BellIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
+import { AnimeIcon, BellIcon, FilmIcon, MusicIcon, TvIcon, UserIcon } from './media-icons';
 import MediaSignIn from './media-signin';
 import { useSpiceUiV2 } from './ui-v2/preference-client';
 import {
@@ -20,11 +20,9 @@ import {
 const MUSIC_HOME = 'https://music.spice-app.xyz/';
 
 /**
- * Shared frame for the browse surfaces (movies, shows, later anime): a
- * slim sidebar on desktop that collapses to a top strip on phones, a
- * topbar with the profile menu on the right, and the page below it.
- * The profile menu mirrors the music player's account box: sign-in when
- * signed out, email + default watch source + sign-out when signed in.
+ * Shared frame for the classic browse surfaces (movies, shows, anime):
+ * slim sidebar on desktop, single sticky topbar with release bell + profile
+ * menu, and a fixed mobile bottom nav bar on phones.
  */
 export default function MediaChrome({
   active,
@@ -35,7 +33,7 @@ export default function MediaChrome({
   onSignOut,
   children,
 }: {
-  active: 'movies' | 'shows';
+  active: 'movies' | 'shows' | 'anime';
   section: string;
   token: string | null;
   watchState?: WatchState | null;
@@ -46,22 +44,146 @@ export default function MediaChrome({
   return (
     <div className="media-shell">
       <style>{`
-        .media-shell { display: flex; min-height: 100vh; background: #050509; color: var(--text-primary, #f1f5f9); font-family: var(--font-geist-sans), Inter, sans-serif; }
-        .media-side { width: 232px; flex: none; border-right: 1px solid rgba(255,255,255,0.08); padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; }
-        .media-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .media-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); position: sticky; top: 0; background: rgba(5,5,9,0.9); backdrop-filter: blur(12px); z-index: 30; }
-        .media-navlink { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; text-decoration: none; color: #cbd5e1; font-weight: 600; font-size: 0.92rem; }
-        .media-navlink:hover { background: rgba(255,255,255,0.06); color: #fff; }
-        .media-navlink[data-on="true"] { background: rgba(124,58,237,0.2); color: #fff; }
+        .media-shell {
+          display: flex;
+          min-height: 100vh;
+          background: var(--bg-primary, #050509);
+          color: var(--text-primary, #f1f5f9);
+          font-family: var(--font-geist-sans), Inter, sans-serif;
+        }
+        .media-side {
+          width: 220px;
+          flex: none;
+          background: var(--bg-surface, #0a0a0f);
+          border-right: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+          padding: 20px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+        }
+        .media-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .media-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          height: 58px;
+          padding: 0 24px;
+          border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+          position: sticky;
+          top: 0;
+          background: var(--bg-glass, rgba(5,5,9,0.88));
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          z-index: 30;
+        }
+        .media-top__brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .media-top__logo {
+          display: none;
+          flex: none;
+        }
+        .media-top__section {
+          color: var(--accent-pink, #c084fc);
+          font-size: 0.74rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .media-navlink {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          text-decoration: none;
+          color: var(--text-secondary, #cbd5e1);
+          font-weight: 600;
+          font-size: 0.9rem;
+          transition: background 150ms ease, color 150ms ease;
+        }
+        .media-navlink:hover {
+          background: var(--bg-surface-hover, rgba(255,255,255,0.06));
+          color: var(--text-primary, #fff);
+        }
+        .media-navlink[data-on="true"] {
+          background: rgba(124,58,237,0.2);
+          color: #fff;
+        }
+        .media-bottom-nav {
+          display: none;
+        }
         @media (max-width: 900px) {
-          .media-shell { flex-direction: column; }
-          .media-side { width: auto; height: auto; position: static; flex-direction: row; align-items: center; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; overflow-x: auto; }
-          .media-side .side-foot { display: none; }
-          .media-top { position: static; }
+          .media-shell {
+            flex-direction: column;
+          }
+          .media-side {
+            display: none;
+          }
+          .media-main {
+            padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+          }
+          .media-top {
+            height: 54px;
+            padding: 0 16px;
+          }
+          .media-top__logo {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+          }
+          .media-bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 35;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            align-items: center;
+            background: var(--bg-glass, rgba(10,10,16,0.94));
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
+            padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+          }
+          .media-bottom-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 6px 4px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text-secondary, #94a3b8);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+          }
+          .media-bottom-item[data-on="true"] {
+            color: var(--accent-pink, #c084fc);
+            background: rgba(124,58,237,0.14);
+          }
         }
       `}</style>
+
       <aside className="media-side" aria-label="Browse">
-        <Link href="/movie" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: '#fff', padding: '4px 12px 16px' }}>
+        <Link href="/movie" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', padding: '4px 12px 16px' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/spice-movies-icon.svg" alt="Spice Movies" width={30} height={30} style={{ borderRadius: '9px', display: 'block' }} />
           <span style={{ fontWeight: 800, letterSpacing: '0.02em' }}>SPICE</span>
@@ -72,15 +194,25 @@ export default function MediaChrome({
         <Link className="media-navlink" data-on={active === 'shows'} href="/shows">
           <TvIcon size={17} /> TV Series
         </Link>
+        <Link className="media-navlink" data-on={active === 'anime'} href="/anime">
+          <AnimeIcon size={17} /> Anime
+        </Link>
         <div className="side-foot" style={{ marginTop: 'auto', display: 'grid', gap: '6px' }}>
           <a className="media-navlink" href={MUSIC_HOME} style={{ fontSize: '0.85rem' }}>
             <MusicIcon size={16} /> SPICE Music
           </a>
         </div>
       </aside>
+
       <div className="media-main">
         <header className="media-top">
-          <span style={{ color: '#c084fc', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.1em' }}>{section}</span>
+          <div className="media-top__brand">
+            <Link href="/movie" className="media-top__logo" aria-label="SPICE home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/spice-movies-icon.svg" alt="Spice" width={26} height={26} style={{ borderRadius: '7px', display: 'block' }} />
+            </Link>
+            <span className="media-top__section">{section}</span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {token && <ReleaseBell watchState={watchState ?? null} />}
             <ProfileMenu token={token} onSignedIn={onSignedIn} onSignOut={onSignOut} />
@@ -88,6 +220,25 @@ export default function MediaChrome({
         </header>
         {children}
       </div>
+
+      <nav className="media-bottom-nav" aria-label="Mobile navigation">
+        <Link className="media-bottom-item" data-on={active === 'movies'} href="/movie">
+          <FilmIcon size={18} />
+          <span>Movies</span>
+        </Link>
+        <Link className="media-bottom-item" data-on={active === 'shows'} href="/shows">
+          <TvIcon size={18} />
+          <span>Series</span>
+        </Link>
+        <Link className="media-bottom-item" data-on={active === 'anime'} href="/anime">
+          <AnimeIcon size={18} />
+          <span>Anime</span>
+        </Link>
+        <a className="media-bottom-item" href={MUSIC_HOME}>
+          <MusicIcon size={18} />
+          <span>Music</span>
+        </a>
+      </nav>
     </div>
   );
 }
@@ -158,14 +309,14 @@ function ProfileMenu({
         aria-expanded={open}
         title={token ? (displayName ?? email ?? 'Account') : 'Sign in'}
         style={{
-          width: '38px',
-          height: '38px',
+          width: '36px',
+          height: '36px',
           borderRadius: '999px',
-          border: token ? '2px solid #7c3aed' : '1px solid rgba(255,255,255,0.25)',
-          background: token && !profile?.avatarUrl ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : 'rgba(255,255,255,0.08)',
+          border: token ? '2px solid var(--accent-violet, #7c3aed)' : '1px solid rgba(255,255,255,0.25)',
+          background: token && !profile?.avatarUrl ? 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))' : 'rgba(255,255,255,0.08)',
           color: '#fff',
           fontWeight: 800,
-          fontSize: '1rem',
+          fontSize: '0.95rem',
           cursor: 'pointer',
           overflow: 'hidden',
           display: 'grid',
@@ -176,12 +327,12 @@ function ProfileMenu({
         {token ? (
           profile?.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.avatarUrl} alt="" width={38} height={38} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={profile.avatarUrl} alt="" width={36} height={36} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           ) : (
             initial
           )
         ) : (
-          <UserIcon size={19} />
+          <UserIcon size={18} />
         )}
       </button>
       {open && (
@@ -197,9 +348,9 @@ function ProfileMenu({
               position: 'absolute',
               right: 0,
               top: 'calc(100% + 10px)',
-              width: '290px',
-              background: '#121218',
-              border: '1px solid rgba(255,255,255,0.12)',
+              width: 'min(290px, calc(100vw - 24px))',
+              background: 'var(--bg-surface, #121218)',
+              border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
               borderRadius: '14px',
               boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
               padding: '14px',
@@ -210,7 +361,7 @@ function ProfileMenu({
           >
             {!token ? (
               <>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: '#cbd5e1' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Sign in with your SPICE account to sync your list everywhere.
                 </p>
                 <MediaSignIn
@@ -227,7 +378,7 @@ function ProfileMenu({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt="" width={40} height={40} style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover', flex: 'none' }} />
                   ) : (
-                    <span style={{ width: '40px', height: '40px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed, #a855f7)', display: 'grid', placeItems: 'center', fontWeight: 800, flex: 'none' }}>
+                    <span style={{ width: '40px', height: '40px', borderRadius: '999px', background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', display: 'grid', placeItems: 'center', fontWeight: 800, flex: 'none', color: '#fff' }}>
                       {initial}
                     </span>
                   )}
@@ -236,17 +387,17 @@ function ProfileMenu({
                       {displayName ?? 'SPICE account'}
                     </p>
                     {email && displayName && (
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary, #94a3b8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {email}
                       </p>
                     )}
                   </div>
                 </div>
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>Default source</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 600 }}>Default source</span>
                   <SourcePicker current={source} onPick={(id) => setSource(id)} />
                 </div>
-                <a href={MUSIC_HOME} style={{ color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <a href={MUSIC_HOME} style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MusicIcon size={15} /> Open SPICE Music
                 </a>
                 <button
@@ -256,7 +407,7 @@ function ProfileMenu({
                     background: 'transparent',
                     border: '1px solid rgba(255,255,255,0.2)',
                     borderRadius: '10px',
-                    color: '#e2e8f0',
+                    color: 'var(--text-primary, #e2e8f0)',
                     cursor: 'pointer',
                     fontSize: '0.85rem',
                     fontWeight: 600,
@@ -274,7 +425,7 @@ function ProfileMenu({
                 setOpen(false);
                 ui.setEnabled(true);
               }}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#c084fc', fontSize: '0.85rem', fontWeight: 700, textAlign: 'left', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-pink, #c084fc)', fontSize: '0.85rem', fontWeight: 700, textAlign: 'left', cursor: 'pointer' }}
             >
               Try the new interface
             </button>
@@ -304,10 +455,10 @@ function ReleaseBell({ watchState }: { watchState: WatchState | null }) {
         aria-expanded={open}
         title="New releases"
         style={{
-          width: '38px',
-          height: '38px',
+          width: '36px',
+          height: '36px',
           borderRadius: '999px',
-          border: '1px solid rgba(255,255,255,0.25)',
+          border: '1px solid rgba(255,255,255,0.22)',
           background: 'rgba(255,255,255,0.08)',
           color: '#fff',
           cursor: 'pointer',
@@ -316,7 +467,7 @@ function ReleaseBell({ watchState }: { watchState: WatchState | null }) {
           padding: 0,
         }}
       >
-        <BellIcon size={18} />
+        <BellIcon size={17} />
         {fresh.length > 0 && (
           <span
             style={{
@@ -349,11 +500,11 @@ function ReleaseBell({ watchState }: { watchState: WatchState | null }) {
               position: 'absolute',
               right: 0,
               top: 'calc(100% + 10px)',
-              width: '300px',
+              width: 'min(300px, calc(100vw - 24px))',
               maxHeight: '380px',
               overflowY: 'auto',
-              background: '#121218',
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'var(--bg-surface, #121218)',
+              border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
               borderRadius: '14px',
               boxShadow: '0 18px 50px rgba(0,0,0,0.55)',
               padding: '12px',
@@ -362,11 +513,11 @@ function ReleaseBell({ watchState }: { watchState: WatchState | null }) {
               gap: '4px',
             }}
           >
-            <p style={{ margin: '0 0 6px', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.06em', color: '#94a3b8' }}>
+            <p style={{ margin: '0 0 6px', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.06em', color: 'var(--text-secondary, #94a3b8)' }}>
               OUT NOW · FROM YOUR LIST
             </p>
             {fresh.length === 0 && (
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#cbd5e1' }}>All caught up — nothing on your list dropped recently.</p>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary, #cbd5e1)' }}>All caught up — nothing on your list dropped recently.</p>
             )}
             {fresh.map((entry) => (
               <a
@@ -429,7 +580,7 @@ function SourcePicker({ current, onPick }: { current: string; onPick: (id: strin
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.14)',
           borderRadius: '10px',
-          color: '#e2e8f0',
+          color: 'var(--text-primary, #e2e8f0)',
           cursor: 'pointer',
           fontSize: '0.85rem',
           fontWeight: 600,
@@ -452,7 +603,7 @@ function SourcePicker({ current, onPick }: { current: string; onPick: (id: strin
               left: 0,
               right: 0,
               top: 'calc(100% + 6px)',
-              background: '#1b1b24',
+              background: 'var(--bg-surface-hover, #1b1b24)',
               border: '1px solid rgba(255,255,255,0.14)',
               borderRadius: '10px',
               boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
@@ -481,7 +632,7 @@ function SourcePicker({ current, onPick }: { current: string; onPick: (id: strin
                     background: selected ? 'rgba(124,58,237,0.28)' : 'transparent',
                     border: 'none',
                     borderRadius: '7px',
-                    color: '#e2e8f0',
+                    color: 'var(--text-primary, #e2e8f0)',
                     cursor: 'pointer',
                     fontSize: '0.85rem',
                     fontWeight: selected ? 700 : 500,
@@ -490,7 +641,7 @@ function SourcePicker({ current, onPick }: { current: string; onPick: (id: strin
                   }}
                 >
                   <span>{provider.label}</span>
-                  {selected && <span aria-hidden style={{ color: '#c084fc' }}>✓</span>}
+                  {selected && <span aria-hidden style={{ color: 'var(--accent-pink, #c084fc)' }}>✓</span>}
                 </button>
               );
             })}

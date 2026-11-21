@@ -1,4 +1,4 @@
-const DEFAULT_MOVIE_PROVIDER_BASE_URL = 'https://vidsrc.sbs/';
+const DEFAULT_MOVIE_PROVIDER_BASE_URL = 'https://vidsrc.me/';
 const TMDB_MOVIE_ID_PATTERN = /^[1-9]\d{0,9}$/;
 
 export function normalizeTmdbMovieId(value: unknown) {
@@ -53,63 +53,100 @@ export function getMovieProviderHomeUrl(
 export interface StreamProvider {
   id: string;
   label: string;
+  sandboxed: boolean;
   /** Full movie embed URL, or null when this provider cannot play movies. */
   movieUrl: (tmdbId: string) => string | null;
   /** Full series-episode embed URL, or null when unsupported. */
   tvUrl: (tmdbId: string, season: number, episode: number) => string | null;
 }
 
-const VIDLINK_BASE_URL = 'https://vidlink.pro';
-const MOVIES_API_BASE_URL = 'https://moviesapi.to';
+/**
+ * Strict iframe sandbox applied to every video embed: permits scripts,
+ * same-origin media/DRM requests, forms, and fullscreen presentation while
+ * blocking popups (`allow-popups`), new-tab escapes, and top-level redirects
+ * (`allow-top-navigation`).
+ */
+export const PLAYER_IFRAME_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-presentation';
+
+const VIDZEE_BASE_URL = 'https://player.vidzee.wtf';
+const VIDPRIME_BASE_URL = 'https://vidprime.top';
+
+function hasValidCustomBaseUrl(configuredBaseUrl?: string): boolean {
+  if (!configuredBaseUrl?.trim()) return false;
+  try {
+    const parsed = new URL(configuredBaseUrl.trim());
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Playable sources for the watch pages, in default order. VidSrc stays
- * first (proven live); VidLink aggregates multiple upstreams behind one
- * player; MoviesAPI is a second independent backend for movies. Every
- * entry builds URLs purely — the player switcher swaps iframe src with no
- * server round-trip. The SPICE_MOVIE_PROVIDER_BASE_URL override keeps
- * working by rehosting the VidSrc entry (same path shapes).
+ * Playable sources verified to work inside `PLAYER_IFRAME_SANDBOX` with no
+ * popup/redirect escape hatches. VidZee leads (movies, TV, and anime);
+ * VidPrime is an independent sandbox-safe fallback. When
+ * `SPICE_MOVIE_PROVIDER_BASE_URL` is explicitly configured to a valid HTTPS
+ * origin, a `Custom` entry (`id: 'vidsrc'`) is appended.
  */
 export function streamProviders(
   configuredBaseUrl = process.env.SPICE_MOVIE_PROVIDER_BASE_URL,
 ): StreamProvider[] {
-  const vidsrc = (id: string, kind: 'movie' | 'tv', season?: number, episode?: number): string | null => {
-    if (kind === 'movie') return buildMovieEmbedUrl(id, configuredBaseUrl);
-    return buildShowEmbedUrl(id, season, episode, configuredBaseUrl);
-  };
-  return [
+  const providers: StreamProvider[] = [
     {
-      id: 'vidsrc',
-      label: 'VidSrc',
-      movieUrl: (id) => vidsrc(id, 'movie'),
-      tvUrl: (id, season, episode) => vidsrc(id, 'tv', season, episode),
-    },
-    {
-      id: 'vidlink',
-      label: 'VidLink',
+      id: 'vidzee',
+      label: 'VidZee',
+      sandboxed: true,
       movieUrl: (id) => {
         const clean = normalizeTmdbMovieId(id);
-        return clean ? `${VIDLINK_BASE_URL}/movie/${clean}` : null;
+        return clean ? `${VIDZEE_BASE_URL}/embed/movie/${clean}` : null;
       },
       tvUrl: (id, season, episode) => {
         const clean = normalizeTmdbMovieId(id);
         if (!clean || !normalizeSeasonEpisode(season) || !normalizeSeasonEpisode(episode)) return null;
-        return `${VIDLINK_BASE_URL}/tv/${clean}/${season}/${episode}`;
+        return `${VIDZEE_BASE_URL}/embed/tv/${clean}/${season}/${episode}`;
       },
     },
     {
-      id: 'moviesapi',
-      label: 'MoviesAPI',
+      id: 'vidprime',
+      label: 'VidPrime',
+      sandboxed: true,
       movieUrl: (id) => {
         const clean = normalizeTmdbMovieId(id);
-        return clean ? `${MOVIES_API_BASE_URL}/movie/${clean}` : null;
+        return clean ? `${VIDPRIME_BASE_URL}/movie/${clean}` : null;
       },
-      tvUrl: () => null,
+      tvUrl: (id, season, episode) => {
+        const clean = normalizeTmdbMovieId(id);
+        if (!clean || !normalizeSeasonEpisode(season) || !normalizeSeasonEpisode(episode)) return null;
+        return `${VIDPRIME_BASE_URL}/tv/${clean}/${season}/${episode}`;
+      },
     },
   ];
+
+  if (hasValidCustomBaseUrl(configuredBaseUrl)) {
+    providers.push({
+      id: 'vidsrc',
+      label: 'Custom',
+      sandboxed: true,
+      movieUrl: (id) => buildMovieEmbedUrl(id, configuredBaseUrl),
+      tvUrl: (id, season, episode) => buildShowEmbedUrl(id, season, episode, configuredBaseUrl),
+    });
+  }
+
+  return providers;
 }
 
-export const DEFAULT_STREAM_PROVIDER_ID = 'vidsrc';
+export function allowedEmbedFrameOrigins(
+  configuredBaseUrl = process.env.SPICE_MOVIE_PROVIDER_BASE_URL,
+): string[] {
+  const origins = [VIDZEE_BASE_URL, VIDPRIME_BASE_URL];
+  if (hasValidCustomBaseUrl(configuredBaseUrl)) {
+    const customOrigin = getMovieProviderBaseUrl(configuredBaseUrl).origin;
+    if (!origins.includes(customOrigin)) origins.push(customOrigin);
+  }
+  return origins;
+}
+
+export const DEFAULT_STREAM_PROVIDER_ID = 'vidzee';
 
 const STREAM_PROVIDER_STORAGE_KEY = 'spice-stream-provider';
 

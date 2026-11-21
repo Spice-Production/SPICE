@@ -16,11 +16,12 @@ export interface BrowseHit {
   year: string | null;
   releaseDate?: string | null;
   posterUrl: string | null;
+  mediaType?: 'tv' | 'movie';
 }
 
-/** Everything the Movies / TV Series pages already compute, handed to the new UI. */
+/** Everything the Movies / TV Series / Anime pages compute, handed to the new UI. */
 export interface WatchBrowseModel {
-  kind: 'movie' | 'show';
+  kind: 'movie' | 'show' | 'anime';
   session: WatchSessionProps;
   query: string;
   setQuery: (value: string) => void;
@@ -56,6 +57,13 @@ const COPY = {
     placeholder: 'Search series…',
     empty: 'No series found. Try another title.',
   },
+  anime: {
+    section: 'Anime',
+    kicker: 'Trending anime',
+    title: 'Find an anime, press play.',
+    placeholder: 'Search anime…',
+    empty: 'No anime found. Try another title.',
+  },
 } as const;
 
 function hitSubtitle(hit: BrowseHit) {
@@ -64,14 +72,15 @@ function hitSubtitle(hit: BrowseHit) {
 
 export function WatchBrowseView({ model }: { model: WatchBrowseModel }) {
   const copy = COPY[model.kind];
-  const fallbackIcon = model.kind === 'show' ? 'tv' : 'film';
+  const fallbackIcon = model.kind === 'anime' ? 'sparkles' : model.kind === 'show' ? 'tv' : 'film';
+  const activeNav = model.kind === 'anime' ? 'anime' : model.kind === 'show' ? 'shows' : 'movies';
   const { token, watchState } = model.session;
   const showHero = !model.searched && model.heroItems.length > 0;
 
   return (
     <WatchHost>
       <WatchShell
-        active={model.kind === 'show' ? 'shows' : 'movies'}
+        active={activeNav}
         session={model.session}
         search={{
           query: model.query,
@@ -119,11 +128,12 @@ export function WatchBrowseView({ model }: { model: WatchBrowseModel }) {
                 <div className={s.posterGrid}>
                   {model.hits.map((hit) => (
                     <PosterCard
-                      key={hit.tmdbId}
-                      href={watchHrefFor(model.kind, hit.tmdbId)}
+                      key={`${hit.mediaType ?? model.kind}:${hit.tmdbId}`}
+                      href={watchHrefFor(model.kind, hit.tmdbId, hit.mediaType)}
                       title={hit.title}
                       posterUrl={hit.posterUrl}
                       subtitle={hitSubtitle(hit)}
+                      badge={hit.mediaType === 'movie' && model.kind === 'anime' ? 'Movie' : undefined}
                       fallbackIcon={fallbackIcon}
                     />
                   ))}
@@ -178,8 +188,8 @@ export function WatchBrowseView({ model }: { model: WatchBrowseModel }) {
                   <Shelf key={shelf.key} id={`shelf-${shelf.key}`} title={shelf.title} itemWidth={150}>
                     {shelf.items.map((hit) => (
                       <PosterCard
-                        key={hit.tmdbId}
-                        href={watchHrefFor(model.kind, hit.tmdbId)}
+                        key={`${hit.mediaType ?? model.kind}:${hit.tmdbId}`}
+                        href={watchHrefFor(model.kind, hit.tmdbId, hit.mediaType)}
                         title={hit.title}
                         posterUrl={hit.posterUrl}
                         subtitle={hitSubtitle(hit)}

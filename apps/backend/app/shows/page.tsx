@@ -1,15 +1,21 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import {
+  MediaBrowseStyles,
+  MediaPosterCard,
+  MediaSearchBar,
+  MediaShelf,
+  MediaShelfSkeleton,
+} from '../media-browse';
 import MediaChrome from '../media-chrome';
 import MediaHero from '../media-hero';
 import { TvIcon } from '../media-icons';
-import { fetchWatchState, formatReleaseDate, readAccountToken, type WatchState } from '../watch-client';
-import { WatchShelves } from '../watch-shelves';
 import { useSpiceUiV2 } from '../ui-v2/preference-client';
 import { WatchBrowseView } from '../ui-v2/watch/browse-view';
+import { fetchWatchState, readAccountToken, type WatchState } from '../watch-client';
+import { WatchShelves } from '../watch-shelves';
 
 interface ShowHit {
   tmdbId: string;
@@ -30,48 +36,15 @@ const SHELVES: { key: ShelfKey; title: string }[] = [
   { key: 'airing', title: 'Airing now' },
 ];
 
-const CARD_BG = 'rgba(255,255,255,0.04)';
-const CARD_BORDER = '1px solid rgba(255,255,255,0.08)';
-const DIM = '#94a3b8';
+const DIM = 'var(--text-secondary, #94a3b8)';
 
 async function fetchShelf(key: ShelfKey): Promise<ShowHit[]> {
-  const res = await fetch(`/api/shows/browse?list=${key}&limit=10`, {
+  const res = await fetch(`/api/shows/browse?list=${key}&limit=12`, {
     headers: { 'x-spice-api-namespace': 'local' },
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || 'Browse failed.');
   return Array.isArray(data.shows) ? data.shows : [];
-}
-
-function PosterCard({ hit }: { hit: ShowHit }) {
-  return (
-    <Link href={`/shows/watch/${hit.tmdbId}`} style={{ textDecoration: 'none', color: 'inherit', minWidth: '150px', maxWidth: '150px' }}>
-      <div style={{ background: CARD_BG, border: CARD_BORDER, borderRadius: '14px', overflow: 'hidden' }}>
-        {hit.posterUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={hit.posterUrl} alt={`${hit.title} poster`} style={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} loading="lazy" />
-        ) : (
-          <div style={{ width: '100%', aspectRatio: '2 / 3', display: 'grid', placeItems: 'center', background: 'rgba(124,58,237,0.18)', color: '#c4b5fd' }}>
-            <TvIcon size={34} />
-          </div>
-        )}
-        <div style={{ padding: '8px 10px' }}>
-          <div style={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hit.title}</div>
-          {(hit.releaseDate || hit.year) && <div style={{ color: DIM, fontSize: '0.75rem', marginTop: '2px' }}>{formatReleaseDate(hit.releaseDate) ?? hit.year}</div>}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function ShelfSkeleton() {
-  return (
-    <div style={{ display: 'flex', gap: '14px', overflow: 'hidden' }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} style={{ minWidth: '150px', borderRadius: '14px', background: 'rgba(255,255,255,0.05)', aspectRatio: '2 / 3.4' }} />
-      ))}
-    </div>
-  );
 }
 
 export default function ShowsPage() {
@@ -135,7 +108,7 @@ export default function ShowsPage() {
     setError(null);
     setSearched(true);
     try {
-      const res = await fetch(`/api/shows/search?q=${encodeURIComponent(q)}&limit=12`, {
+      const res = await fetch(`/api/shows/search?q=${encodeURIComponent(q)}&limit=18`, {
         headers: { 'x-spice-api-namespace': 'local' },
       });
       const data = await res.json();
@@ -148,6 +121,13 @@ export default function ShowsPage() {
       setLoading(false);
     }
   };
+
+  function clearSearch() {
+    setSearched(false);
+    setHits([]);
+    setQuery('');
+    setError(null);
+  }
 
   const heroItems = (shelves.trending ?? []).filter((hit) => hit.backdropUrl).slice(0, 5);
   const savedShowIds = new Set(
@@ -169,7 +149,6 @@ export default function ShowsPage() {
   }
 
   if (ui.enabled) {
-    // New interface: same state and handlers, rendered by the UI v2 browse view.
     return (
       <WatchBrowseView
         model={{
@@ -182,7 +161,7 @@ export default function ShowsPage() {
           error,
           searched,
           hits,
-          resetSearch: () => { setSearched(false); setHits([]); setQuery(''); setError(null); },
+          resetSearch: clearSearch,
           shelves: SHELVES.map((shelf) => ({ key: shelf.key, title: shelf.title, items: shelves[shelf.key] })),
           shelvesLoading,
           shelvesError,
@@ -200,6 +179,7 @@ export default function ShowsPage() {
 
   return (
     <MediaChrome active="shows" section="SPICE TV SERIES" token={token} watchState={watchState} onSignedIn={refreshWatchState} onSignOut={clearWatchState}>
+      <MediaBrowseStyles />
       {!searched && heroItems.length > 0 && (
         <MediaHero
           kicker="SPICE SHOWS · TRENDING"
@@ -211,37 +191,30 @@ export default function ShowsPage() {
         />
       )}
 
-      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: searched || heroItems.length > 0 ? '8px 24px 0' : '48px 24px 0', width: '100%' }}>
-        {heroItems.length === 0 && !searched && (
-          <>
-            <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.78rem', fontWeight: 800, margin: 0, letterSpacing: '0.08em' }}>
+      <div className="browse-container">
+        {heroItems.length === 0 && !searched && !shelvesLoading && (
+          <div style={{ margin: '10px 0 16px' }}>
+            <p style={{ color: 'var(--accent-pink, #c084fc)', fontSize: '0.74rem', fontWeight: 800, margin: 0, letterSpacing: '0.08em' }}>
               SPICE SHOWS
             </p>
-            <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.05, margin: '10px 0 8px' }}>
+            <h1 style={{ fontSize: 'clamp(1.6rem, 4.5vw, 2.5rem)', lineHeight: 1.08, margin: '6px 0 0' }}>
               Find a series, press play.
             </h1>
-          </>
+          </div>
         )}
 
-        <form onSubmit={runSearch} style={{ display: 'flex', gap: '12px', margin: '24px 0 32px' }}>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search series…"
-            aria-label="Search series"
-            style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: 'inherit', padding: '12px 16px', fontSize: '1rem', outline: 'none' }}
-          />
-          <button
-            type="submit"
-            disabled={loading || !query.trim()}
-            style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #7c3aed, #a855f7))', border: 'none', borderRadius: '12px', color: '#fff', padding: '12px 24px', fontSize: '1rem', fontWeight: 700, cursor: loading ? 'wait' : 'pointer', opacity: loading || !query.trim() ? 0.6 : 1 }}
-          >
-            {loading ? 'Searching…' : 'Search'}
-          </button>
-        </form>
+        <MediaSearchBar
+          value={query}
+          onChange={setQuery}
+          onSubmit={runSearch}
+          onClear={clearSearch}
+          placeholder="Search series…"
+          ariaLabel="Search series"
+          loading={loading}
+        />
 
         {error && (
-          <p style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.4)', borderRadius: '12px', padding: '12px 16px', color: '#fda4af' }}>
+          <p style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.4)', borderRadius: '12px', padding: '12px 16px', color: '#fda4af', marginBottom: '18px' }}>
             {error}
           </p>
         )}
@@ -249,17 +222,20 @@ export default function ShowsPage() {
         {searched ? (
           <>
             {hits.length === 0 && !loading && !error && <p style={{ color: DIM }}>No series found. Try another title.</p>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
+            <div className="browse-grid">
               {hits.map((hit) => (
-                <div key={hit.tmdbId} style={{ minWidth: 0 }}>
-                  <PosterCard hit={hit} />
-                </div>
+                <MediaPosterCard
+                  key={hit.tmdbId}
+                  href={`/shows/watch/${hit.tmdbId}`}
+                  item={hit}
+                  fallbackIcon={<TvIcon size={32} />}
+                />
               ))}
             </div>
             <button
               type="button"
-              onClick={() => { setSearched(false); setHits([]); setQuery(''); setError(null); }}
-              style={{ marginTop: '24px', background: 'none', border: 'none', color: 'var(--accent-pink, #c084fc)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 }}
+              onClick={clearSearch}
+              style={{ marginTop: '20px', background: 'none', border: 'none', color: 'var(--accent-pink, #c084fc)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700, padding: 0 }}
             >
               ← Back to browse
             </button>
@@ -280,8 +256,8 @@ export default function ShowsPage() {
             )}
             {shelvesLoading && (
               <>
-                <div style={{ height: '20px', width: '180px', borderRadius: '6px', background: 'rgba(255,255,255,0.07)', marginBottom: '14px' }} />
-                <ShelfSkeleton />
+                <MediaShelfSkeleton />
+                <MediaShelfSkeleton />
               </>
             )}
             {shelvesError && (
@@ -293,20 +269,22 @@ export default function ShowsPage() {
               const items = shelves[shelf.key];
               if (!items || items.length === 0) return null;
               return (
-                <section key={shelf.key} style={{ marginBottom: '32px' }}>
-                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 14px 0' }}>{shelf.title}</h2>
-                  <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px' }}>
-                    {items.map((hit) => (
-                      <PosterCard key={hit.tmdbId} hit={hit} />
-                    ))}
-                  </div>
-                </section>
+                <MediaShelf key={shelf.key} title={shelf.title}>
+                  {items.map((hit) => (
+                    <MediaPosterCard
+                      key={hit.tmdbId}
+                      href={`/shows/watch/${hit.tmdbId}`}
+                      item={hit}
+                      fallbackIcon={<TvIcon size={32} />}
+                    />
+                  ))}
+                </MediaShelf>
               );
             })}
           </>
         )}
       </div>
-      <div style={{ height: '64px' }} />
+      <div style={{ height: '48px' }} />
     </MediaChrome>
   );
 }

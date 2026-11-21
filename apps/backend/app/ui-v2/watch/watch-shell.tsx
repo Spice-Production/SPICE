@@ -39,9 +39,10 @@ export interface WatchSearchProps {
   placeholder: string;
 }
 
-const NAV: { id: 'movies' | 'shows'; label: string; href: string; icon: IconName }[] = [
+const NAV: { id: 'movies' | 'shows' | 'anime'; label: string; href: string; icon: IconName }[] = [
   { id: 'movies', label: 'Movies', href: '/movie', icon: 'film' },
   { id: 'shows', label: 'TV Series', href: '/shows', icon: 'tv' },
+  { id: 'anime', label: 'Anime', href: '/anime', icon: 'sparkles' },
 ];
 
 /** Spice Movies frame in the new interface: sidebar, topbar, content panel. */
@@ -52,7 +53,7 @@ export function WatchShell({
   back,
   children,
 }: {
-  active: 'movies' | 'shows';
+  active: 'movies' | 'shows' | 'anime';
   session: WatchSessionProps;
   search?: WatchSearchProps;
   back?: { href: string; label: string };

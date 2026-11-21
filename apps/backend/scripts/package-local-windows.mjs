@@ -26,6 +26,7 @@ const packagedBackendDir = path.join(packageDir, 'apps', 'backend');
 const cloudApiPrefixes = [
   '/api/account',
   '/api/admin',
+  '/api/anime',
   '/api/auth',
   '/api/changelog',
   '/api/downloads',
@@ -166,6 +167,7 @@ async function pruneLocalPackage(root) {
   const deleteTargets = [
     'apps/backend/.next/server/app/api/account',
     'apps/backend/.next/server/app/api/admin',
+    'apps/backend/.next/server/app/api/anime',
     'apps/backend/.next/server/app/api/auth',
     'apps/backend/.next/server/app/api/changelog',
     'apps/backend/.next/server/app/api/downloads',

@@ -174,7 +174,8 @@
 .mobileNav {
   display: flex;
   align-items: stretch;
-  height: var(--sx-mobile-nav-height);
+  min-height: var(--sx-mobile-nav-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--sx-border);
   background: var(--sx-elevated-bg);
 }
@@ -193,7 +194,8 @@
 }
 
 .mobileNavItem[aria-current='page'] {
-  color: var(--sx-fg);
+  color: var(--sx-accent);
+  font-weight: 600;
 }
 
 /* ── Menus (release bell, profile) ──────────────────────────── */
@@ -449,6 +451,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+.myListHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .shelfLink {
   margin-right: 4px;
   color: var(--sx-fg-muted);
@@ -684,9 +693,16 @@
 }
 
 /* ── Watch page ─────────────────────────────────────────────── */
-.detailHero {
+.detailRoot {
   position: relative;
+}
+
+.detailBackdropBand {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 300px;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .detailBackdrop {
@@ -695,25 +711,32 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.35;
+  opacity: 0.22;
+  filter: blur(2px);
+}
+
+.detailBackdropScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--sx-bg) 35%, transparent), var(--sx-bg));
 }
 
 .root[data-surface='daylight'] .detailBackdrop {
-  opacity: 0.22;
+  opacity: 0.14;
 }
 
-.detailHeroBody {
-  position: relative;
+.detailCard {
   display: flex;
-  align-items: flex-end;
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 88px var(--sx-content-x) 8px;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-xl);
+  background: var(--sx-surface);
 }
 
 .detailPoster {
-  width: 148px;
+  width: 112px;
   flex-shrink: 0;
   aspect-ratio: 2 / 3;
   border: 1px solid var(--sx-border);
@@ -725,22 +748,22 @@
 .detailText {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .detailTitle {
   margin: 0;
-  font-size: clamp(1.75rem, 4vw, 2.6rem);
+  font-size: clamp(1.4rem, 3.4vw, 2.1rem);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.1;
   letter-spacing: -0.025em;
 }
 
 .detailTagline {
   margin: 0;
   color: var(--sx-fg-muted);
-  font-size: var(--sx-text-base);
+  font-size: var(--sx-text-sm);
   font-style: italic;
 }
 
@@ -754,12 +777,14 @@
   max-width: 760px;
   margin: 4px 0 0;
   color: var(--sx-fg-muted);
-  font-size: var(--sx-text-base);
+  font-size: var(--sx-text-sm);
+  line-height: 1.55;
 }
 
 .detailPage {
+  position: relative;
   padding-top: 20px;
-  gap: 16px;
+  gap: 14px;
 }
 
 .syncBar {
@@ -783,6 +808,21 @@
   margin: 0;
   font-size: var(--sx-text-sm);
   color: var(--sx-fg-muted);
+}
+
+.sourceBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sourceBarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sources {
@@ -815,8 +855,21 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 16px;
   color: rgba(255, 255, 255, 0.7);
   font-size: var(--sx-text-sm);
+  pointer-events: none;
+}
+
+.frameLoadingText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.frameSlowHint {
+  font-size: var(--sx-text-xs);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .frameIframe {
@@ -952,6 +1005,13 @@
   font-weight: 600;
 }
 
+.episodeMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .episodeName {
   overflow: hidden;
   font-size: var(--sx-text-sm);
@@ -965,7 +1025,6 @@
 }
 
 .episodeRuntime {
-  margin-top: -4px;
   font-size: var(--sx-text-xs);
   color: var(--sx-fg-muted);
 }
@@ -974,7 +1033,7 @@
 @media (max-width: 768px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) var(--sx-mobile-nav-height);
+    grid-template-rows: minmax(0, 1fr) calc(var(--sx-mobile-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 
   .main {
@@ -992,33 +1051,63 @@
   }
 
   .page {
-    padding: 16px 16px 40px;
+    padding: 14px 14px 32px;
+    gap: 18px;
+  }
+
+  .stack {
+    gap: 26px;
   }
 
   .hero {
-    min-height: 340px;
+    min-height: 230px;
   }
 
   .heroBody {
-    padding: 56px 16px 24px;
+    padding: 24px 14px 18px;
+    gap: 8px;
+  }
+
+  .heroOverview {
+    -webkit-line-clamp: 2;
+    font-size: var(--sx-text-sm);
   }
 
   .posterGrid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 20px 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 10px;
   }
 
-  .detailHeroBody {
-    padding: 56px 16px 4px;
-    gap: 16px;
+  .frame {
+    border-radius: var(--sx-radius-lg);
+  }
+
+  .detailCard {
+    gap: 14px;
+    padding: 12px;
+    border-radius: var(--sx-radius-lg);
   }
 
   .detailPoster {
-    width: 96px;
+    width: 82px;
   }
 
   .episodeGrid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .episode {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .posterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

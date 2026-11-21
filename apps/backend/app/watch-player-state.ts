@@ -19,6 +19,7 @@ export interface Episode {
 }
 
 export interface ShowPlayerProps {
+  kind?: 'show' | 'anime';
   tmdbId: string;
   title: string;
   posterUrl?: string | null;

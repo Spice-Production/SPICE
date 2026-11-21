@@ -17,7 +17,7 @@ import {
 } from '../../watch-client';
 import { Icon, type IconName } from '../icons';
 import { Shelf } from '../media';
-import { Badge, Button, IconButton, cn, primitiveStyles as ps } from '../primitives';
+import { Badge, Button, IconButton, Tabs, cn, primitiveStyles as ps } from '../primitives';
 import s from './watch.module.css';
 
 export interface HeroItem {
@@ -28,7 +28,9 @@ export interface HeroItem {
   year: string | null;
 }
 
-export function watchHrefFor(kind: WatchKind, tmdbId: string) {
+export function watchHrefFor(kind: WatchKind, tmdbId: string, mediaType?: 'tv' | 'movie') {
+  if (mediaType === 'movie') return `/movie/watch/${tmdbId}`;
+  if (kind === 'anime') return `/anime/watch/${tmdbId}`;
   return kind === 'show' ? `/shows/watch/${tmdbId}` : `/movie/watch/${tmdbId}`;
 }
 
@@ -179,8 +181,8 @@ export function WatchHero({
 }
 
 /**
- * Continue watching plus the list grouped by status (Watching / Watch Later /
- * Completed / Dropped), from the synced watch state.
+ * Continue watching plus a compact tabbed My List (Watching / Watch Later /
+ * Completed / Dropped) so personal shelves never bury the catalog on mobile.
  */
 export function WatchListShelves({
   kind,
@@ -195,13 +197,19 @@ export function WatchListShelves({
 }) {
   const list = state.watchlist.filter((entry) => entry.kind === kind);
   const resume = state.continueWatching.filter((entry) => entry.kind === kind);
+  const [pickedStatus, setPickedStatus] = useState<WatchListStatus | null>(null);
   if (list.length === 0 && resume.length === 0) return null;
 
   const shelfOf = (entry: WatchEntry): WatchListStatus => {
     const status = entry.status as WatchListStatus | null | undefined;
     return status && (WATCH_LIST_STATUS_ORDER as string[]).includes(status) ? status : 'watch_later';
   };
-  const fallbackIcon: IconName = kind === 'show' ? 'tv' : 'film';
+  const fallbackIcon: IconName = kind === 'anime' ? 'sparkles' : kind === 'show' ? 'tv' : 'film';
+  const buckets = WATCH_LIST_STATUS_ORDER.map((status) => ({
+    status,
+    items: list.filter((entry) => shelfOf(entry) === status),
+  })).filter((bucket) => bucket.items.length > 0);
+  const activeBucket = (pickedStatus && buckets.find((b) => b.status === pickedStatus)) ?? buckets[0] ?? null;
 
   return (
     <>
@@ -224,49 +232,54 @@ export function WatchListShelves({
           ))}
         </Shelf>
       ) : null}
-      {WATCH_LIST_STATUS_ORDER.map((status) => {
-        const items = list.filter((entry) => shelfOf(entry) === status);
-        if (items.length === 0) return null;
-        return (
-          <Shelf
-            key={status}
-            id={`${kind}-${status}`}
-            title={
-              <span className={s.shelfTitle}>
-                {WATCH_LIST_STATUS_LABELS[status]}
-                <span className={s.shelfCount}>{items.length}</span>
-              </span>
-            }
-            itemWidth={150}
-          >
-            {items.map((entry) => (
-              <PosterCard
-                key={entry.tmdbId}
-                href={watchPageHref(entry)}
-                title={entry.title}
-                posterUrl={entry.posterUrl}
-                subtitle={entry.year ?? undefined}
-                fallbackIcon={fallbackIcon}
-                dimmed={status === 'dropped'}
-                action={
-                  <IconButton
-                    icon="x"
-                    size="xs"
-                    variant="secondary"
-                    label={`Remove ${entry.title} from your list`}
-                    title="Remove from My List"
-                    onClick={() => {
-                      void toggleWatchlist(token, { kind, tmdbId: entry.tmdbId, title: entry.title }, true).then(() =>
-                        onRemoved(entry.tmdbId),
-                      );
-                    }}
-                  />
-                }
+      {activeBucket ? (
+        <Shelf
+          id={`${kind}-mylist`}
+          title={
+            <div className={s.myListHeader}>
+              <span>My List</span>
+              <Tabs
+                label="List status"
+                variant="pills"
+                size="sm"
+                value={activeBucket.status}
+                onValueChange={(next) => setPickedStatus(next as WatchListStatus)}
+                items={buckets.map((bucket) => ({
+                  value: bucket.status,
+                  label: `${WATCH_LIST_STATUS_LABELS[bucket.status]} · ${bucket.items.length}`,
+                }))}
               />
-            ))}
-          </Shelf>
-        );
-      })}
+            </div>
+          }
+          itemWidth={150}
+        >
+          {activeBucket.items.map((entry) => (
+            <PosterCard
+              key={entry.tmdbId}
+              href={watchPageHref(entry)}
+              title={entry.title}
+              posterUrl={entry.posterUrl}
+              subtitle={entry.year ?? undefined}
+              fallbackIcon={fallbackIcon}
+              dimmed={activeBucket.status === 'dropped'}
+              action={
+                <IconButton
+                  icon="x"
+                  size="xs"
+                  variant="secondary"
+                  label={`Remove ${entry.title} from your list`}
+                  title="Remove from My List"
+                  onClick={() => {
+                    void toggleWatchlist(token, { kind, tmdbId: entry.tmdbId, title: entry.title }, true).then(() =>
+                      onRemoved(entry.tmdbId),
+                    );
+                  }}
+                />
+              }
+            />
+          ))}
+        </Shelf>
+      ) : null}
     </>
   );
 }

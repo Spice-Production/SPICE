@@ -86,3 +86,46 @@ export function BellIcon({ size, style }: { size?: number; style?: React.CSSProp
     </Base>
   );
 }
+
+export function AnimeIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <path d="M12 3l2.1 5.9L20 11l-5.9 2.1L12 19l-2.1-5.9L4 11l5.9-2.1z" />
+      <path d="M19 4v3M17.5 5.5h3" strokeWidth={1.7} />
+    </Base>
+  );
+}
+
+export function SearchIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.8-3.8" />
+    </Base>
+  );
+}
+
+export function CloseIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <path d="M6 6l12 12M18 6l-12 12" />
+    </Base>
+  );
+}
+
+export function ChevronLeftIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <path d="M15 18l-6-6 6-6" />
+    </Base>
+  );
+}
+
+export function ShieldIcon({ size, style }: { size?: number; style?: React.CSSProperties }) {
+  return (
+    <Base size={size} style={style}>
+      <path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z" />
+      <path d="M9.5 12l1.8 1.8 3.5-3.8" />
+    </Base>
+  );
+}

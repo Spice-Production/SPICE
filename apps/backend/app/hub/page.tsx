@@ -84,9 +84,9 @@ export default function HubPage() {
           </a>
         </div>
         <div style={cardStyle}>
-          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Movies</h2>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>Movies &amp; Anime</h2>
           <p style={{ margin: 0, color: TEXT_DIM, fontSize: '0.9rem', lineHeight: 1.5 }}>
-            Search the catalog and watch right here in the browser. Nothing to install.
+            Browse movies, TV series, and anime right here in the browser. Nothing to install.
           </p>
           <a href="/movie" style={buttonStyle}>
             Browse Movies
